@@ -12,7 +12,7 @@
    # тезис в docs/roadmap/DONE.md, строка из ROADMAP.md удалена → коммит «[A-1] закрыт» → git push
    ```
    Диапазон `<база>..<вершина>` попадает в тезис: `— 17.09 · a1b2c3d..e4f5a6b`, тогда `git diff a1b2c3d..e4f5a6b` — всё, что сделал пункт. Хеши до мерджа никуда не пишем: rebase их меняет.
-5. После мерджа — `claude rm <id>` (удалит фоновую сессию и worktree) или `git worktree remove .claude/worktrees/A-1`, затем `git branch -d worktree-A-1`.
+5. После мерджа — `claude rm <id>` (удалит фоновую сессию и worktree) или `git worktree remove .claude/worktrees/A-1`, затем `git branch -d worktree-A-1` и `git push origin --delete worktree-A-1`.
 
 - `.claude/worktrees/` — в `.gitignore` проекта.
 - Нужны gitignored-файлы (`.env` и т.п.) в каждом worktree — перечисли их в `.worktreeinclude` в корне проекта.

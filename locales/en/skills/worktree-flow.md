@@ -12,7 +12,7 @@
    # a thesis in docs/roadmap/DONE.md, the line removed from ROADMAP.md → commit "[A-1] closed" → git push
    ```
    The range `<base>..<tip>` goes into the thesis: `— 17.09 · a1b2c3d..e4f5a6b`, so `git diff a1b2c3d..e4f5a6b` is everything the item did. Hashes are never written before the merge: rebase changes them.
-5. After merging — `claude rm <id>` (removes the background session and the worktree) or `git worktree remove .claude/worktrees/A-1`, then `git branch -d worktree-A-1`.
+5. After merging — `claude rm <id>` (removes the background session and the worktree) or `git worktree remove .claude/worktrees/A-1`, then `git branch -d worktree-A-1` and `git push origin --delete worktree-A-1`.
 
 - `.claude/worktrees/` is in the project's `.gitignore`.
 - Need gitignored files (`.env` and the like) in every worktree — list them in `.worktreeinclude` at the project root.
