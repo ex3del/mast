@@ -632,6 +632,76 @@ git add -A
 git commit -m "[A-1] Context7 комплектом, README на двух языках, версия 1.0.0"
 ```
 
+## Task 9: Двуязычный линт роадмапа
+
+**Files:**
+- Modify: `hooks/roadmap_lint.py`, `tests/test_roadmap_lint.py`
+- Test: прогон линта на обоих шаблонах `locales/{ru,en}/templates/ROADMAP.template.md`
+
+**Interfaces:**
+- Consumes: шаблоны из Task 6.
+- Produces: линт, понимающий статусы и заголовок критерия на обоих языках.
+
+Задача заведена по находке Task 6: регулярные выражения линта зашиты на русские
+токены (`запланирован`, `в работе`, `снят`, «Готово когда»), поэтому английский
+шаблон роадмапа не проходит собственную проверку и англоязычный пользователь
+остаётся без сторожа формата вовсе.
+
+- [ ] **Шаг 1: Написать падающий тест**
+
+```python
+def test_английский_роадмап_проходит_линт():
+    text = (
+        "- **A-1** Export to PDF — planned
+"
+        "  My paths: src/**
+"
+        "  Done when: a 500-row report renders in under 3 s.
+"
+    )
+    assert lint(text) == []
+
+
+def test_английский_критерий_без_числа_ловится():
+    text = (
+        "- **A-1** Export to PDF — planned
+"
+        "  My paths: src/**
+"
+        "  Done when: it works well.
+"
+    )
+    assert any("числ" in c.lower() or "number" in c.lower() for c in lint(text))
+```
+
+- [ ] **Шаг 2: Прогнать — падают оба**
+
+Запуск: `python3 -m pytest tests/test_roadmap_lint.py -k английск -v` → FAIL.
+
+- [ ] **Шаг 3: Научить линт обоим языкам**
+
+Статусы: `запланирован|planned`, `в работе|in progress`, `готов|done`, `снят|dropped`.
+Заголовок критерия: «Готово когда» и `Done when`. Поля: «Мои пути» и `My paths`,
+«Зависит от» и `Depends on`. Тексты жалоб остаются на языке вызова: язык определяется
+по тому, какие токены встретились в самом файле; смешанный файл — жалоба на русском.
+
+- [ ] **Шаг 4: Прогнать оба шаблона**
+
+```bash
+python3 hooks/roadmap_lint.py locales/ru/templates/ROADMAP.template.md
+python3 hooks/roadmap_lint.py locales/en/templates/ROADMAP.template.md
+```
+Оба обязаны дать нулевой код. Добавить это прогоном в `tests/test_templates.py` для
+английского шаблона — сейчас там проверяется только русский.
+
+- [ ] **Шаг 5: Прогнать весь набор и закоммитить**
+
+```bash
+python3 -m pytest -v
+git add hooks/roadmap_lint.py tests/
+git commit -m "[A-1] линт понимает английский роадмап"
+```
+
 ## Ритм журнала
 
 После каждой задачи — строка в `Журнал`: что сделано и какое число получено. Замеры снимаются теми же командами, что перечислены в шагах.
