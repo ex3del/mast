@@ -101,6 +101,7 @@ def test_маркетплейс_ссылается_на_этот_же_репоз
     "language": {
       "type": "string",
       "title": "Language of MAST texts",
+      "description": "Language of the method core, skills and scaffold templates",
       "options": ["ru", "en"],
       "default": "ru"
     }
@@ -602,7 +603,7 @@ git commit -m "[A-1] /init-project: ревизия чужого проекта �
 }
 ```
 
-В `userConfig` добавить `context7_key`: `"type": "string"`, `"sensitive": true`, **без** `required` — без ключа работает бесплатный режим.
+В `userConfig` добавить `context7_key`: `"type": "string"`, обязательные по формату `title` и `description`, `"sensitive": true`, **без** `required` — без ключа работает бесплатный режим.
 
 - [ ] **Шаг 2: Написать README на двух языках**
 
