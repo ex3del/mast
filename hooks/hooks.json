@@ -7,6 +7,25 @@
           { "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/core.py"] }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py"],
+            "if": "Edit(**/ROADMAP.md)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py"],
+            "if": "Write(**/ROADMAP.md)"
+          }
+        ]
+      }
     ]
   }
 }
