@@ -50,7 +50,7 @@
 **Interfaces:**
 - Produces: имя плагина `mast`, имя маркетплейса `ex3del`, ключ `userConfig.language` со значениями `ru`/`en`.
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 ```python
 # tests/test_plugin_manifest.py
@@ -83,12 +83,12 @@ def test_маркетплейс_ссылается_на_этот_же_репоз
     assert entry["description"] and entry["license"]
 ```
 
-- [ ] **Шаг 2: Прогнать и убедиться, что падает**
+- [x] **Шаг 2: Прогнать и убедиться, что падает**
 
 Запуск: `cd ~/Documents/mast && pytest tests/test_plugin_manifest.py -v`
 Ожидаемо: FAIL — файла `.claude-plugin/plugin.json` нет.
 
-- [ ] **Шаг 3: Написать манифесты**
+- [x] **Шаг 3: Написать манифесты**
 
 ```json
 // .claude-plugin/plugin.json
@@ -127,11 +127,11 @@ def test_маркетплейс_ссылается_на_этот_же_репоз
 }
 ```
 
-- [ ] **Шаг 4: Прогнать тест — зелёный**
+- [x] **Шаг 4: Прогнать тест — зелёный**
 
 Запуск: `pytest tests/test_plugin_manifest.py -v` → PASS.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add .claude-plugin tests/test_plugin_manifest.py
@@ -147,7 +147,7 @@ git commit -m "[A-1] манифест плагина и маркетплейс e
 **Interfaces:**
 - Produces: `locales/<язык>/core.md` — единственный текст, попадающий в каждую сессию.
 
-- [ ] **Шаг 1: Написать падающие тесты**
+- [x] **Шаг 1: Написать падающие тесты**
 
 ```python
 # tests/test_core_size.py
@@ -189,12 +189,12 @@ def test_дерево_заголовков_совпадает():
         assert headings(LOCALES / "ru" / rel) == headings(LOCALES / "en" / rel), rel
 ```
 
-- [ ] **Шаг 2: Прогнать — падают оба**
+- [x] **Шаг 2: Прогнать — падают оба**
 
 Запуск: `pytest tests/test_core_size.py tests/test_locales.py -v`
 Ожидаемо: FAIL — каталога `locales/` нет.
 
-- [ ] **Шаг 3: Перенести четыре секции движка в `locales/ru/core.md`**
+- [x] **Шаг 3: Перенести четыре секции движка в `locales/ru/core.md`**
 
 Дословно из `~/Documents/claude/CLAUDE.md`: «Где что записывать» (37–59), «Планирование» (76–87), «Кто занят задачей» (109–117), «Параллельные сессии в одной копии» (129–136). Правок при переносе ровно две:
 
@@ -209,16 +209,16 @@ def test_дерево_заголовков_совпадает():
 - ведение пунктов, находки, закрытие → скилл `mast:managing-roadmap-items`
 ```
 
-- [ ] **Шаг 4: Сделать английскую копию `locales/en/core.md`**
+- [x] **Шаг 4: Сделать английскую копию `locales/en/core.md`**
 
 Перевод секция в секцию, дерево заголовков то же. `ROADMAP.md`, `worktree`, `paths:` не переводятся.
 
-- [ ] **Шаг 5: Прогнать сторожа́ — зелёные**
+- [x] **Шаг 5: Прогнать сторожа́ — зелёные**
 
 Запуск: `pytest tests/test_core_size.py tests/test_locales.py -v` → PASS.
 Фактический размер обеих локалей записать в `Журнал`.
 
-- [ ] **Шаг 6: Коммит**
+- [x] **Шаг 6: Коммит**
 
 ```bash
 git add locales tests/test_core_size.py tests/test_locales.py
