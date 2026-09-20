@@ -22,7 +22,7 @@ def test_в_проекте_с_роадмапом_вкладывается_пол
 def test_в_проекте_без_метода_только_строка_указатель(tmp_path):
     out = core.render(tmp_path, ROOT, "ru")
     assert len(out) < 300
-    assert "/init-project" in out
+    assert "/mast:init-project" in out
 
 
 def test_нечитаемое_ядро_возвращает_сообщение_а_не_падает(tmp_path):

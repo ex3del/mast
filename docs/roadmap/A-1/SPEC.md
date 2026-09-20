@@ -158,8 +158,9 @@ Context7 появился бы второй такой же. Поэтому: т�
 | `test_core_size.py` | ядро любого языка ≤ 6000 символов |
 | `test_locales.py` | одинаковый состав файлов и структура заголовков `ru` и `en` |
 | `test_roadmap_lint.py` | формат строки пункта, число в «Готово когда», очередь готовых (переносится из `ex3del/claude`) |
-| `test_init_check.py` | `--check` на подготовленном каталоге-образце не меняет ни одного файла |
-| `test_plugin_manifest.py` | `plugin.json` и `marketplace.json` валидны, пути хуков существуют |
+| `test_init_check.py` | образец `tests/fixtures/legacy/` несёт все случаи ревизии (длинный `CLAUDE.md`, `TODO.md`, `CHANGELOG.md`, правило без `paths:`); что сам `--check` не меняет файлов — проверено руками (Task 7, шаг 5), автотестом не покрыто |
+| `test_plugin_manifest.py` | `plugin.json` и `marketplace.json` валидны (имя, версия, `userConfig.language`, ссылка маркетплейса на репозиторий) |
+| `test_hooks_wiring.py` | `hooks/hooks.json` валиден; `SessionStart` покрывает `startup/resume/clear/compact`; `PostToolUse` ловит и `Edit`, и `Write` по `ROADMAP.md`; пути в args — через `${CLAUDE_PLUGIN_ROOT}` и существуют; нигде нет `$HOME`/`~/.claude` |
 
 ## Порядок работы
 

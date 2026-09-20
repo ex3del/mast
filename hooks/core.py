@@ -6,8 +6,8 @@ from pathlib import Path
 
 LANGS = ("ru", "en")
 HINT = {
-    "ru": "В этом проекте метод MAST не развёрнут. Развернуть — команда `/init-project`.",
-    "en": "MAST is not set up in this project. Run `/init-project` to scaffold it.",
+    "ru": "В этом проекте метод MAST не развёрнут. Развернуть — команда `/mast:init-project`.",
+    "en": "MAST is not set up in this project. Run `/mast:init-project` to scaffold it.",
 }
 UNREADABLE = {
     "ru": "MAST: не удалось прочитать ядро ({path}). Проверь установку плагина.",

@@ -147,7 +147,7 @@ Closed means everything below is done, **in this order**: the measurement is tak
 - [ ] **Loose ends are resolved:** small stuff on your own paths — finish it; past the bar — file it as a finding per section 2; left crooked on purpose — a record for `TECH_DEBT.md` in the message to the dispatcher. Neither one nor the other — not closed.
 - [ ] **The changelog and user docs are updated**, or split off into a separate item through the dispatcher. A feature the user never learned about isn't done.
 - [ ] **Archive:** `git mv docs/roadmap/B-4 docs/roadmap/done/B-4` on your branch. There was no folder — skip this.
-- [ ] **Fresh `main`:** `git fetch origin && git rebase origin/main`, the **whole project test suite** is green, not just the item's tests, `git status` is clean. After the rebase, push your branch with `git push --force-with-lease origin worktree-B-4` — this isn't a question for the human, there are no foreign commits on it.
+- [ ] **Fresh `main`:** `git fetch origin && git rebase origin/main` (here and below, `main` is your repository's default branch; yours may be named differently, e.g. `master`), the **whole project test suite** is green, not just the item's tests, `git status` is clean. After the rebase, push your branch with `git push --force-with-lease origin worktree-B-4` — this isn't a question for the human, there are no foreign commits on it.
 - [ ] **"After" measurement** — on the code after the rebase, with the same command as "before": before → after. "Before" wasn't taken — measure it on the commit right before the item's first one.
 - [ ] **The last commit carries everything for the archive** — messages are lost when the dispatcher restarts, commits aren't. In its body:
   - the "Done when" block **verbatim** from `ROADMAP.md` in `origin/main` (it may have changed while you worked) with before → after measurements and the command. With a `STATUS.md` — also into its header. Copy it, don't paraphrase it: the roadmap line will be deleted;
@@ -228,7 +228,7 @@ Commit messages: `[B-2] opened: …`, `[A-2] finding added: …`, `[B-2] taken i
 
 ## Which model an item gets
 
-The default is `opus` with the `fable` advisor. Downgrading to `sonnet` with the `opus` advisor — only when the answer is "yes" to all three questions:
+The default is `opus`. Downgrading to `sonnet` — only when the answer is "yes" to all three questions:
 
 1. **Discoverability.** A wrong result is caught by checking against something that already exists: a test, a linter, CI, a measurement, code, a spec, an ADR.
 2. **Reversibility.** It reverts with a single `git revert`, without data loss and without action outside the repository.
@@ -242,18 +242,16 @@ The rule rests on the properties of the error, not on the names of areas, so it 
 
 **The project declares sensitive zones**, not this skill: `<project>/.claude/rules/dispatch.md`, one line per zone — `auth/** · billing/** · db/migrations/** — opus only`. No file — everything goes on `opus`: a project opts into `sonnet` deliberately, it isn't the default. The file exists, even with no zones — `sonnet` is allowed under the three questions.
 
-Don't give a `sonnet` session the `fable` advisor: subagents inherit the session's advisor, Fable would multiply across them and cost more than going straight to `opus`.
-
 ## Starting an item
 
 1. **What can be taken:** `roadmap_lint.py --ready ROADMAP.md`. Don't run two items in parallel whose `My paths` overlap.
 2. **The line** — per the format in the "Roadmap items" section above: session `B-2`, `My paths`. `STATUS.md` — only if there's a sign from the "1. Start" section of "Item session"; the signs "needs a plan" and "a neighbor on nearby paths" are already visible at start time. Commit `[B-2] taken into work · <model>` and `git push` — the model goes in the message, so it's visible at closing time who did the work. All of this **before the session starts**: from inside the worktree, edits to the main copy are blocked, and the worktree is created from `origin/main` — without a push it won't see its own line.
 3. **Start:**
    ```bash
-   claude --bg --worktree B-2 --name B-2 --advisor fable "Drive item B-2 per skill mast:managing-roadmap-items: a line in ROADMAP.md and docs/roadmap/B-2/STATUS.md if it's opened. First step — the baseline measurement"
+   claude --bg --worktree B-2 --name B-2 "Drive item B-2 per skill mast:managing-roadmap-items: a line in ROADMAP.md and docs/roadmap/B-2/STATUS.md if it's opened. First step — the baseline measurement"
    ```
-   An item that went through the downgrade — same flags, but `--model sonnet --advisor opus`.
-   The command prints an id. `--advisor fable` gives the session a stronger advisor at key points; if consent to bill for Fable hasn't been given yet, the background session simply starts without an advisor. The name might already be taken by an old live session — the engine then hands out `B-2-<word>`. That's a symptom of an abandoned item: deal with the old session (see "Abandoned items"), don't just record the suffix.
+   An item that went through the downgrade — same flags, but `--model sonnet`.
+   The command prints an id. The name might already be taken by an old live session — the engine then hands out `B-2-<word>`. That's a symptom of an abandoned item: deal with the old session (see "Abandoned items"), don't just record the suffix.
 4. **After the start:** send the human the id and `claude attach <id>`.
 
 ## Merging
@@ -295,7 +293,6 @@ After merging:
 | Asked the human about a duplicate or a number | the human gets pinged over mechanics, an important question drowns |
 | Opened an item for small stuff the sender could've fixed on their own | the roadmap grows faster than it closes |
 | Handed `sonnet` work where text becomes the source of truth | there's nothing to check the error against, it propagates through links |
-| Gave a `sonnet` session the `fable` advisor | subagents inherit the advisor, the cost is higher than going straight to `opus` |
 | Left a closed item in `ROADMAP.md` | the working file bloats, `--ready` drowns in what's already done |
 | Changed "Done when" on your own | acceptance runs against a criterion the human never agreed to |
 | Kept the queue in your head instead of in `ROADMAP.md` | the queue is lost on restart |

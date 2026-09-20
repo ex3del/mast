@@ -10,7 +10,7 @@ def files(lang):
 
 
 def headings(path):
-    return re.findall(r"^(#{1,6})(?= )", path.read_text(), re.M)
+    return re.findall(r"^(#{1,6})(?= )", path.read_text(encoding="utf-8"), re.M)
 
 
 def test_состав_файлов_локалей_совпадает():

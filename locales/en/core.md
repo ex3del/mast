@@ -24,7 +24,7 @@ When I say "remember this" and it's about a specific section, folder, or subsyst
 ## Planning
 
 - Any feature costing more than one session → plan first, code second.
-- Before `superpowers:writing-plans` — always the roadmap-item skill: first the item is opened in `ROADMAP.md` and `STATUS.md` is created, only then the plan gets filled with tasks. `brainstorming` calls `writing-plans` directly — this order overrides that.
+- If the project has the `superpowers` skills — before `superpowers:writing-plans` always the roadmap-item skill: first the item is opened in `ROADMAP.md` and `STATUS.md` is created, only then the plan gets filled with tasks. `brainstorming` calls `writing-plans` directly — this order overrides that.
 - Plans and specs for superpowers skills are written **in our own paths**; we don't use their defaults (`docs/superpowers/plans/`, `docs/superpowers/specs/`): an item's plan goes to `docs/roadmap/<A-1>/STATUS.md`, its spec sits next to it in the same folder.
 - Commits inside plans use our format `[A-1] description`, not the conventional commits (`feat:`) the skills suggest.
 - A small edit within one session needs no plan — just do it.
@@ -44,7 +44,7 @@ A task that a Claude session is driving gets tagged with **that session's name**
 
 ## Concurrent sessions in one working copy
 
-Another Claude session, with its own uncommitted files, can be working in parallel in the project's main copy. The pre-commit hooks on `git commit` and `git push` stash uncommitted changes into a patch for the duration of the run and restore them afterward: anything the other session writes during those seconds is silently rolled back.
+Another Claude session, with its own uncommitted files, can be working in parallel in the project's main copy. If the project has pre-commit hooks that stash uncommitted changes into a patch for the duration of a `git commit` or `git push` run and restore them afterward — anything the other session writes during those seconds is silently rolled back.
 
 - **Before `git commit`, `git push`, `git stash`, `git checkout`, `git rebase` in a copy where another session is working — warn it first** (`ListAgents` → `SendMessage`) and wait for a reply: it will commit its files or leave them untouched.
 - Another session is busy in the main copy and you have a **small edit outside the roadmap** — do it in a separate worktree and push an explicit branch from there (`git push origin <branch>:main`), so the other session's local commits don't get carried along. A roadmap item is never merged this way — see skill `mast:worktree-flow`.

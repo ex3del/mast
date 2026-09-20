@@ -106,11 +106,9 @@ its configuration screen) — takes effect on the next session start.
 
 ## Honest limitations, today
 
-- `hooks/roadmap_lint.py` currently understands only **Russian** status words
-  (`запланирован`, `в работе`, …) and the Russian "Готово когда" heading for
-  the acceptance criterion. An English-language `ROADMAP.md` will not pass
-  it yet — a bilingual linter is tracked as a separate roadmap item, not done
-  here.
+- `hooks/roadmap_lint.py` understands status words and the acceptance-criterion
+  heading in both Russian and English (`запланирован`/`planned`, `в работе`/
+  `in progress`, `готов`/`done`, `снят`/`dropped`, «Готово когда»/`Done when`).
 - In some restricted session setups `/mast:init-project` may not be able to
   read its own template files under the plugin's install directory; if it
   reports templates as unavailable, relaunch the session with
