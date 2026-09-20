@@ -12,9 +12,9 @@ def snapshot(root):
 def test_образец_содержит_все_случаи_ревизии():
     names = {p.name for p in FIX.rglob("*") if p.is_file()}
     assert {"CLAUDE.md", "TODO.md", "CHANGELOG.md"} <= names
-    assert len((FIX / "CLAUDE.md").read_text().splitlines()) > 200
+    assert len((FIX / "CLAUDE.md").read_text(encoding="utf-8").splitlines()) > 200
     rule = next(FIX.glob(".claude/rules/*.md"))
-    assert not rule.read_text().startswith("---")      # правило без paths:
+    assert not rule.read_text(encoding="utf-8").startswith("---")      # правило без paths:
 
 
 def test_снимок_образца_считается():

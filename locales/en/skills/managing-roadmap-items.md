@@ -270,6 +270,8 @@ Order:
    git log --format=%s ORIG_HEAD..HEAD | grep -vc '^\[B-4\]'   # 0 — only the item's commits are in range
    ```
    Not 0 — foreign commits got into the branch, and `git diff` over the range will show more than this item. Don't write the range in that case, use `git log --grep='\[B-4\]'` in the thesis instead.
+   
+   When an item merges in multiple passes (the branch was merged twice, or part of it was done on the main copy), the thesis lists several ranges separated by commas; each is checked for cleanliness in isolation. If any one is dirty — use `git log --grep` for all of them instead.
 3. **The thesis in `DONE.md` first, then remove the line from `ROADMAP.md`.** In the reverse order, the hook would briefly see items with `Depends on: B-4` pointing at nothing. The thesis is a draft from the session, taken from the body of the branch's last commit plus the range — no need to retell the item. The section is its own letter (a heading like in the roadmap, none exists — create one), the date is the day of the merge, links to `STATUS.md` and an ADR — if they exist:
    ```markdown
    - **B-4** Export reports to PDF — 17.09 · `a1b2c3d..e4f5a6b` · [STATUS](done/B-4/STATUS.md) · [ADR](../adr/B-4-reportlab.md)

@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def load(name):
-    return json.loads((ROOT / ".claude-plugin" / name).read_text())
+    return json.loads((ROOT / ".claude-plugin" / name).read_text(encoding="utf-8"))
 
 
 def test_манифест_плагина_объявляет_имя_версию_и_язык():

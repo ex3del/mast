@@ -16,7 +16,7 @@ def test_язык_берётся_из_окружения_иначе_русски
 
 def test_в_проекте_с_роадмапом_вкладывается_полное_ядро(tmp_path):
     (tmp_path / "ROADMAP.md").write_text("- **A-1** что-то\n")
-    assert core.render(tmp_path, ROOT, "ru") == (ROOT / "locales/ru/core.md").read_text()
+    assert core.render(tmp_path, ROOT, "ru") == (ROOT / "locales/ru/core.md").read_text(encoding="utf-8")
 
 
 def test_в_проекте_без_метода_только_строка_указатель(tmp_path):
