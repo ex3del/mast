@@ -358,7 +358,7 @@ git commit -m "[A-1] SessionStart-хук: ядро в контекст, вне �
 **Interfaces:**
 - Produces: `parse(text)`, `lint(text, ledger="") -> list[str]`, `ready(text, ledger="")`, CLI `roadmap_lint.py [--ready] ROADMAP.md`.
 
-- [ ] **Шаг 1: Перенести и прогнать как есть**
+- [x] **Шаг 1: Перенести и прогнать как есть**
 
 ```bash
 cp ~/Documents/claude/skills/managing-roadmap-items/roadmap_lint.py hooks/
@@ -367,7 +367,7 @@ pytest tests/test_roadmap_lint.py -v
 ```
 Ожидаемо: PASS. Упал импорт — поправить в тесте путь на `hooks/`, больше ничего не менять.
 
-- [ ] **Шаг 2: Добавить падающий тест на новое требование**
+- [x] **Шаг 2: Добавить падающий тест на новое требование**
 
 ```python
 def test_критерий_без_числа_ловится():
@@ -379,23 +379,23 @@ def test_критерий_без_числа_ловится():
     assert any("числ" in claim.lower() for claim in lint(text))
 ```
 
-- [ ] **Шаг 3: Прогнать — падает**
+- [x] **Шаг 3: Прогнать — падает**
 
 Запуск: `pytest tests/test_roadmap_lint.py -k числ -v` → FAIL.
 
-- [ ] **Шаг 4: Реализовать проверку**
+- [x] **Шаг 4: Реализовать проверку**
 
 В `lint()`: если строка «Готово когда» не содержит ни одной цифры — жалоба «критерий без числа: приёмка превратится в спор».
 
-- [ ] **Шаг 5: Прогнать весь набор**
+- [x] **Шаг 5: Прогнать весь набор**
 
 Запуск: `pytest -v` → PASS.
 
-- [ ] **Шаг 6: Подключить хук**
+- [x] **Шаг 6: Подключить хук**
 
 В `hooks/hooks.json` в `PostToolUse` добавить **два отдельных условия** — на `Edit(**/ROADMAP.md)` и на `Write(**/ROADMAP.md)`: в одном условии `Write` не ловится. Команда — `python3` с аргументом `${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py`.
 
-- [ ] **Шаг 7: Коммит**
+- [x] **Шаг 7: Коммит**
 
 ```bash
 git add hooks tests/test_roadmap_lint.py
