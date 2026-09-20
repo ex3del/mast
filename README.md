@@ -6,8 +6,10 @@ MAST — Method for Agents, Sessions and Tasks. A Claude Code plugin that brings
 particular way of working into your project: roadmap items with measurable
 acceptance criteria, a worktree per item, a dispatcher for parallel work,
 path-scoped rules, an archive of closed work. It never touches your global
-`~/.claude/CLAUDE.md` or `settings.json`, and it doesn't write to your project
-without asking first.
+`~/.claude/CLAUDE.md`, and it doesn't write to your project without asking
+first. Claude Code itself records the plugin being enabled in your
+`settings.json` — the same bookkeeping entry any plugin gets — but the
+method and its hooks never write there themselves.
 
 ## Requirements
 
@@ -16,9 +18,9 @@ which the dispatcher and parallel-session rules rely on, reached all
 platforms). `/mast:init-project` checks the running version during its survey
 step and tells you if a part of the method won't work below it.
 
-## Install
+## Setup in three steps
 
-Three commands — the third one matters, because auto-update is **off by
+Three steps — the third one matters, because auto-update is **off by
 default** for third-party marketplaces:
 
 ```bash
