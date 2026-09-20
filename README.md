@@ -84,6 +84,13 @@ away. No key is required — the free tier is enough for normal use — so the
 limit, add your own key in the plugin's configuration under "Context7 API
 key"; the field is optional and stored as sensitive.
 
+The bundle also includes a rule, offered by `/mast:init-project` as its own
+scaffold artifact (`.claude/rules/context7.md`): check a documentation-lookup
+tool before relying on memory for library/framework/SDK/CLI questions. It
+names the tool by role, not by exact server name, so it works whether you use
+the bundled Context7 or one of your own — and if you already have your own
+docs server configured, the command says so and offers to skip.
+
 ## Choosing a language
 
 `userConfig.language` picks `ru` (default) or `en` for the core text, the

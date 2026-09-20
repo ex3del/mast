@@ -23,3 +23,10 @@ def test_английский_шаблон_роадмапа_проходит_с�
 
 def test_шаблон_правила_несёт_paths():
     assert (ROOT / "locales/ru/templates/rule.template.md").read_text().startswith("---\npaths:")
+
+
+def test_правило_context7_ссылается_на_инструмент_по_роли():
+    for lang in ("ru", "en"):
+        text = (ROOT / f"locales/{lang}/templates/context7.rule.template.md").read_text()
+        assert text.startswith("---\npaths:")
+        assert "mcp__plugin_mast_context7" not in text   # по роли, а не по точному имени
