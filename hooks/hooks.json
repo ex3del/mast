@@ -2,7 +2,7 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
+        "matcher": "startup|resume|clear|compact",
         "hooks": [
           { "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/core.py"] }
         ]
