@@ -1,0 +1,14 @@
+{
+  "name": "ex3del",
+  "owner": { "name": "ex3del", "url": "https://github.com/ex3del" },
+  "plugins": [
+    {
+      "name": "mast",
+      "source": "./",
+      "description": "Roadmap items with measurable criteria, worktree per item, dispatcher, path-scoped rules",
+      "category": "productivity",
+      "tags": ["workflow", "roadmap", "worktree", "planning"],
+      "license": "MIT"
+    }
+  ]
+}

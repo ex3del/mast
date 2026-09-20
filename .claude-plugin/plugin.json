@@ -1,0 +1,14 @@
+{
+  "name": "mast",
+  "version": "0.1.0",
+  "description": "Method for Agents, Sessions and Tasks — roadmap items, worktree per item, dispatcher, path-scoped rules",
+  "license": "MIT",
+  "userConfig": {
+    "language": {
+      "type": "string",
+      "title": "Language of MAST texts",
+      "options": ["ru", "en"],
+      "default": "ru"
+    }
+  }
+}
