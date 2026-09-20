@@ -317,7 +317,7 @@ if __name__ == "__main__":
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
+        "matcher": "startup|resume|clear|compact",
         "hooks": [
           { "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/core.py"] }
         ]
@@ -328,6 +328,8 @@ if __name__ == "__main__":
 ```
 
 Exec-форма с `args` обязательна: в shell-форме подстановка настроек пользователя запрещена.
+Матчер перечисляет все события старта: с одним `startup` ядро не вложится после `/clear`,
+`/compact` и возобновления сессии, а спека обещает ядро в каждой сессии.
 
 - [ ] **Шаг 5: Прогнать тесты — зелёные**
 
