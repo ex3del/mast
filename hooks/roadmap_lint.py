@@ -27,6 +27,9 @@ STATUS_ALIASES = {
     "done": "готов", "dropped": "снят",
 }
 DEPS = re.compile(r"(?:зависит от|depends on):\s*([A-Z]-\d+(?:\s*,\s*[A-Z]-\d+)*)", re.IGNORECASE)
+# Заголовок критерия — только в начале своей строки, иначе фраза в прозе («Переводим
+# заголовок «Done when»…») ложно засчитывается за настоящий критерий
+CRIT_HEADER = re.compile(r"^[ \t]*(?:готово когда|done when)\s*:(.*)$", re.IGNORECASE | re.MULTILINE)
 
 
 def parse(text):
@@ -60,9 +63,9 @@ def detect_lang(text):
     """Язык жалоб: русский, если в файле есть хоть один русский токен формата
     (смешанный файл считается русским), иначе английский."""
     lowered = text.lower()
-    if any(t in lowered for t in ("запланирован", "в работе", "готов", "снят", "зависит от")):
+    if any(t in lowered for t in ("запланирован", "в работе", "готов", "снят", "зависит от", "мои пути")):
         return "ru"
-    if any(t in lowered for t in ("planned", "in progress", "done", "dropped", "depends on")):
+    if any(t in lowered for t in ("planned", "in progress", "done", "dropped", "depends on", "my paths")):
         return "en"
     return "ru"
 
@@ -86,11 +89,10 @@ def lint(text, ledger=""):
     for i, it in items.items():
         if not it["status"]:
             errors.append(f"{i}: {msg(lang, 'нет статуса', 'no status')}")
-        body_lower = it["body"].lower()
-        crit = body_lower.partition("готово когда")[2] or body_lower.partition("done when")[2]
-        if not crit:
+        crit_m = CRIT_HEADER.search(it["body"])
+        if not crit_m:
             errors.append(f"{i}: {msg(lang, 'нет «Готово когда»', DONE_WHEN_MISSING_EN)}")
-        elif not re.search(r"\d", crit):
+        elif not re.search(r"\d", crit_m.group(1)):
             errors.append(f"{i}: {msg(lang, 'в «Готово когда» нет числа', DONE_WHEN_NO_NUMBER_EN)}")
         if it["status"] == "в работе":
             if ("worktree-" not in it["head"] and "основная копия" not in it["head"]

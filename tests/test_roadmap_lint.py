@@ -159,6 +159,30 @@ class LintTest(unittest.TestCase):
         )
         self.assertTrue(any("числ" in c.lower() or "number" in c.lower() for c in lint(text)))
 
+    def test_фраза_заголовка_в_прозе_не_считается_критерием(self):
+        # «Done when» упомянут в прозе, не как заголовок своей строки — критерия на самом деле нет
+        text = (
+            "- **A-1** Локализация линта — запланирован · —\n"
+            "  Мои пути: hooks/**\n"
+            "  Переводим заголовок «Done when» на 3 языка.\n"
+        )
+        self.assertIn("A-1: нет «Готово когда»", lint(text))
+
+    def test_критерий_на_своей_строке_по_прежнему_проходит(self):
+        text = (
+            "- **A-1** Локализация линта — запланирован · —\n"
+            "  Мои пути: hooks/**\n"
+            "  Готово когда: заголовок переведён на 3 языка.\n"
+        )
+        self.assertEqual(lint(text), [])
+
+    def test_английский_черновик_без_статуса_определяется_по_my_paths(self):
+        # Ни статуса, ни «Готово когда», ни зависимостей — язык узнаётся по «My paths»
+        text = "- **A-1** Export to PDF\n  My paths: src/**\n"
+        errors = lint(text)
+        self.assertIn("A-1: no status", errors)
+        self.assertFalse(any("нет статуса" in e for e in errors))
+
 
 class HookTest(unittest.TestCase):
     def run_hook(self, file_path):
