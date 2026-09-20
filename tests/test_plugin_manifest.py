@@ -16,6 +16,8 @@ def test_манифест_плагина_объявляет_имя_версию_
     assert lang["type"] == "string"
     assert lang["options"] == ["ru", "en"]
     assert lang["default"] == "ru"
+    assert lang["title"]
+    assert lang["description"]
 
 
 def test_маркетплейс_ссылается_на_этот_же_репозиторий():
