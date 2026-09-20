@@ -30,7 +30,7 @@ When I say "remember this" and it's about a specific section, folder, or subsyst
 - A small edit within one session needs no plan — just do it.
 - **A new roadmap item is an expensive unit.** Open one only if the work goes beyond the current item's `My paths` or doesn't fit in the current session (it needs its own "Done when" with a number). Small stuff gets fixed on the spot and goes as a line under `Issues` in its `STATUS.md`, or into the commit message if it has no `STATUS.md`. If writing up the item costs more than fixing it — it isn't an item.
 - End a plan with a list of open questions. Keep it as short as possible, sacrifice grammar for brevity.
-- Ask leading questions. Suggest best practices, as if the task were being solved by a panel of experts looking at it from different angles.
+- Ask clarifying questions. Suggest best practices, as if the task were being solved by a panel of experts looking at it from different angles.
 - Use the project's existing patterns, don't invent new ones without need.
 
 ## Who owns a task
@@ -47,7 +47,7 @@ A task that a Claude session is driving gets tagged with **that session's name**
 Another Claude session, with its own uncommitted files, can be working in parallel in the project's main copy. The pre-commit hooks on `git commit` and `git push` stash uncommitted changes into a patch for the duration of the run and restore them afterward: anything the other session writes during those seconds is silently rolled back.
 
 - **Before `git commit`, `git push`, `git stash`, `git checkout`, `git rebase` in a copy where another session is working — warn it first** (`ListAgents` → `SendMessage`) and wait for a reply: it will commit its files or leave them untouched.
-- Another session is busy in the main copy and you have a **small edit outside the roadmap** — do it in a separate worktree and push an explicit branch from there (`git push origin <branch>:main`), so the other session's local commits don't get carried along. A roadmap item is never merged this way — see "Working through worktrees", step 3.
+- Another session is busy in the main copy and you have a **small edit outside the roadmap** — do it in a separate worktree and push an explicit branch from there (`git push origin <branch>:main`), so the other session's local commits don't get carried along. A roadmap item is never merged this way — see skill `mast:worktree-flow`.
 - Run a git command with hooks as the **only** Bash call in a round: parallel calls share one shell, their `cd`s get mixed up, and the command ends up in the wrong copy.
 
 ## More details — in the skills
