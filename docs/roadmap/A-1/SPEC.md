@@ -56,10 +56,10 @@ mast/
 │   ├── hooks.json           — SessionStart (ядро) + PostToolUse (линт роадмапа)
 │   ├── core.py              — выбирает язык и решает, вкладывать ли ядро
 │   └── roadmap_lint.py      — проверка формата ROADMAP.md
-├── skills/
-│   ├── managing-roadmap-items/   — пункт: старт, находка, закрытие; диспетчер
-│   ├── project-structure/        — какой документ когда заводится
-│   └── worktree-flow/            — цикл worktree и вливание
+├── skills/                       — по два комплекта: английский и `-ru`
+│   ├── managing-roadmap-items[-ru]/   — пункт: старт, находка, закрытие; диспетчер
+│   ├── project-structure[-ru]/        — какой документ когда заводится
+│   └── worktree-flow[-ru]/            — цикл worktree и вливание
 ├── commands/
 │   └── init-project.md      — разворачивание и ревизия каркаса
 ├── locales/{ru,en}/
