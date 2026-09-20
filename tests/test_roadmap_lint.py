@@ -143,6 +143,22 @@ class LintTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             self.assertEqual(orphans(ledger, Path(d)), [])
 
+    def test_английский_роадмап_проходит_линт(self):
+        text = (
+            "- **A-1** Export to PDF — planned\n"
+            "  My paths: src/**\n"
+            "  Done when: a 500-row report renders in under 3 s.\n"
+        )
+        self.assertEqual(lint(text), [])
+
+    def test_английский_критерий_без_числа_ловится(self):
+        text = (
+            "- **A-1** Export to PDF — planned\n"
+            "  My paths: src/**\n"
+            "  Done when: it works well.\n"
+        )
+        self.assertTrue(any("числ" in c.lower() or "number" in c.lower() for c in lint(text)))
+
 
 class HookTest(unittest.TestCase):
     def run_hook(self, file_path):

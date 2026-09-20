@@ -14,9 +14,19 @@ import sys
 from pathlib import Path
 
 ITEM = re.compile(r"^- \*\*([A-Z]-\d+)\*\*(.*)$")
-# Статус стоит после разделителя «—» или «·», поэтому слово «готов» в названии не считается
-STATUS = re.compile(r"(?:—|·)\s*(запланирован|(?:🔨\s*)?в работе|готов|снят)(?=\s*(?:·|$|\()|\s+\d)")
-DEPS = re.compile(r"зависит от:\s*([A-Z]-\d+(?:\s*,\s*[A-Z]-\d+)*)", re.IGNORECASE)
+# Статус стоит после разделителя «—» или «·», поэтому слово «готов» в названии не считается.
+# Оба языка равноправны: русские и английские метки статуса разобраны в одном месте.
+STATUS = re.compile(
+    r"(?:—|·)\s*(запланирован|planned|(?:🔨\s*)?(?:в работе|in progress)|готов|done|снят|dropped)"
+    r"(?=\s*(?:·|$|\()|\s+\d)"
+)
+# Внутреннее представление статуса — всегда русское каноническое слово,
+# поэтому вся остальная логика lint()/ready() не знает про язык файла
+STATUS_ALIASES = {
+    "planned": "запланирован", "in progress": "в работе",
+    "done": "готов", "dropped": "снят",
+}
+DEPS = re.compile(r"(?:зависит от|depends on):\s*([A-Z]-\d+(?:\s*,\s*[A-Z]-\d+)*)", re.IGNORECASE)
 
 
 def parse(text):
@@ -29,7 +39,8 @@ def parse(text):
             if cur in items:
                 dups.append(cur)
             s = STATUS.search(m.group(2))
-            items[cur] = {"status": s and s.group(1).replace("🔨", "").strip(),
+            raw = s and s.group(1).replace("🔨", "").strip()
+            items[cur] = {"status": STATUS_ALIASES.get(raw, raw),
                           "head": m.group(2), "body": line}
         elif cur and line.startswith((" ", "\t")):
             items[cur]["body"] += "\n" + line
@@ -45,32 +56,57 @@ def ledger_ids(text):
     return [m.group(1) for m in (ITEM.match(line) for line in text.splitlines()) if m]
 
 
+def detect_lang(text):
+    """Язык жалоб: русский, если в файле есть хоть один русский токен формата
+    (смешанный файл считается русским), иначе английский."""
+    lowered = text.lower()
+    if any(t in lowered for t in ("запланирован", "в работе", "готов", "снят", "зависит от")):
+        return "ru"
+    if any(t in lowered for t in ("planned", "in progress", "done", "dropped", "depends on")):
+        return "en"
+    return "ru"
+
+
+def msg(lang, ru, en):
+    return ru if lang == "ru" else en
+
+
+DONE_WHEN_MISSING_EN = 'no "Done when"'
+DONE_WHEN_NO_NUMBER_EN = '"Done when" has no number'
+NO_LOCATION_EN = 'in progress, but location not specified — `worktree-…` or "main copy"'
+
+
 def lint(text, ledger=""):
     items, dups = parse(text)
     archived = set(ledger_ids(ledger))
-    errors = [f"{i}: номер занят дважды" for i in dups]
-    errors += [f"{i}: номер занят, пункт уже в DONE.md" for i in items if i in archived]
+    lang = detect_lang(text)
+    errors = [f"{i}: {msg(lang, 'номер занят дважды', 'item number used twice')}" for i in dups]
+    errors += [f"{i}: {msg(lang, 'номер занят, пункт уже в DONE.md', 'item number taken, already in DONE.md')}"
+               for i in items if i in archived]
     for i, it in items.items():
         if not it["status"]:
-            errors.append(f"{i}: нет статуса")
-        crit = it["body"].lower().partition("готово когда")[2]
+            errors.append(f"{i}: {msg(lang, 'нет статуса', 'no status')}")
+        body_lower = it["body"].lower()
+        crit = body_lower.partition("готово когда")[2] or body_lower.partition("done when")[2]
         if not crit:
-            errors.append(f"{i}: нет «Готово когда»")
+            errors.append(f"{i}: {msg(lang, 'нет «Готово когда»', DONE_WHEN_MISSING_EN)}")
         elif not re.search(r"\d", crit):
-            errors.append(f"{i}: в «Готово когда» нет числа")
+            errors.append(f"{i}: {msg(lang, 'в «Готово когда» нет числа', DONE_WHEN_NO_NUMBER_EN)}")
         if it["status"] == "в работе":
-            if "worktree-" not in it["head"] and "основная копия" not in it["head"]:
-                errors.append(f"{i}: в работе, но не указано где — `worktree-…` или «основная копия»")
-            if "сессия" not in it["head"]:
-                errors.append(f"{i}: в работе, но нет сессии")
+            if ("worktree-" not in it["head"] and "основная копия" not in it["head"]
+                    and "main copy" not in it["head"]):
+                errors.append(f"{i}: {msg(lang, 'в работе, но не указано где — `worktree-…` или «основная копия»', NO_LOCATION_EN)}")
+            if "сессия" not in it["head"] and "session" not in it["head"]:
+                errors.append(f"{i}: {msg(lang, 'в работе, но нет сессии', 'in progress, but no session')}")
             waiting = [d for d in it["deps"] if d in items and items[d]["status"] != "готов"]
             if waiting:
-                errors.append(f"{i}: взят в работу, но не готовы зависимости: {', '.join(waiting)}")
+                w = ", ".join(waiting)
+                errors.append(f"{i}: {msg(lang, f'взят в работу, но не готовы зависимости: {w}', f'taken into work, but dependencies not ready: {w}')}")
         if it["status"] == "готов" and f"worktree-{i}" in it["head"]:
-            errors.append(f"{i}: готов, но осталась пометка `worktree-{i}`")
-        errors += [f"{i}: зависит от несуществующего {d}" for d in it["deps"]
-                   if d not in items and d not in archived]
-    errors += [f"цикл зависимостей: {c}" for c in cycles(items)]
+            errors.append(f"{i}: {msg(lang, f'готов, но осталась пометка `worktree-{i}`', f'done, but still has the `worktree-{i}` mark')}")
+        errors += [f"{i}: {msg(lang, f'зависит от несуществующего {d}', f'depends on nonexistent {d}')}"
+                   for d in it["deps"] if d not in items and d not in archived]
+    errors += [f"{msg(lang, 'цикл зависимостей', 'dependency cycle')}: {c}" for c in cycles(items)]
     return errors
 
 
@@ -146,11 +182,14 @@ def main():
     head = subprocess.run(["git", "-C", str(path.parent), "show", "HEAD:./ROADMAP.md"],
                           capture_output=True, text=True, encoding="utf-8")
     ledger = read_ledger(path)
+    content = path.read_text(encoding="utf-8")
     old = set(lint(head.stdout, ledger)) if head.returncode == 0 else set()
-    errors = [e for e in lint(path.read_text(encoding="utf-8"), ledger) if e not in old]
+    errors = [e for e in lint(content, ledger) if e not in old]
     if errors:
-        print("ROADMAP.md нарушает формат (скилл managing-roadmap-items), исправь:\n"
-              + "\n".join(f"- {e}" for e in errors), file=sys.stderr)
+        header = msg(detect_lang(content),
+                     "ROADMAP.md нарушает формат (скилл managing-roadmap-items), исправь:",
+                     "ROADMAP.md violates the format (skill managing-roadmap-items), fix:")
+        print(header + "\n" + "\n".join(f"- {e}" for e in errors), file=sys.stderr)
         return 2
     return 0
 
