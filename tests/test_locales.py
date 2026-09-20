@@ -14,9 +14,15 @@ def headings(path):
 
 
 def test_состав_файлов_локалей_совпадает():
-    assert files("ru") == files("en")
+    ru = files("ru")
+    assert ru, "locales/ru пуст"
+    assert ru == files("en")
 
 
 def test_дерево_заголовков_совпадает():
-    for rel in sorted(files("ru")):
-        assert headings(LOCALES / "ru" / rel) == headings(LOCALES / "en" / rel), rel
+    ru = sorted(files("ru"))
+    assert ru, "locales/ru пуст"
+    for rel in ru:
+        ru_headings = headings(LOCALES / "ru" / rel)
+        assert ru_headings, f"{rel}: заголовков не найдено"
+        assert ru_headings == headings(LOCALES / "en" / rel), rel
