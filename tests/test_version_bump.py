@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-MANIFEST = ".claude-plugin/plugin.json"
-METHOD = ["hooks", "skills", "commands", "locales", ".mcp.json"]
+MANIFEST = "plugins/en/.claude-plugin/plugin.json"
+METHOD = ["hooks", "locales", "plugins"]
 
 
 def _последний_коммит(*пути):

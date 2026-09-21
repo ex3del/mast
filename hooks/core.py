@@ -15,9 +15,13 @@ UNREADABLE = {
 }
 
 
-def pick_language(env):
-    """Язык из настройки плагина; неизвестное значение — русский."""
-    lang = env.get("CLAUDE_PLUGIN_OPTION_LANGUAGE", "ru")
+def pick_language(argv):
+    """Язык — первым аргументом от того плагина, чья разводка вызвала хук.
+
+    Код хуков общий на оба плагина, поэтому язык приходит не из настройки, а из
+    `hooks.json` конкретного плагина: `mast` передаёт `en`, `mast-ru` — `ru`.
+    """
+    lang = argv[0] if argv else "ru"
     return lang if lang in LANGS else "ru"
 
 
@@ -50,8 +54,9 @@ def project_dir(env):
 
 
 def main():
-    root = os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent))
-    text = render(project_dir(os.environ), root, pick_language(os.environ))
+    # Тексты лежат рядом с этим файлом, а не в каталоге плагина: код общий на оба
+    root = Path(__file__).resolve().parent.parent
+    text = render(project_dir(os.environ), root, pick_language(sys.argv[1:]))
     sys.stdout.buffer.write(text.encode("utf-8") + b"\n")
     return 0
 

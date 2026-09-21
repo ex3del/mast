@@ -4,10 +4,12 @@
 # без бампа — релиз, которого не получит ни один пользователь.
 set -uo pipefail
 
-MANIFEST='.claude-plugin/plugin.json'
+# Версии обоих плагинов синхронны (сторож в tests/test_plugin_manifest.py),
+# поэтому проверяем по одному манифесту.
+MANIFEST='plugins/en/.claude-plugin/plugin.json'
 # Пути, правка которых доезжает до пользователя. docs/, tests/, README*,
 # ROADMAP.md, CLAUDE.md и LICENSE до него не доезжают — бампа не требуют.
-METHOD='^(hooks|skills|commands|locales)/|^\.mcp\.json$'
+METHOD='^(hooks|locales|plugins)/'
 
 git rev-parse --verify HEAD >/dev/null 2>&1 || exit 0   # первый коммит
 

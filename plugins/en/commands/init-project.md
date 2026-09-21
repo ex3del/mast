@@ -3,7 +3,7 @@ description: Scaffold the MAST method in a new project, or migrate an existing p
 ---
 
 The scaffold texts this command will copy (`CLAUDE.md`, `ROADMAP.md`, the example rule)
-are taken from the plugin's English locale — `${CLAUDE_PLUGIN_ROOT}/locales/en/`.
+are taken from the plugin's English locale — `${CLAUDE_PLUGIN_ROOT}/../../locales/en/`.
 
 You are bringing the current project up to the MAST method's scaffold. Five scaffold
 artifacts: `CLAUDE.md`, `ROADMAP.md`, the `docs/roadmap/` directory, the file
@@ -15,7 +15,7 @@ sixth, optional artifact: the Context7 rule `.claude/rules/context7.md` (the plu
 the MCP server itself along with it, see README); it is offered by its own separate
 question at step 2, not within the common five.
 
-The templates to copy live in the plugin: `${CLAUDE_PLUGIN_ROOT}/locales/en/templates/`
+The templates to copy live in the plugin: `${CLAUDE_PLUGIN_ROOT}/../../locales/en/templates/`
 — `CLAUDE.template.md`, `ROADMAP.template.md`, `rule.template.md`, `context7.rule.template.md`.
 
 ## The `--check` argument
@@ -129,7 +129,7 @@ scaffold's reference shape. Step 1 writes and edits none of this — it only rea
 
 Split what you are going to propose into two kinds.
 
-**First check that the templates are readable** — `${CLAUDE_PLUGIN_ROOT}/locales/en/templates/*.template.md`.
+**First check that the templates are readable** — `${CLAUDE_PLUGIN_ROOT}/../../locales/en/templates/*.template.md`.
 Unreadable (it happens — the session's access is limited to the project's working directory, and
 the plugin's directory isn't inside it) — this affects not only the `ROADMAP.md` diff when
 migrating `TODO.md`, but all five base artifacts at once (and the Context7 rule too — it is the
@@ -146,7 +146,7 @@ rare one). Proposals that need no template (a rule without `paths:`, `CHANGELOG.
 **Missing scaffold artifacts** — those of the five that don't exist at all. Their diff is
 degenerate: the file didn't exist — a copy of the template appears. Show the list concretely:
 
-1. `CLAUDE.md` — the template `${CLAUDE_PLUGIN_ROOT}/locales/en/templates/CLAUDE.template.md`
+1. `CLAUDE.md` — the template `${CLAUDE_PLUGIN_ROOT}/../../locales/en/templates/CLAUDE.template.md`
    with the survey's data filled in: stack, commands, tests, conventions, root folders, the
    description from `README.md`. The diff here isn't degenerate — show the resulting text in
    full. The command doesn't invent the "Project invariants" and "Code" sections: they come from the template as is.

@@ -30,17 +30,18 @@ path it was built for.
 
 ```bash
 claude plugin marketplace add ex3del/mast
-claude plugin install mast@ex3del --scope user --config language=en
+claude plugin install mast@ex3del --scope user
 ```
 
-**Pick your language right here.** `language` is `ru` by default, so pass
-`--config language=en` unless you want the method in Russian. It sets the
-language of the core text and the skills; you can change it later in the
-`/plugin` menu (find `mast` → its configuration screen), and it takes effect
-on the next session start. The scaffolding command is picked by name instead:
-`/mast:init-project` copies the English templates, `/mast:init-project-ru` the
-Russian ones — Claude Code doesn't substitute the setting inside a command or
-skill body, which is why language is split into separate files there.
+**The language is the plugin you install.** `mast` carries the English texts,
+`mast-ru` the Russian ones — install one of the two, not both, or two copies of
+the core land in every session. They share one code base and one repository;
+only the texts differ. To switch languages later, uninstall one and install the
+other:
+
+```bash
+claude plugin install mast-ru@ex3del --scope user
+```
 
 Then turn auto-update on — this third step matters, because auto-update is
 **off by default** for third-party marketplaces. Either through the `/plugin`

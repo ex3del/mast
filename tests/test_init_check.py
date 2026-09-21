@@ -12,8 +12,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 FIX = Path(__file__).resolve().parent / "fixtures" / "legacy"
-COMMANDS = {"en": ROOT / "commands" / "init-project.md",
-            "ru": ROOT / "commands" / "init-project-ru.md"}
+COMMANDS = {lang: ROOT / "plugins" / lang / "commands" / "init-project.md"
+            for lang in ("en", "ru")}
 GUARD_SECTION = {"en": "## Audit guardrails", "ru": "## Ограждения ревизии"}
 # Ограждение — это запрет («не придумывается») или обязательное требование
 # («проверяется в описи»). Формулировка без того и другого не ограждает.

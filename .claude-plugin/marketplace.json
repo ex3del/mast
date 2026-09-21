@@ -5,8 +5,16 @@
   "plugins": [
     {
       "name": "mast",
-      "source": "./",
-      "description": "Roadmap items with measurable criteria, worktree per item, dispatcher, path-scoped rules",
+      "source": "./plugins/en",
+      "description": "Roadmap items with measurable criteria, worktree per item, dispatcher, path-scoped rules — English texts",
+      "category": "productivity",
+      "tags": ["workflow", "roadmap", "worktree", "planning"],
+      "license": "MIT"
+    },
+    {
+      "name": "mast-ru",
+      "source": "./plugins/ru",
+      "description": "Пункты роадмапа с измеримым критерием, worktree на пункт, диспетчер, правила с paths: — тексты на русском",
       "category": "productivity",
       "tags": ["workflow", "roadmap", "worktree", "planning"],
       "license": "MIT"

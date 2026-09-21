@@ -1,25 +1,12 @@
 {
   "name": "mast",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "description": "Method for Agents, Sessions and Tasks — roadmap items, worktree per item, dispatcher, path-scoped rules",
   "license": "MIT",
   "dependencies": [
-    {
-      "name": "superpowers",
-      "marketplace": "claude-plugins-official"
-    }
+    { "name": "superpowers", "marketplace": "claude-plugins-official" }
   ],
   "userConfig": {
-    "language": {
-      "type": "string",
-      "title": "Language of MAST texts",
-      "description": "Language of the method core, skills and scaffold templates",
-      "options": [
-        "ru",
-        "en"
-      ],
-      "default": "ru"
-    },
     "context7_key": {
       "type": "string",
       "title": "Context7 API key (optional)",

@@ -8,10 +8,12 @@ sys.path.insert(0, str(ROOT / "hooks"))
 import core  # noqa: E402
 
 
-def test_язык_берётся_из_окружения_иначе_русский():
-    assert core.pick_language({"CLAUDE_PLUGIN_OPTION_LANGUAGE": "en"}) == "en"
-    assert core.pick_language({"CLAUDE_PLUGIN_OPTION_LANGUAGE": "de"}) == "ru"
-    assert core.pick_language({}) == "ru"
+def test_язык_приходит_аргументом_от_своего_плагина():
+    """`mast` передаёт en, `mast-ru` — ru; код хуков у них общий."""
+    assert core.pick_language(["en"]) == "en"
+    assert core.pick_language(["ru"]) == "ru"
+    assert core.pick_language(["de"]) == "ru"
+    assert core.pick_language([]) == "ru"
 
 
 def test_в_проекте_с_роадмапом_вкладывается_полное_ядро(tmp_path):
