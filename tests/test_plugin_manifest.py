@@ -20,6 +20,16 @@ def test_манифест_плагина_объявляет_имя_версию_
     assert lang["description"]
 
 
+def test_зависимость_от_superpowers_объявлена_и_разрешена():
+    """Скилл сессии пункта передаёт планирование в `superpowers:writing-plans`.
+    Зависимость из чужого маркетплейса без allowlist в `marketplace.json`
+    отвергается при установке ошибкой `cross-marketplace`."""
+    dep = next(d for d in load("plugin.json")["dependencies"]
+               if isinstance(d, dict) and d["name"] == "superpowers")
+    assert dep["marketplace"] == "claude-plugins-official"
+    assert dep["marketplace"] in load("marketplace.json")["allowCrossMarketplaceDependenciesOn"]
+
+
 def test_маркетплейс_ссылается_на_этот_же_репозиторий():
     m = load("marketplace.json")
     assert m["name"] == "ex3del"

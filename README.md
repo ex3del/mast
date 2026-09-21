@@ -13,10 +13,18 @@ method and its hooks never write there themselves.
 
 ## Requirements
 
-Claude Code **2.1.234 or newer** (that's when `SendMessage` and `ListAgents`,
-which the dispatcher and parallel-session rules rely on, reached all
-platforms). `/mast:init-project` checks the running version during its survey
-step and tells you if a part of the method won't work below it.
+Claude Code **2.1.242 or newer**. Two things set that floor: `SendMessage` and
+`ListAgents`, which the dispatcher and the parallel-session rules rely on,
+reached all platforms in 2.1.234; and a dependency entry that names a
+marketplace — which is how this plugin declares `superpowers` — is resolved
+correctly from 2.1.242 on. `/mast:init-project` checks the running version
+during its survey step and tells you if a part of the method won't work.
+
+The plugin **depends on `superpowers@claude-plugins-official`** and Claude
+Code installs it along with MAST: the item-session skill hands planning over
+to `superpowers:writing-plans`. Without that plugin the method still works —
+the skill says to write the plan's tasks yourself — but the handover is the
+path it was built for.
 
 ## Setup in three steps
 
