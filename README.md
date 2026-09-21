@@ -56,31 +56,6 @@ auto-update-enabled marketplaces in the background, roughly once per session
 start with a random delay of up to ten minutes; a fresh version is picked up
 on the next start or via `/reload-plugins`.
 
-## Where things live, and what happens to your `CLAUDE.md`
-
-Installing the plugin changes nothing in your repository, and it never touches
-your global `~/.claude/CLAUDE.md`. Two separate layers, on purpose:
-
-| | Where it lives | Who updates it |
-|---|---|---|
-| **The method** — the rules of working | injected into each session's context by a `SessionStart` hook, not a file on disk | the plugin, on every update |
-| **The scaffold** — `CLAUDE.md`, `ROADMAP.md`, rules under `.claude/rules/` | files in your repository | you; the plugin writes them once, with your consent |
-
-The hook checks the project you opened: if it has a `ROADMAP.md` or a
-`.claude/rules/` directory, the method is considered deployed and the full
-core text is injected. If it doesn't, you get a single line instead — "MAST is
-not set up in this project, run `/mast:init-project`". So right after
-installing, nothing has appeared in your repository yet: the plugin is there
-and quiet until you run the command.
-
-Your project's `CLAUDE.md` is **not** the method — it's the project's card:
-stack, commands, invariants. `/mast:init-project` creates it in the root of
-the current project from a template, filled in with what it actually read in
-your repository. From then on the file is yours: the plugin doesn't rewrite it
-on update and doesn't touch it when the command runs again. Claude Code loads
-that file into every session in that project — that's its own built-in
-behavior, not something MAST adds.
-
 ## What `/mast:init-project` does
 
 One command, one scenario, for both a brand-new project and one with history:
