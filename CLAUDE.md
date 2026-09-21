@@ -11,6 +11,7 @@ Method for Agents, Sessions and Tasks — плагин Claude Code, которы
 | [ROADMAP.md](ROADMAP.md) | что осталось сделать |
 | [docs/roadmap/done/A-1/SPEC.md](docs/roadmap/done/A-1/SPEC.md) | зачем плагин так устроен, ограничения площадки, состав ядра |
 | [docs/roadmap/DONE.md](docs/roadmap/DONE.md) | что уже закрыто |
+| [TECH_DEBT.md](TECH_DEBT.md) | что оставлено криво и при каком условии чиним |
 
 ## Стек
 

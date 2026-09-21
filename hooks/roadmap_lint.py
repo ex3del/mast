@@ -27,8 +27,10 @@ STATUS_ALIASES = {
     "done": "готов", "dropped": "снят",
 }
 DEPS = re.compile(r"(?:зависит от|depends on):\s*([A-Z]-\d+(?:\s*,\s*[A-Z]-\d+)*)", re.IGNORECASE)
-# Подраздел архива со снятыми пунктами — на любом уровне заголовка
-DROPPED_HEADER = re.compile(r"^#+\s*(снято|dropped)\s*$", re.IGNORECASE)
+# Подраздел архива со снятыми пунктами — на любом уровне заголовка. Заголовок
+# пишет сессия прозой, поэтому хвост («Снято (архив)», «Dropped items») и эмодзи
+# перед словом допустимы: не узнать подраздел дороже, чем узнать лишний.
+DROPPED_HEADER = re.compile(r"^#+[\s\W]*(снят|dropped)", re.IGNORECASE)
 # Заголовок критерия — только в начале своей строки, иначе фраза в прозе («Переводим
 # заголовок «Done when»…») ложно засчитывается за настоящий критерий
 CRIT_HEADER = re.compile(r"^[ \t]*(?:готово когда|done when)\s*:(.*)$", re.IGNORECASE | re.MULTILINE)
@@ -194,6 +196,26 @@ def read_ledger(roadmap):
     return path.read_text(encoding="utf-8") if path.is_file() else ""
 
 
+def hooked_roadmap(path):
+    """Какой роадмап проверять по правке файла `path`, или None.
+
+    Архив проверяется вместе с роадмапом: занятые номера, снятые пункты и ссылки
+    на `done/` живут в `DONE.md`, а хук видит правку только одного файла.
+    """
+    if path.name == "ROADMAP.md":
+        return path
+    if path.name == "DONE.md" and path.parent.name == "roadmap":
+        return path.parent.parent.parent / "ROADMAP.md"
+    return None
+
+
+def from_head(project, rel):
+    """Содержимое файла в HEAD; файла нет или это не репозиторий — пустая строка."""
+    r = subprocess.run(["git", "-C", str(project), "show", f"HEAD:./{rel}"],
+                       capture_output=True, text=True, encoding="utf-8")
+    return r.stdout if r.returncode == 0 else ""
+
+
 def main():
     args = sys.argv[1:]
     if args[:1] == ["--ready"]:
@@ -206,19 +228,21 @@ def main():
         print("\n".join(errors))
         return 1 if errors else 0
     path = Path(json.load(sys.stdin).get("tool_input", {}).get("file_path", ""))
-    if path.name != "ROADMAP.md":
+    roadmap = hooked_roadmap(path)
+    if roadmap is None or not roadmap.is_file():
         return 0
     # Нарушения, которые уже были в HEAD, не показываем — их вносила не эта правка
-    head = subprocess.run(["git", "-C", str(path.parent), "show", "HEAD:./ROADMAP.md"],
-                          capture_output=True, text=True, encoding="utf-8")
-    ledger = read_ledger(path)
-    content = path.read_text(encoding="utf-8")
-    old = set(lint(head.stdout, ledger)) if head.returncode == 0 else set()
+    ledger = read_ledger(roadmap)
+    content = roadmap.read_text(encoding="utf-8")
+    old = set(lint(from_head(roadmap.parent, "ROADMAP.md"),
+                   from_head(roadmap.parent, "docs/roadmap/DONE.md")))
     errors = [e for e in lint(content, ledger) if e not in old]
+    errors += [e for e in orphans(ledger, roadmap.parent / "docs/roadmap")
+               if e not in old]
     if errors:
-        header = msg(detect_lang(content),
-                     "ROADMAP.md нарушает формат (скилл managing-roadmap-items), исправь:",
-                     "ROADMAP.md violates the format (skill managing-roadmap-items), fix:")
+        header = msg(detect_lang(content + ledger),
+                     "Роадмап нарушает формат (скилл `mast:managing-roadmap-items-ru`), исправь:",
+                     "The roadmap violates the format (skill `mast:managing-roadmap-items`), fix:")
         print(header + "\n" + "\n".join(f"- {e}" for e in errors), file=sys.stderr)
         return 2
     return 0

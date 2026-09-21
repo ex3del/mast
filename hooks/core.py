@@ -33,14 +33,25 @@ def render(project_dir, root, lang):
     core_path = Path(root) / "locales" / lang / "core.md"
     try:
         return core_path.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeDecodeError):
+        # Битые байты в файле ядра — такая же непрочитанность, как и его отсутствие
         return UNREADABLE[lang].format(path=core_path)
+
+
+def project_dir(env):
+    """Каталог проекта. cwd вычисляем, только если переменной нет: он может быть
+    удалён (worktree снесли после мерджа), и тогда `os.getcwd()` бросает."""
+    if env.get("CLAUDE_PROJECT_DIR"):
+        return env["CLAUDE_PROJECT_DIR"]
+    try:
+        return os.getcwd()
+    except OSError:
+        return ""
 
 
 def main():
     root = os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent))
-    project = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
-    text = render(project, root, pick_language(os.environ))
+    text = render(project_dir(os.environ), root, pick_language(os.environ))
     sys.stdout.buffer.write(text.encode("utf-8") + b"\n")
     return 0
 

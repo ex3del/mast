@@ -17,7 +17,9 @@ def all_hook_entries(data):
 
 
 def test_hooks_json_валиден():
-    load()
+    data = load()
+    assert set(data["hooks"]) == {"SessionStart", "PostToolUse"}
+    assert all_hook_entries(data), "ни одного хука не зарегистрировано"
 
 
 def test_session_start_покрывает_все_события():
@@ -33,6 +35,13 @@ def test_post_tool_use_ловит_edit_и_write_по_roadmap():
     ifs = [h.get("if", "") for h in all_hook_entries(data) if "if" in h]
     assert any("Edit" in i and "ROADMAP.md" in i for i in ifs), ifs
     assert any("Write" in i and "ROADMAP.md" in i for i in ifs), ifs
+
+
+def test_post_tool_use_ловит_правку_архива():
+    """Снятые пункты и занятые номера живут в DONE.md — без этого линт его не увидит."""
+    ifs = [h.get("if", "") for h in all_hook_entries(load()) if "if" in h]
+    assert any("Edit" in i and "DONE.md" in i for i in ifs), ifs
+    assert any("Write" in i and "DONE.md" in i for i in ifs), ifs
 
 
 def test_все_пути_в_аргументах_через_claude_plugin_root_и_существуют():

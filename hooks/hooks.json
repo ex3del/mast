@@ -23,6 +23,18 @@
             "command": "python3",
             "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py"],
             "if": "Write(**/ROADMAP.md)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py"],
+            "if": "Edit(**/docs/roadmap/DONE.md)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py"],
+            "if": "Write(**/docs/roadmap/DONE.md)"
           }
         ]
       }

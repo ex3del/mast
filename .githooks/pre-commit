@@ -13,8 +13,17 @@ git rev-parse --verify HEAD >/dev/null 2>&1 || exit 0   # первый комм�
 
 git diff --cached --name-only | grep -Eq "$METHOD" || exit 0
 
+# Нечем проверить — падаем громко. Молчаливый пропуск выпускает релиз,
+# которого никто не получит, и узнается это через месяц от пользователя.
+command -v python3 >/dev/null 2>&1 || {
+  echo "pre-commit: нет python3 — версию в $MANIFEST проверить нечем." >&2
+  echo "Поставь python3; осознанно пропустить — git commit --no-verify." >&2
+  exit 1
+}
+
 version_of() { python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])'; }
 
+# Манифеста нет ни в индексе, ни в HEAD — это не репозиторий плагина
 new=$(git show ":$MANIFEST" 2>/dev/null | version_of) || exit 0
 old=$(git show "HEAD:$MANIFEST" 2>/dev/null | version_of) || exit 0
 

@@ -130,6 +130,16 @@ class LintTest(unittest.TestCase):
         self.assertEqual(ready(text, ledger), [])
         self.assertIn("B-2: зависит от снятого A-8 — убери зависимость или сними пункт", lint(text, ledger))
 
+    def test_заголовок_снято_распознаётся_с_хвостом_и_эмодзи(self):
+        # Заголовок пишет сессия прозой; не узнать подраздел — значит зачесть
+        # брошенную работу за выполненную зависимость
+        text = OK.replace("Готово когда: пустой отчёт → 200.",
+                          "Готово когда: пустой отчёт → 200.\n  Зависит от: A-8")
+        for header in ("## Снято", "## Снято (архив)", "### Снятые пункты",
+                       "## Dropped items", "## 🗑 Снято"):
+            ledger = LEDGER + f"\n{header}\n\n- **A-8** Свой рендерер — 11.08 · причина.\n"
+            self.assertEqual(ready(text, ledger), [], header)
+
     def test_номер_снятого_пункта_занят_навсегда(self):
         ledger = LEDGER + "\n### Снято\n\n- **B-2** Экспорт CSV — 11.08 · формат не нужен.\n"
         self.assertIn("B-2: номер занят, пункт уже в DONE.md", lint(OK, ledger))
@@ -237,9 +247,29 @@ class HookTest(unittest.TestCase):
             ledger = Path(d) / "docs/roadmap/DONE.md"
             ledger.parent.mkdir(parents=True)
             ledger.write_text(LEDGER, encoding="utf-8")
+            # Тезис A-9 ссылается на done/A-9/STATUS.md — хук проверяет и ссылки
+            (ledger.parent / "done/A-9").mkdir(parents=True)
+            (ledger.parent / "done/A-9/STATUS.md").write_text("x", encoding="utf-8")
             self.assertEqual(self.run_hook(path).returncode, 0)
             ledger.write_text("# Сделано\n", encoding="utf-8")
             self.assertEqual(self.run_hook(path).returncode, 2)
+
+    def test_hook_проверяет_пару_по_правке_архива(self):
+        # Правят DONE.md — линт смотрит на пару «роадмап + архив», иначе снятые
+        # пункты и занятые номера не проверяет никто и никогда
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "ROADMAP.md").write_text(
+                OK.replace("Готово когда: пустой отчёт → 200.",
+                           "Готово когда: пустой отчёт → 200.\n  Зависит от: A-8"),
+                encoding="utf-8")
+            ledger = root / "docs/roadmap/DONE.md"
+            ledger.parent.mkdir(parents=True)
+            ledger.write_text("# Сделано\n\n## Снято\n\n- **A-8** Рендерер — 11.08 · причина.\n",
+                              encoding="utf-8")
+            result = self.run_hook(ledger)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("зависит от снятого A-8", result.stderr)
 
     def test_hook_passes_valid_roadmap(self):
         with tempfile.TemporaryDirectory() as d:

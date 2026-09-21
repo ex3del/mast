@@ -8,4 +8,4 @@ Holds only what's open: `planned`, `🔨 in progress`. Closed and dropped items 
 
 - **A-1** <short item title> — planned · —
   My paths: `<path/**>`
-  Done when: <criterion with a number, e.g. "500 rows < 3s">
+  Done when: <criterion with a number; "500 rows < 3s" is a made-up example — put your own measured number>

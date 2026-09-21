@@ -33,7 +33,7 @@ This part is shared by both: invariants, the line format, the archive, decisions
 
 | Slot | When required | What |
 |---|---|---|
-| status | always | `planned` / `🔨 in progress`. `done` and `dropped` don't linger in the file: both closing and dropping move the item into `DONE.md` — a dropped one into the "Dropped" subsection, one line with the reason. Legal on old items until archived |
+| status | always | `planned` / `🔨 in progress`. `done` and `dropped` don't linger in the file: both closing and dropping move the item into `DONE.md` — a dropped one into the "Dropped" subsection, one line with the reason. Until the item is moved, `dropped` carries its reason right in the line — otherwise nobody remembers six months later why it was abandoned. Legal on old items until archived |
 | where it's driven | in progress | `worktree-X-N` or `main copy`; not taken — `—` |
 | session | in progress | the name from `--name`, used to reach it via `SendMessage`. Whether it's alive — `claude agents` shows it |
 | date taken | in progress | an abandoned item shows by its age |
@@ -41,7 +41,7 @@ This part is shared by both: invariants, the line format, the archive, decisions
 | `My paths` | in progress | what the item touches. It sets the bar for a new item and blocks running a neighbor in parallel |
 | Done when | always | with a number. This line is the source of truth |
 
-**Ready to take** — `planned`, and every dependency is either `done` or already in `DONE.md`: `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md`. `Depends on` isn't cleared once the dependency closes.
+**Ready to take** — `planned`, and every dependency is **closed**: either `done`, or in `DONE.md` outside the "Dropped" subsection. A dependency that was dropped is not satisfied — the work was abandoned, so the item waits on a human decision rather than a start: `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md`. `Depends on` isn't cleared once the dependency closes.
 
 ## Closed: four layers
 
@@ -102,7 +102,7 @@ None of these — a line in the roadmap plus commits: decisions and small findin
 
 ### If `STATUS.md` is opened
 
-There's one path — `docs/roadmap/<item>/STATUS.md`. Create it with our header, then call `superpowers:writing-plans` saying "the file already exists at this path, add to it, don't change the path" (its default `docs/superpowers/plans/` isn't used), then carry the rest forward.
+There's one path — `docs/roadmap/<item>/STATUS.md`. Create it with our header. If the `superpowers` plugin is installed, call `superpowers:writing-plans` saying "the file already exists at this path, add to it, don't change the path" (its default `docs/superpowers/plans/` isn't used). Without that plugin, write the tasks yourself, one checkable goal per task, and skip the `writing-plans` header line in the sample below. Then carry the rest forward.
 
 ```markdown
 # B-4 Export reports to PDF
@@ -182,7 +182,7 @@ You are the main-copy session `<project>-dispatch`. The only one who edits `ROAD
 After every restart, and before starting any new session, cross-check three sources:
 
 ```bash
-claude agents --json --all | jq -r '.[] | select(.state=="working" or .state=="blocked" or .status!=null) | .name'  # alive
+claude agents --json --all | jq -r '.[] | select(.state=="working" or .state=="blocked" or .status!=null) | .name'  # alive; no jq — the same by eye in `claude agents --all`
 grep -n 'in progress' ROADMAP.md   # who's listed as in progress
 git worktree list                  # what's on disk
 ```
@@ -216,7 +216,7 @@ Sources: `SendMessage` from sessions, and files in `docs/roadmap/inbox/` — the
 
 1. **Does it need an item at all?** The bar is the "2. A finding outside the item" section of "Item session" above: either the finding is outside the sender's `My paths`, or it doesn't fit in their session. Small stuff on their own paths with no number-backed criterion of its own — send it back: let them fix it where they are and write it into `Issues` or the commit message. A roadmap that grows faster than it closes is useless.
 2. **Is there a test?** For an architectural finding — a measurement with a number and a command. Neither one — send it back.
-3. **A duplicate?** `grep -in '<keywords>' ROADMAP.md docs/roadmap/DONE.md` → add to the item found and check that its "Done when" already covers the finding with a number. Found in `DONE.md` — the same problem came back: a new item linking to the old one, the old one isn't reopened.
+3. **A duplicate?** `grep -in '<keywords>' ROADMAP.md docs/roadmap/DONE.md` → add to the item found and check that its "Done when" already covers the finding with a number. Found in `DONE.md` — check which section. Among the closed items it means the same problem came back: a new item linking to the old one, the old one isn't reopened. In the "Dropped" subsection it means this was already tried and rejected — that's a question for the human (see the table "When you ask the human"), not a new item of your own.
 4. **A new item:** the section by topic; the number is the next free one **across both files** (`grep -n '^- \*\*B-' ROADMAP.md docs/roadmap/DONE.md`), a number from the archive is taken forever; `Depends on`; "Done when" with a number — no number, ask the sender for one. A large finding — several items, each with its own criterion.
 5. **The test goes into `main` together with the line.** Otherwise the item lands in `--ready` before its test reaches `origin/main`.
    - The finding arrived via `SendMessage` — its commit holds only the test, take it:
@@ -247,7 +247,7 @@ The rule rests on the properties of the error, not on the names of areas, so it 
 
 ## Starting an item
 
-1. **What can be taken:** `roadmap_lint.py --ready ROADMAP.md`. Don't run two items in parallel whose `My paths` overlap.
+1. **What can be taken:** `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md`. Don't run two items in parallel whose `My paths` overlap.
 2. **The line** — per the format in the "Roadmap items" section above: session `B-2`, `My paths`. `STATUS.md` — only if there's a sign from the "1. Start" section of "Item session"; the signs "needs a plan" and "a neighbor on nearby paths" are already visible at start time. Commit `[B-2] taken into work · <model>` and `git push` — the model goes in the message, so it's visible at closing time who did the work. All of this **before the session starts**: from inside the worktree, edits to the main copy are blocked, and the worktree is created from `origin/main` — without a push it won't see its own line.
 3. **Start:**
    ```bash
@@ -284,12 +284,12 @@ Order:
 4. **Clear blockers:** `grep -niE 'Depends on:.*\bB-4\b' ROADMAP.md` — tell live sessions of those items "B-4 is in origin/main, rebase", and the ones that became ready go into the launch queue.
 5. **Clean up:** `claude rm <id>` (the session and the worktree) or `git worktree remove .claude/worktrees/B-4`, then `git branch -d worktree-B-4` and `git push origin --delete worktree-B-4` — the item's session pushed its own branch, and on `origin` it would otherwise stay forever.
 
-**A dropped item goes to the same place.** Its line is removed from `ROADMAP.md`, and `DONE.md` gets a "Dropped" subsection with one line in it: number, title, date, the reason, and where the work moved if another item took it over. That way the archive answers not only "has this been done already?" but also "has this been tried and rejected?" — otherwise what was rejected lives only in an ADR, if one was written, and six months later the same item is opened again.
+**A dropped item goes to the same place.** Its line is removed from `ROADMAP.md`, and `DONE.md` gets a "Dropped" subsection with one line in it: number, title, date, the reason, and where the work moved if another item took it over. The `docs/roadmap/<X-N>/` folder, if one was opened, moves along with it into `done/<X-N>/` — otherwise the link in the "Dropped" line is broken; there was no folder, so there is no link. That way the archive answers not only "has this been done already?" but also "has this been tried and rejected?" — otherwise what was rejected lives only in an ADR, if one was written, and six months later the same item is opened again.
 
 After merging:
 - `ls docs/roadmap/inbox/` — the branch may have brought findings;
-- `roadmap_lint.py ROADMAP.md` — also flags theses with broken links to `done/`;
-- `roadmap_lint.py --ready ROADMAP.md` — what's now ready to start.
+- `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py ROADMAP.md` — also flags theses with broken links to `done/`;
+- `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md` — what's now ready to start.
 
 ## Common mistakes
 
