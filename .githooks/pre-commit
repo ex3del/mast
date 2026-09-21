@@ -23,7 +23,9 @@ command -v python3 >/dev/null 2>&1 || {
   exit 1
 }
 
-version_of() { python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])'; }
+# stderr глушим только здесь: пустой ввод значит «манифеста в этой ревизии нет» —
+# штатный случай строкой ниже, а не ошибка, ради которой стоит печатать трассировку
+version_of() { python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' 2>/dev/null; }
 
 # Манифеста нет ни в индексе, ни в HEAD — это не репозиторий плагина
 new=$(git show ":$MANIFEST" 2>/dev/null | version_of) || exit 0
