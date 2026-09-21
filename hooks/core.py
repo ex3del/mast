@@ -6,7 +6,7 @@ from pathlib import Path
 
 LANGS = ("ru", "en")
 HINT = {
-    "ru": "В этом проекте метод MAST не развёрнут. Развернуть — команда `/mast:init-project`.",
+    "ru": "В этом проекте метод MAST не развёрнут. Развернуть — команда `/mast:init-project-ru`.",
     "en": "MAST is not set up in this project. Run `/mast:init-project` to scaffold it.",
 }
 UNREADABLE = {

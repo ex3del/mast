@@ -101,9 +101,12 @@ docs server configured, the command says so and offers to skip.
 
 ## Choosing a language
 
-`userConfig.language` picks `ru` (default) or `en` for the core text, the
-skills, and the scaffold templates `/mast:init-project` copies. Set it at
-install time:
+`userConfig.language` picks `ru` (default) or `en` for the core text and the
+skills. The scaffolding command is picked by name: `/mast:init-project` copies
+the English templates, `/mast:init-project-ru` the Russian ones. The platform
+doesn't substitute the setting inside a command or skill body, which is why
+language is split into separate files there rather than a variable. Set the
+setting at install time:
 
 ```bash
 claude plugin install mast@ex3del --scope user --config language=en

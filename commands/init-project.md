@@ -1,284 +1,269 @@
 ---
-description: Scaffold the MAST method in a new project, or migrate an existing project's docs to it under human review — CLAUDE.md, ROADMAP.md, docs/roadmap/, .claude/rules/. Развернуть каркас метода MAST в новом проекте или привести к нему проект с историей под надзором человека.
+description: Scaffold the MAST method in a new project, or migrate an existing project's docs to it under human review — CLAUDE.md, ROADMAP.md, docs/roadmap/, .claude/rules/.
 ---
 
-Тексты каркаса, которые эта команда скопирует (`CLAUDE.md`, `ROADMAP.md`, пример правила),
-берутся на языке настройки плагина `userConfig.language` — независимо от того, что сама эта
-инструкция всегда на русском.
+The scaffold texts this command will copy (`CLAUDE.md`, `ROADMAP.md`, the example rule)
+are taken from the plugin's English locale — `${CLAUDE_PLUGIN_ROOT}/locales/en/`.
 
-Ты приводишь текущий проект к каркасу метода MAST. Пять артефактов каркаса:
-`CLAUDE.md`, `ROADMAP.md`, каталог `docs/roadmap/`, файл `.claude/rules/example.md`
-(пример правила с `paths:`) и строка `.claude/worktrees/` в `.gitignore`. У проекта с
-историей, кроме этого, бывают свои `TODO.md`, `CHANGELOG.md`, правила без `paths:` и
-прочее, что метод умеет переносить в свой формат, — это и есть ревизия, три шага ниже.
-Отдельно от этой пятёрки — шестой, необязательный артефакт: правило Context7
-`.claude/rules/context7.md` (плагин несёт вместе с ним и сам MCP-сервер, см. README);
-предлагается своим отдельным вопросом на шаге 2, не в общей пятёрке.
+You are bringing the current project up to the MAST method's scaffold. Five scaffold
+artifacts: `CLAUDE.md`, `ROADMAP.md`, the `docs/roadmap/` directory, the file
+`.claude/rules/example.md` (an example rule with `paths:`) and the line
+`.claude/worktrees/` in `.gitignore`. A project with history also has its own `TODO.md`,
+`CHANGELOG.md`, rules without `paths:` and whatever else the method can carry over into
+its own format — that is the audit, the three steps below. Separate from those five is a
+sixth, optional artifact: the Context7 rule `.claude/rules/context7.md` (the plugin ships
+the MCP server itself along with it, see README); it is offered by its own separate
+question at step 2, not within the common five.
 
-Шаблоны для копирования лежат в плагине: `${CLAUDE_PLUGIN_ROOT}/locales/<язык>/templates/`
+The templates to copy live in the plugin: `${CLAUDE_PLUGIN_ROOT}/locales/en/templates/`
 — `CLAUDE.template.md`, `ROADMAP.template.md`, `rule.template.md`, `context7.rule.template.md`.
 
-## Аргумент `--check`
+## The `--check` argument
 
-`$ARGUMENTS` содержит `--check` — команда доходит до конца шага 2 (опись и предложения),
-показывает все находки и диффы, но **не задаёт вопросов и не переходит к шагу 3**: ни один
-файл не создаётся и не правится. Это принудительный предпросмотр — гарантия «`--check`
-меняет 0 файлов» не зависит от того, есть кому отвечать на вопросы (в неинтерактивном
-запуске отвечать всё равно некому, но `--check` делает это явным, а не побочным эффектом).
+`$ARGUMENTS` contains `--check` — the command runs to the end of step 2 (the survey and the
+proposals), shows every finding and every diff, but **asks no questions and doesn't move on
+to step 3**: not a single file is created or edited. This is a forced dry run — the guarantee
+"`--check` changes 0 files" doesn't depend on there being someone to answer questions (in a
+non-interactive run there is nobody to answer anyway, but `--check` makes that explicit
+rather than a side effect).
 
-## Ограждения ревизии
+## Audit guardrails
 
-Их четыре, они действуют на весь сценарий ниже, а не только на находки из чужого формата:
+There are five, and they hold for the whole scenario below, not only for findings in a foreign format:
 
-1. **«Готово когда» с числом не придумывается.** Перенос чужой формулировки («сделать
-   экспорт в PDF») не превращается в замер от себя. Формулировка переносится как есть,
-   критерий помечается незаданным и остаётся дописать человеку. Выдуманные числа ломают
-   метод в первый же день.
-2. **Дерево git должно быть чистым перед правкой или заменой уже существующего файла.**
-   Тогда результат такой правки виден через `git diff`, а откат — одна команда; это
-   надёжнее любых резервных копий, и именно поэтому ограждение существует — есть что
-   перезаписать, значит есть что откатывать. Правило смотрит на конкретный файл, а не
-   на категорию предложения: файла не было и он создаётся с нуля (хоть один из пяти
-   базовых артефактов, хоть `ROADMAP.md` из `TODO.md`, хоть `docs/roadmap/DONE.md` из
-   `CHANGELOG.md`) — перезаписывать нечего, чистота дерева не блокирует, откат для
-   такого файла — просто `rm`, а не `git diff`; дерево при этом грязное — предупреди
-   об этом, но не останавливайся. Файл уже существует и его меняют на месте (длинный
-   `CLAUDE.md`, правило без `paths:`, дозапись строки в существующий `.gitignore`,
-   уже существующий `ROADMAP.md`) — дерево грязное блокирует именно эту правку, попроси
-   сначала закоммитить.
-3. **Ни один файл не перезаписывается молча.** Есть файл — дифф «было → станет» и отдельный
-   вопрос по нему. Отказ человека — законный исход, а не ошибка, которую надо обойти.
-4. **Версия Claude Code проверяется в описи.** Диспетчер и параллельные сессии (`SendMessage`,
-   `ListAgents`) требуют не ниже 2.1.234, а объявленная зависимость от `superpowers` — 2.1.242,
-   поэтому минимум у плагина 2.1.242.
-   Версия ниже — метод всё равно разворачивается, но в отчёте прямо сказано, какая часть
-   работать не будет. Версию проверить не удалось (например, отклонено разрешение на запуск
-   `claude --version`) — запиши в опись прямо «версия не проверена», не расценивай это как
-   «ниже минимальной» и не умалчивай — сценарий продолжается как обычно.
-5. **В `CLAUDE.md` вписывается только найденное.** Стек, команды, тестовый фреймворк,
-   конвенции и корневые папки берутся из файлов проекта; чего в файлах нет — остаётся
-   плейсхолдером `<...>` для человека. Догадка о команде тестов дороже пустого места:
-   по ней потом гоняют приёмку.
+1. **A "Done when" with a number is never invented.** Carrying over someone else's wording
+   ("add PDF export") doesn't turn into a measurement of your own. The wording is carried
+   over as is, the criterion is marked as not set and is left for the human to fill in.
+   Invented numbers break the method on day one.
+2. **The git tree must be clean before editing or replacing a file that already exists.**
+   Then the result of such an edit is visible through `git diff`, and the rollback is one
+   command; that is more reliable than any backup copy, and that is exactly why the
+   guardrail exists — if there is something to overwrite, there is something to roll back.
+   The rule looks at the specific file, not at the category of the proposal: the file didn't
+   exist and is created from scratch (be it one of the five base artifacts, or `ROADMAP.md`
+   built from `TODO.md`, or `docs/roadmap/DONE.md` built from `CHANGELOG.md`) — there is
+   nothing to overwrite, a clean tree doesn't block it, the rollback for such a file is
+   simply `rm`, not `git diff`; the tree is dirty at that point — warn about it, but don't
+   stop. The file already exists and is being changed in place (a long `CLAUDE.md`, a rule
+   without `paths:`, appending a line to an existing `.gitignore`, an already existing
+   `ROADMAP.md`) — a dirty tree blocks exactly that edit, ask for a commit first.
+3. **No file is overwritten silently.** There is a file — a "was → would become" diff and a
+   separate question about it. A human's refusal is a legitimate outcome, not an error to be worked around.
+4. **The Claude Code version is checked in the survey.** The dispatcher and parallel sessions
+   (`SendMessage`, `ListAgents`) require 2.1.234 or higher, and the declared dependency on
+   `superpowers` requires 2.1.242, so the plugin's minimum is 2.1.242.
+   A lower version — the method is scaffolded anyway, but the report says plainly which part
+   won't work. The version couldn't be checked (for example, permission to run
+   `claude --version` was declined) — write "version not checked" into the survey plainly,
+   don't treat it as "below the minimum" and don't keep quiet about it — the scenario continues as usual.
+5. **Only what was found goes into `CLAUDE.md`.** The stack, the commands, the test framework,
+   the conventions and the root folders are taken from the project's files; whatever isn't in
+   the files stays a `<...>` placeholder for the human. A guess about the test command costs
+   more than an empty slot: acceptance is run against it later.
 
-## Шаг 0. Язык шаблонов
+## Step 1. Survey
 
-Язык задаёт настройка плагина `userConfig.language` (`ru` по умолчанию, `en`). Прямого доступа
-к этому значению из текста команды нет — `${user_config.language}` здесь не подставляется
-движком (проверено экспериментом). Определи язык косвенно — по тексту, который хук
-`SessionStart` уже вложил в начало этой сессии: он читает ту же настройку и вставляет либо
-ядро метода целиком, либо короткую подсказку «метод не развёрнут», на нужном языке.
+Collect and briefly show the human:
 
-- в контексте русский текст («В этом проекте метод MAST не развёрнут...» или заголовки вида
-  «## Где что записывать») → язык `ru`;
-- английский текст («MAST is not set up in this project...» или «## Where to write things») →
-  язык `en`.
-
-Не нашёл ни то, ни другое (хук не сработал или контекст не сохранился) — язык `ru`, это
-значение по умолчанию в `plugin.json`.
-
-## Шаг 1. Опись
-
-Собери и кратко покажи человеку:
-
-- **Стек и зависимости** — по манифестам в корне проекта (`package.json`, `pyproject.toml`,
-  `requirements.txt`, `go.mod`, `Cargo.toml`, `Gemfile`, ...), какие найдутся.
-- **Тесты** — команда их запуска, если её видно по манифесту, `Makefile` или CI-конфигу
-  (`npm test`, `pytest`, `go test ./...`, ...). Не видно — так и скажи, не выдумывай команду.
-- **Remote и ветка по умолчанию** — `git remote -v` и `git branch --show-current`. Веток в
-  репозитории ещё нет (только что `git init`) — отметь это, а не выдумывай ветку.
-- **Версия Claude Code** — `claude --version`. Сравни с минимальной 2.1.242 по номерам
-  major.minor.patch (ограждение 4). Ниже минимальной — зафиксируй это в описи; проверить не
-  удалось — зафиксируй и это явно («версия не проверена»), не приравнивай к «ниже минимальной».
-  Ни то ни другое само по себе не повод останавливаться, ни один файл на этом шаге ещё не
-  пишется.
-- **Чистота дерева git** — `git status --porcelain`. Зафиксируй результат в описи и запомни
-  его для шага 3 (ограждение 2): он блокирует там только правку уже существующих файлов,
-  создание любого нового файла с нуля грязное дерево не останавливает.
-- **Данные для `CLAUDE.md`** — то, что на шаге 3 встанет в шаблон вместо плейсхолдеров.
-  Читай параллельно, каждое — только если такой файл есть, и ничего не достраивай по догадке
-  (ограждение 5):
-  - **стек** — манифест корня (`package.json`, `pyproject.toml`, `requirements.txt`,
-    `Cargo.toml`, `go.mod`, `*.csproj`, `pom.xml`, `build.gradle`): язык, версия runtime,
-    фреймворки, ключевые библиотеки, база данных и брокеры, если они там названы;
-  - **команды** — установка, запуск, сборка, тесты, линт: `scripts` манифеста, `Makefile`,
-    `justfile`, `tox.ini`, конфиг CI. Команды, которой нигде нет, в файле не будет;
-  - **тесты** — каталоги (`tests/`, `test/`, `__tests__/`, `spec/`, `e2e/`) и конфиги
+- **Stack and dependencies** — from the manifests in the project root (`package.json`,
+  `pyproject.toml`, `requirements.txt`, `go.mod`, `Cargo.toml`, `Gemfile`, ...), whichever are there.
+- **Tests** — the command that runs them, if it's visible in a manifest, a `Makefile` or a CI
+  config (`npm test`, `pytest`, `go test ./...`, ...). Not visible — say so, don't invent a command.
+- **Remote and default branch** — `git remote -v` and `git branch --show-current`. There are no
+  branches in the repository yet (a fresh `git init`) — note that, don't invent a branch.
+- **Claude Code version** — `claude --version`. Compare with the minimum 2.1.242 by
+  major.minor.patch (guardrail 4). Below the minimum — record it in the survey; couldn't check
+  — record that explicitly too ("version not checked"), don't equate it with "below the minimum".
+  Neither of the two is a reason to stop by itself, and no file is written at this step yet.
+- **Cleanliness of the git tree** — `git status --porcelain`. Record the result in the survey and
+  remember it for step 3 (guardrail 2): there it blocks only edits to files that already exist,
+  and creating any new file from scratch is not stopped by a dirty tree.
+- **Data for `CLAUDE.md`** — what will go into the template at step 3 in place of the placeholders.
+  Read in parallel, each one only if such a file exists, and don't fill anything in by guesswork
+  (guardrail 5):
+  - **stack** — the root manifest (`package.json`, `pyproject.toml`, `requirements.txt`,
+    `Cargo.toml`, `go.mod`, `*.csproj`, `pom.xml`, `build.gradle`): the language, the runtime
+    version, frameworks, key libraries, the database and brokers, if they are named there;
+  - **commands** — install, run, build, test, lint: the manifest's `scripts`, `Makefile`,
+    `justfile`, `tox.ini`, the CI config. A command that exists nowhere won't be in the file;
+  - **tests** — directories (`tests/`, `test/`, `__tests__/`, `spec/`, `e2e/`) and configs
     (`jest.config.*`, `vitest.config.*`, `pytest.ini`, `playwright.config.*`,
-    `cypress.config.*`): какой фреймворк и где лежат;
-  - **инфраструктура** — `Dockerfile`, `docker-compose.yml`, `.github/workflows/`,
-    `.gitlab-ci.yml`, `Jenkinsfile`, `*.tf`, `k8s/`, `helm/`: одной строкой, что есть;
-  - **конвенции** — `.editorconfig`, `.eslintrc*`/`eslint.config.*`, `.prettierrc*`,
-    `tsconfig.json` (включён ли `strict`), `[tool.black]`/`[tool.ruff]` в `pyproject.toml`,
+    `cypress.config.*`): which framework and where they live;
+  - **infrastructure** — `Dockerfile`, `docker-compose.yml`, `.github/workflows/`,
+    `.gitlab-ci.yml`, `Jenkinsfile`, `*.tf`, `k8s/`, `helm/`: one line on what's there;
+  - **conventions** — `.editorconfig`, `.eslintrc*`/`eslint.config.*`, `.prettierrc*`,
+    `tsconfig.json` (whether `strict` is on), `[tool.black]`/`[tool.ruff]` in `pyproject.toml`,
     `.flake8`;
-  - **корневые папки**, кроме служебных (`node_modules`, `.git`, `dist`, `build`, `.next`,
-    `__pycache__`, `.venv`, `target`, `vendor`) — по строке на папку, чем занята;
-  - **`README.md` и `CONTRIBUTING.md`** — описание проекта в одну-две строки и соглашения
-    разработки, если они там есть.
-- **Что из каркаса уже есть** — проверь каждый из пяти артефактов по отдельности: файл
-  `CLAUDE.md`, файл `ROADMAP.md`, каталог `docs/roadmap/`, файл `.claude/rules/example.md`,
-  и есть ли в `.gitignore` (если он существует) строка `.claude/worktrees/`.
-- **Правило Context7** — есть ли уже `.claude/rules/context7.md` (шестой артефакт, отдельный
-  от пятёрки выше, см. шаг 2).
-- **Что ещё есть в проекте помимо каркаса** — то, что метод умеет мигрировать:
-  - `TODO.md` или самодельный роадмап (любой файл со списком задач вне нашего формата) —
-    есть ли, сколько пунктов, в каком виде.
-  - `CHANGELOG.md` — есть ли, есть ли в нём закрытая работа.
-  - `docs/` — что внутри, если каталог уже есть.
-  - `.claude/rules/*.md`, кроме `example.md` и `context7.md` (у него своя строка выше) —
-    какие есть, у каждого отдельно: начинается ли файл с фронтматтера `paths:` или нет.
-  - `.claude/worktrees/` — есть ли каталог (следы незавершённых worktree), даже если строки
-    в `.gitignore` для него ещё нет.
-  - Свой сервер документации — если в проекте есть собственный `.mcp.json` (это файл проекта,
-    не файл плагина), есть ли в нём сервер с именем или `url`, похожим на поиск документации
-    (например, содержит `context7`) — пригодится на шаге 2 при вопросе про правило Context7.
-    Проверка смотрит только в этот файл: сервер, подключённый пользователем глобально или
-    только в текущей сессии, эвристика не увидит — поэтому вопрос про правило на шаге 2
-    задаётся в любом случае, а не только когда файл пуст или не найден, и решает человек.
-  - Открытые issue — если есть remote на GitHub и доступен `gh`, `gh issue list`; нет
-    доступа или remote — не выдумывай, просто не показывай этот пункт.
+  - **root folders**, other than the service ones (`node_modules`, `.git`, `dist`, `build`,
+    `.next`, `__pycache__`, `.venv`, `target`, `vendor`) — one line per folder, what it holds;
+  - **`README.md` and `CONTRIBUTING.md`** — the project description in one or two lines and the
+    development conventions, if they are there.
+- **What of the scaffold already exists** — check each of the five artifacts separately: the file
+  `CLAUDE.md`, the file `ROADMAP.md`, the directory `docs/roadmap/`, the file
+  `.claude/rules/example.md`, and whether `.gitignore` (if it exists) has the line `.claude/worktrees/`.
+- **The Context7 rule** — whether `.claude/rules/context7.md` already exists (the sixth artifact,
+  separate from the five above, see step 2).
+- **What else the project has besides the scaffold** — what the method can migrate:
+  - `TODO.md` or a homemade roadmap (any file with a task list outside our format) — whether
+    there is one, how many items, in what shape.
+  - `CHANGELOG.md` — whether there is one, whether it holds closed work.
+  - `docs/` — what's inside, if the directory already exists.
+  - `.claude/rules/*.md`, other than `example.md` and `context7.md` (it has its own line above) —
+    which ones there are, for each separately: does the file start with `paths:` frontmatter or not.
+  - `.claude/worktrees/` — whether the directory exists (traces of unfinished worktrees), even if
+    there is no line for it in `.gitignore` yet.
+  - A docs server of its own — if the project has its own `.mcp.json` (that is a project file,
+    not a plugin file), whether it holds a server whose name or `url` looks like documentation
+    lookup (contains `context7`, for example) — useful at step 2 for the question about the
+    Context7 rule. The check looks only at that file: a server the user connected globally or
+    only in the current session won't be seen by this heuristic — which is why the question
+    about the rule at step 2 is asked in any case, not only when the file is empty or missing,
+    and the human decides.
+  - Open issues — if there is a GitHub remote and `gh` is available, `gh issue list`; no access
+    or no remote — don't invent, just don't show this line.
 
-Для каждой находки — одной строкой, что это за файл и какую роль играет, насколько
-расходится с эталоном каркаса. Ничего из этого шаг 1 не пишет и не правит — только читает.
+For every finding — one line: what the file is, what role it plays, how far it diverges from the
+scaffold's reference shape. Step 1 writes and edits none of this — it only reads.
 
-## Шаг 2. Предложения и вопросы
+## Step 2. Proposals and questions
 
-Раздели то, что будешь предлагать, на два вида.
+Split what you are going to propose into two kinds.
 
-**Сначала проверь, что шаблоны читаются** — `${CLAUDE_PLUGIN_ROOT}/locales/<язык>/templates/*.template.md`.
-Недоступны (бывает — доступ сессии ограничен рабочим каталогом проекта, и
-каталог плагина в него не входит) — это касается не только диффа `ROADMAP.md` при переносе
-`TODO.md`, а всех пяти базовых артефактов разом (и правила Context7 тоже — оно такой же
-шаблон): не сочиняй по памяти ни один из них, ни `CLAUDE.md`, ни `ROADMAP.md`, ни
-`rule.template.md` для `.claude/rules/example.md`, ни `context7.rule.template.md` — по
-тексту ядра метода в контексте формат воспроизводится не точно, и линт на шаге 3 такой файл
-не пройдёт. Скажи прямо, что шаблоны недоступны, и дай готовый следующий шаг: перезапустить
-с `--add-dir <корень плагина>` — это и есть значение `${CLAUDE_PLUGIN_ROOT}`, которое ты уже
-видишь подставленным в этом же тексте команды (для реального пользователя это обычно
-`~/.claude/plugins/...` — типичный случай, не редкий). Предложения, которым шаблон не нужен
-(правило без `paths:`, `CHANGELOG.md` → `DONE.md`, строка `.gitignore`), эта недоступность не
-касается — показывай их как обычно.
+**First check that the templates are readable** — `${CLAUDE_PLUGIN_ROOT}/locales/en/templates/*.template.md`.
+Unreadable (it happens — the session's access is limited to the project's working directory, and
+the plugin's directory isn't inside it) — this affects not only the `ROADMAP.md` diff when
+migrating `TODO.md`, but all five base artifacts at once (and the Context7 rule too — it is the
+same kind of template): don't make up any of them from memory, neither `CLAUDE.md`, nor
+`ROADMAP.md`, nor `rule.template.md` for `.claude/rules/example.md`, nor
+`context7.rule.template.md` — the format isn't reproduced exactly from the method's core text in
+the context, and the lint at step 3 won't pass such a file. Say plainly that the templates are
+unavailable, and give a ready next step: relaunch with `--add-dir <plugin root>` — that is
+exactly the value of `${CLAUDE_PLUGIN_ROOT}` which you already see substituted in this very
+command text (for a real user it is usually `~/.claude/plugins/...` — the typical case, not a
+rare one). Proposals that need no template (a rule without `paths:`, `CHANGELOG.md` →
+`DONE.md`, the `.gitignore` line) are not affected by this — show them as usual.
 
-**Недостающие артефакты каркаса** — те из пяти, которых нет вовсе. Для них дифф
-вырожденный: файла не было — появится копия шаблона. Покажи список конкретно:
+**Missing scaffold artifacts** — those of the five that don't exist at all. Their diff is
+degenerate: the file didn't exist — a copy of the template appears. Show the list concretely:
 
-1. `CLAUDE.md` — шаблон `${CLAUDE_PLUGIN_ROOT}/locales/<язык>/templates/CLAUDE.template.md`
-   с вписанными данными из описи: стек, команды, тесты, конвенции, корневые папки, описание
-   из `README.md`. Дифф здесь не вырожденный — покажи получившийся текст целиком. Секции
-   «Инварианты проекта» и «Код» команда не придумывает: они едут из шаблона как есть.
-2. `ROADMAP.md` — копия `ROADMAP.template.md`, **если** в проект не мигрирует `TODO.md`
-   или самодельный роадмап (тогда `ROADMAP.md` не в этом списке, а в своём вопросе ниже —
-   его содержимое не шаблонное, а собранное из находки).
-3. `docs/roadmap/` — пустой каталог (git его не хранит, появится с первым пунктом).
-4. `.claude/rules/example.md` — копия `rule.template.md`.
-5. Строка `.claude/worktrees/` в `.gitignore`: файла нет — создать с этой строкой; файл
-   есть, строки нет — дописать в конец; строка уже есть — не трогать вовсе, этот пункт
-   тогда не в списке.
+1. `CLAUDE.md` — the template `${CLAUDE_PLUGIN_ROOT}/locales/en/templates/CLAUDE.template.md`
+   with the survey's data filled in: stack, commands, tests, conventions, root folders, the
+   description from `README.md`. The diff here isn't degenerate — show the resulting text in
+   full. The command doesn't invent the "Project invariants" and "Code" sections: they come from the template as is.
+2. `ROADMAP.md` — a copy of `ROADMAP.template.md`, **if** no `TODO.md` or homemade roadmap is
+   being migrated into the project (then `ROADMAP.md` is not in this list but in its own
+   question below — its content isn't the template's, it is assembled from the finding).
+3. `docs/roadmap/` — an empty directory (git doesn't store it, it appears with the first item).
+4. `.claude/rules/example.md` — a copy of `rule.template.md`.
+5. The line `.claude/worktrees/` in `.gitignore`: no file — create it with that line; the file
+   exists but the line doesn't — append it at the end; the line is already there — don't touch
+   it at all, and then this point isn't in the list.
 
-Плейсхолдер `<...>`, для которого в описи не нашлось данных, оставляй плейсхолдером — его
-впишет человек под свой проект. Заполняется только то, что прочитано из файлов проекта
-(ограждение 5); придуманные детали — «TaskFlow», «PDF-экспорт», команда тестов «по аналогии»
-— в шаблон не переносятся. В `ROADMAP.md` и в правилах плейсхолдеры не заполняются вовсе:
-там нет данных, которые можно прочитать, — есть только решения человека.
+A `<...>` placeholder for which the survey found no data stays a placeholder — the human fills
+it in for their own project. Only what was read from the project's files is filled in
+(guardrail 5); invented details — "TaskFlow", "PDF export", a test command "by analogy" — are
+not carried into the template. In `ROADMAP.md` and in the rules, placeholders are not filled in
+at all: there is no data there that could be read — only human decisions.
 
-Перезаписывать здесь нечего (все пять — либо копия, либо дозапись строки), поэтому
-задай один общий вопрос на всё сразу и дождись явного подтверждения, прежде чем писать
-хоть один файл. Отказ или отсутствие ответа — ничего из этого списка не создавай.
+There is nothing to overwrite here (all five are either a copy or an appended line), so ask one
+common question for all of it at once and wait for an explicit confirmation before writing a
+single file. A refusal or no answer — create nothing from this list.
 
-**Правило Context7 — шестой артефакт, отдельно от пятёрки выше.** `.claude/rules/context7.md`
-не входит в общий вопрос: плагин несёт его вместе с MCP-сервером Context7 (см. README), но
-сервер и правило — не одно и то же решение, поэтому у правила свой вопрос. Файла ещё нет —
-предложи копию `context7.rule.template.md`, дифф вырожденный, как у остальных пяти. Нашёлся на
-шаге 1 свой сервер документации в `.mcp.json` проекта — не навязывай своё: скажи человеку, что
-такой сервер уже настроен, и предложи пропустить (правило ссылается на инструмент по роли, а не
-по имени, и будет работать с любым сервером, включая уже настроенный, — так что согласие тоже
-законный ответ, просто не единственный ожидаемый). Файл `.claude/rules/context7.md` уже
-существует — считается на месте, как и остальные пять: с шаблоном не сверяется, отдельного
-вопроса по нему здесь нет (если он без `paths:` — это ловит общая строка таблицы «правило
-в `.claude/rules/` без `paths:`» ниже, как у любого другого правила).
+**The Context7 rule — the sixth artifact, separate from the five above.** `.claude/rules/context7.md`
+is not part of the common question: the plugin ships it together with the Context7 MCP server
+(see README), but the server and the rule are not one and the same decision, so the rule has its
+own question. The file doesn't exist yet — propose a copy of `context7.rule.template.md`, the
+diff is degenerate, as for the other five. Step 1 found a docs server of the project's own in
+`.mcp.json` — don't push yours: tell the human such a server is already configured, and offer to
+skip (the rule names the tool by role rather than by name, and will work with any server,
+including the one already configured — so agreement is a legitimate answer too, just not the
+only expected one). The file `.claude/rules/context7.md` already exists — it counts as in place,
+like the other five: it is not compared against the template, and there is no separate question
+about it here (if it has no `paths:` — that is caught by the general table row "a rule in
+`.claude/rules/` without `paths:`" below, as for any other rule).
 
-**Находки, которые конфликтуют или подлежат переносу** — каждая получает свой дифф
-«было → станет» и свой отдельный вопрос, ответы на них независимы:
+**Findings that conflict or are due to be carried over** — each gets its own "was → would become"
+diff and its own separate question; the answers to them are independent:
 
-| Что нашли | Что предлагаем |
+| What was found | What we propose |
 |---|---|
-| `TODO.md` или самодельный роадмап | пункты в наш формат: раздел буквой, номер, статус, «Мои пути», «Готово когда» — дифф показывает предлагаемый текст `ROADMAP.md`. Критерий без числа в оригинале — переносится текстом и помечается незаданным (ограждение 1), не сочиняется |
-| `CLAUDE.md` длиннее 200 строк | что вынести в `docs/` (архитектура, справочник), что — в `.claude/rules/*.md` с `paths:`, что оставить как есть — дифф по каждому куску отдельно |
-| правило в `.claude/rules/` без `paths:` | добавить фронтматтер `paths:` и предполагаемые пути — дифф самого правила |
-| `CHANGELOG.md` с закрытой работой | тезисы в `docs/roadmap/DONE.md`, по две строки на пункт — дифф добавляемых строк |
-| `.claude/worktrees/` есть, строки в `.gitignore` нет | строка `.claude/worktrees/` в конец `.gitignore` |
+| `TODO.md` or a homemade roadmap | the items in our format: section letter, number, status, `My paths`, `Done when` — the diff shows the proposed `ROADMAP.md` text. A criterion with no number in the original — carried over as text and marked as not set (guardrail 1), not invented |
+| `CLAUDE.md` longer than 200 lines | what to move out to `docs/` (architecture, reference), what to `.claude/rules/*.md` with `paths:`, what to leave as is — a separate diff per piece |
+| a rule in `.claude/rules/` without `paths:` | add `paths:` frontmatter and the likely paths — a diff of the rule itself |
+| `CHANGELOG.md` with closed work | theses in `docs/roadmap/DONE.md`, two lines per item — a diff of the lines being added |
+| `.claude/worktrees/` exists, no line in `.gitignore` | the line `.claude/worktrees/` at the end of `.gitignore` |
 
-Формат строки критерия при переносе — важно для линта, не только для человека: строка
-`Готово когда:` должна содержать ровно `не задан` и ничего больше. Перенесённая
-формулировка («сделать экспорт в PDF», «накрутил 10000 задач») идёт в название пункта
-или отдельной строкой ниже, а не внутрь строки критерия — иначе её цифры (если они там
-есть, но описывают проблему, а не замер) `roadmap_lint.py` примет за заданный критерий,
-и ограждение 1 перестанет быть видно линту на шаге 3.
+The format of the criterion line when carrying items over matters to the lint, not only to the
+human: the `Done when:` line must contain exactly `not set` and nothing else. The carried-over
+wording ("add PDF export", "piled up 10000 tasks") goes into the item's title or a separate line
+below it, not inside the criterion line — otherwise its digits (if there are any there, but they
+describe the problem rather than a measurement) will be taken by `roadmap_lint.py` for a
+criterion that is set, and guardrail 1 stops being visible to the lint at step 3.
 
-Если находка одна, а решений в ней несколько (например, у длинного `CLAUDE.md` три
-куска на вынос) — вопросов тоже несколько, человек может принять часть и отклонить
-часть. Нет файла-кандидата ни на один пункт таблицы, все пять артефактов уже на
-месте и `.claude/rules/context7.md` тоже уже есть — сообщи, что каркас уже
-соответствует эталону, и останови сценарий без вопросов.
+If there is one finding but several decisions inside it (three pieces to move out of a long
+`CLAUDE.md`, for example) — then there are several questions too, and the human may accept some
+and reject others. No candidate file for any row of the table, all five artifacts already in
+place and `.claude/rules/context7.md` already there as well — report that the scaffold already
+matches the reference, and stop the scenario without questions.
 
-Ни на один файл, который уже существует, ничего не пишется без вопроса именно по
-нему (ограждение 3): отказ человека или отсутствие ответа — файл остаётся как есть,
-это законный исход, а не ошибка, которую надо обойти в следующий раз.
+Nothing is written to any file that already exists without a question about that very file
+(guardrail 3): a human's refusal or no answer — the file stays as it is, and that is a
+legitimate outcome, not an error to be worked around next time.
 
-`$ARGUMENTS` содержит `--check` — на этом сценарий останавливается: вопросы не
-задаются, шаг 3 не начинается, отчёт заканчивается списком показанных предложений.
+`$ARGUMENTS` contains `--check` — the scenario stops here: no questions are asked, step 3
+doesn't begin, the report ends with the list of proposals shown.
 
-## Шаг 3. Применение и линт
+## Step 3. Applying and lint
 
-Используй факт о чистоте дерева, записанный в описи на шаге 1, — не перепроверяй его здесь
-заново: как только этот же шаг создаст недостающие артефакты, `git status --porcelain`
-перестанет быть пустым из-за них самих, и повторная проверка ошибочно заблокирует диффы по
-находкам, хотя дело не в них.
+Use the fact about the tree's cleanliness recorded in the survey at step 1 — don't recheck it
+here: as soon as this very step creates the missing artifacts, `git status --porcelain` stops
+being empty because of them, and a repeated check would wrongly block the diffs for the
+findings, although they are not the cause.
 
-Применяй только то, что приняли, и по каждому пункту смотри не на категорию (недостающий
-артефакт или находка), а на сам файл (ограждение 2):
+Apply only what was accepted, and for each point look not at the category (a missing artifact or
+a finding) but at the file itself (guardrail 2):
 
-- **файла не было, создаёшь с нуля** — пять базовых артефактов, `.claude/rules/context7.md`
-  (если приняли и своего сервера документации не нашлось или человек всё равно согласился),
-  `ROADMAP.md`, собранный из `TODO.md`, если `ROADMAP.md` ещё не существовал,
-  `docs/roadmap/DONE.md` из `CHANGELOG.md`. Дерево на шаге 1 не проверяешь — нечего
-  перезаписывать, откат для такого файла — `rm`. Было грязным — создавай всё равно, но
-  предупреди человека одной строкой: эти файлы лягут поверх незакоммиченных изменений;
-- **файл уже существовал, меняешь его на месте** — длинный `CLAUDE.md`, правило без
-  `paths:`, дозапись строки в существующий `.gitignore`, уже существующий `ROADMAP.md`.
-  Применяй, только если дерево на шаге 1 было чистым. Было грязным — эту правку не
-  применяй вовсе, скажи человеку закоммитить сначала и вернуться к этому шагу; создание
-  файлов с нуля из пункта выше это не откатывает и не трогает. Дерево было чистым —
-  применяй ровно как показано на шаге 2, ничего сверху не досочиняй (ограждение 1
-  остаётся в силе и здесь: если критерий пришёл без числа, он и после применения без
-  числа);
-- отклонённые или без ответа — не трогай, даже если для соседнего файла в этом же
-  прогоне ответ был «да».
+- **the file didn't exist and you create it from scratch** — the five base artifacts,
+  `.claude/rules/context7.md` (if it was accepted and no docs server of the project's own was
+  found, or the human agreed anyway), `ROADMAP.md` assembled from `TODO.md` if `ROADMAP.md`
+  didn't exist yet, `docs/roadmap/DONE.md` from `CHANGELOG.md`. You don't check the tree from
+  step 1 — there is nothing to overwrite, the rollback for such a file is `rm`. It was dirty —
+  create them anyway, but warn the human in one line: these files will land on top of
+  uncommitted changes;
+- **the file already existed and you change it in place** — a long `CLAUDE.md`, a rule without
+  `paths:`, appending a line to an existing `.gitignore`, an already existing `ROADMAP.md`.
+  Apply only if the tree at step 1 was clean. It was dirty — don't apply this edit at all, tell
+  the human to commit first and come back to this step; that doesn't roll back or touch the
+  files created from scratch in the point above. The tree was clean — apply exactly as shown at
+  step 2, don't make up anything on top (guardrail 1 holds here too: if the criterion arrived
+  without a number, it stays without a number after applying);
+- rejected or unanswered — don't touch them, even if the answer for a neighboring file in the
+  same run was "yes".
 
-`ROADMAP.md` в проекте теперь есть (создан или отредактирован) — прогони:
+The project now has a `ROADMAP.md` (created or edited) — run:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py ROADMAP.md
 ```
 
-**Код ноль** — скажи, что каркас соответствует эталону, и что сделать дальше:
+**Exit code zero** — say that the scaffold matches the reference, and what to do next:
 
-- открыть `CLAUDE.md` и `ROADMAP.md`, заменить оставшиеся плейсхолдеры данными проекта;
-- дописать критерии, помеченные незаданными (ограждение 1), если такие остались;
-- завести следующий реальный пункт роадмапа скиллом `mast:managing-roadmap-items` (для
-  русского языка — `mast:managing-roadmap-items-ru`);
-- закоммитить результат — `git diff` целиком показывает, что сделала ревизия.
+- open `CLAUDE.md` and `ROADMAP.md`, replace the remaining placeholders with the project's data;
+- fill in the criteria marked as not set (guardrail 1), if any are left;
+- open the next real roadmap item with the skill `mast:managing-roadmap-items`;
+- commit the result — `git diff` shows in full what the audit did.
 
-**Код не ноль** — не путай разные случаи:
+**A non-zero code** — don't confuse the different cases:
 
-- **Незаданный критерий, оставленный намеренно (ограждение 1).** Линт пометит его
-  «в «Готово когда» нет числа» — это ожидаемое приглашение человеку дописать, а не
-  поломка применения.
-- **Нарушение в части файла, которую человек не принял на шаге 2.** Оно принадлежит
-  нетронутому куску — покажи как есть, не чини молча: правка без вопроса запрещена
-  тем же ограждением 3, что и на шаге 2.
-- **`ROADMAP.md` создан из `ROADMAP.template.md`, язык — `ru`.** Так быть не должно:
-  русский шаблон обязан проходить линт (это же проверяет тест
-  `test_шаблон_роадмапа_проходит_собственный_линт`). Покажи нарушения и скажи прямо,
-  что шаблон плагина испорчен — это баг плагина, а не проекта.
-- Ничего из перечисленного не подходит — это новое нарушение от применённой правки,
-  почини его: значит дифф на шаге 2 был неточным.
+- **A criterion deliberately left unset (guardrail 1).** The lint flags it as
+  `"Done when" has no number` — that is the expected invitation for the human to fill it in, not
+  a breakage of the applying.
+- **A violation in a part of the file the human didn't accept at step 2.** It belongs to an
+  untouched piece — show it as is, don't fix it silently: an edit without a question is
+  forbidden by the same guardrail 3 as at step 2.
+- **`ROADMAP.md` was created from `ROADMAP.template.md`.** That shouldn't happen: the English
+  template is required to pass the lint (`tests/test_templates.py` checks exactly that). Show
+  the violations and say plainly that the plugin's template is broken — that is a bug in the
+  plugin, not in the project.
+- Nothing of the above fits — this is a new violation from an applied edit, fix it: it means the
+  diff at step 2 was inaccurate.
