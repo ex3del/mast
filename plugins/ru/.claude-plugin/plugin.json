@@ -1,10 +1,13 @@
 {
   "name": "mast-ru",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Method for Agents, Sessions and Tasks — пункты роадмапа, worktree на пункт, диспетчер, правила с paths:",
   "license": "MIT",
   "dependencies": [
-    { "name": "superpowers", "marketplace": "claude-plugins-official" }
+    {
+      "name": "superpowers",
+      "marketplace": "claude-plugins-official"
+    }
   ],
   "userConfig": {
     "context7_key": {

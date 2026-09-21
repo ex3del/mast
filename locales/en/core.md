@@ -21,6 +21,15 @@ sits quietly and only enters the context when those files are touched. Without `
 
 When I say "remember this" and it's about a specific section, folder, or subsystem — **by default write it to `rules/` with `paths:`**, not to CLAUDE.md. One topic, one file, named after the topic: `db.md`, `n8n.md`, `telegram.md`. A rule like "check cacheHitRate after editing prompts" lives next to the prompts, not in the shared context.
 
+Document invariants — these break silently:
+
+- `CLAUDE.md` — stack, commands, project invariants; target under 200 lines. Reference material (architecture, DB schemas, cards) goes in `docs/`: `CLAUDE.md` loads in full every session.
+- `ROADMAP.md` — only what's open; closed and dropped items move to `docs/roadmap/DONE.md`.
+- Left crooked on purpose — `TECH_DEBT.md`, with the condition that triggers a fix.
+- A decision whose reversal is costly lives in three places at once: an ADR + `rules/` + a guard. In one place only — it gets reverted.
+
+More about documents — skill `mast:project-structure`.
+
 ## Planning
 
 - Any feature costing more than one session → plan first, code second.
