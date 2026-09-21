@@ -37,7 +37,7 @@ More about documents — skill `mast:project-structure`.
 ## Planning
 
 - Any feature costing more than one session → plan first, code second.
-- Before `superpowers:writing-plans` — always the skill `mast:managing-roadmap-items`: the item is created in `ROADMAP.md` and `STATUS.md` first, and only then the plan is filled with tasks.- If the project has the `superpowers` skills — before `superpowers:writing-plans` always the roadmap-item skill: first the item is opened in `ROADMAP.md` and `STATUS.md` is created, only then the plan gets filled with tasks. `brainstorming` calls `writing-plans` directly — this order overrides that.
+- Before `superpowers:writing-plans` — always the skill `mast:managing-roadmap-items`: the item is created in `ROADMAP.md` and `STATUS.md` first, and only then the plan is filled with tasks. `brainstorming` calls `writing-plans` directly — this order overrides that.
 - Plans and specs for superpowers skills are written **in our own paths**; we don't use their defaults (`docs/superpowers/plans/`, `docs/superpowers/specs/`): an item's plan goes to `docs/roadmap/<A-1>/STATUS.md`, its spec sits next to it in the same folder.
 - Commits inside plans use our format `[A-1] description`, not the conventional commits (`feat:`) the skills suggest.
 - A small edit within one session needs no plan — just do it.
