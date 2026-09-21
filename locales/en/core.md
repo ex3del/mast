@@ -24,7 +24,8 @@ When I say "remember this" and it's about a specific section, folder, or subsyst
 Document invariants — these break silently:
 
 - `CLAUDE.md` — stack, commands, project invariants; target under 200 lines. Reference material (architecture, DB schemas, cards) goes in `docs/`: `CLAUDE.md` loads in full every session.
-- `ROADMAP.md` — only what's open; closed and dropped items move to `docs/roadmap/DONE.md`.
+- `ROADMAP.md` — only what's open; closed and dropped items move to `docs/roadmap/DONE.md`. The item line's format, numbers, dependencies, closing — skill `mast:managing-roadmap-items`.
+- **`ROADMAP.md`, `DONE.md` and `TECH_DEBT.md` are edited by the main copy only** — the dispatcher or the human. From an item's branch everything for them travels as a message to the dispatcher. The dispatcher's role in full — skill `mast:worktree-flow`.
 - Left crooked on purpose — `TECH_DEBT.md`, with the condition that triggers a fix.
 - A decision whose reversal is costly lives in three places at once: an ADR + `rules/` + a guard. In one place only — it gets reverted.
 
@@ -33,21 +34,23 @@ More about documents — skill `mast:project-structure`.
 ## Planning
 
 - Any feature costing more than one session → plan first, code second.
-- If the project has the `superpowers` skills — before `superpowers:writing-plans` always the roadmap-item skill: first the item is opened in `ROADMAP.md` and `STATUS.md` is created, only then the plan gets filled with tasks. `brainstorming` calls `writing-plans` directly — this order overrides that.
+- Before `superpowers:writing-plans` — always the skill `mast:managing-roadmap-items`: the item is created in `ROADMAP.md` and `STATUS.md` first, and only then the plan is filled with tasks.- If the project has the `superpowers` skills — before `superpowers:writing-plans` always the roadmap-item skill: first the item is opened in `ROADMAP.md` and `STATUS.md` is created, only then the plan gets filled with tasks. `brainstorming` calls `writing-plans` directly — this order overrides that.
 - Plans and specs for superpowers skills are written **in our own paths**; we don't use their defaults (`docs/superpowers/plans/`, `docs/superpowers/specs/`): an item's plan goes to `docs/roadmap/<A-1>/STATUS.md`, its spec sits next to it in the same folder.
 - Commits inside plans use our format `[A-1] description`, not the conventional commits (`feat:`) the skills suggest.
 - A small edit within one session needs no plan — just do it.
-- **A new roadmap item is an expensive unit.** Open one only if the work goes beyond the current item's `My paths` or doesn't fit in the current session (it needs its own "Done when" with a number). Small stuff gets fixed on the spot and goes as a line under `Issues` in its `STATUS.md`, or into the commit message if it has no `STATUS.md`. If writing up the item costs more than fixing it — it isn't an item.
+- **A new roadmap item is an expensive unit.** Open one only if the work goes beyond the current item's `My paths` or doesn't fit in the current session (it needs its own "Done when" with a number). Small stuff gets fixed on the spot and goes as a line under `Issues` in its `STATUS.md`, or into the commit message if it has no `STATUS.md`. If writing up the item costs more than fixing it — it isn't an item. How to open, run and close an item — skill `mast:managing-roadmap-items`.
 - End a plan with a list of open questions. Keep it as short as possible, sacrifice grammar for brevity.
 - Ask clarifying questions. Suggest best practices, as if the task were being solved by a panel of experts looking at it from different angles.
 - Use the project's existing patterns, don't invent new ones without need.
 
 ## Who owns a task
 
+**Every roadmap item is done in its own worktree** and merged into `main` when it's ready. The exception is a small item while nobody else works in the main copy: the mark `main copy` instead of a worktree. Starting the background session, the rebase, merging the branch and cleaning up — skill `mast:worktree-flow`.
+
 A task that a Claude session is driving gets tagged with **that session's name**. Other sessions find it by name in `ListAgents` and reach out via `SendMessage` if they need to coordinate.
 
 - Your own name — the first line of `ListAgents` output.
-- **A roadmap item** — in the "where it's driven" slot of its `ROADMAP.md` line: `` `worktree-A-1` · session `A-1` · since 15.09 ``. An item's session starts with `--name <item ID>`, so the name is known in advance: whoever sets up the worktree puts the tag in place, in the main copy, before the session starts.
+- **A roadmap item** — in the "where it's driven" slot of its `ROADMAP.md` line: `` `worktree-A-1` · session `A-1` · since 15.09 ``. An item's session starts with `--name <item ID>`, so the name is known in advance: whoever sets up the worktree puts the tag in place, in the main copy, before the session starts. (the start command is in skill `mast:worktree-flow`)
 - **A task outside the roadmap** in the main copy (a name like `fine-tune-llm-c8`) — the session writes its own name next to the task, wherever that task is tracked.
 - Finished or dropped a task — the name comes off along with the status change.
 
