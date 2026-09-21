@@ -26,19 +26,26 @@ to `superpowers:writing-plans`. Without that plugin the method still works —
 the skill says to write the plan's tasks yourself — but the handover is the
 path it was built for.
 
-## Setup in three steps
-
-Three steps — the third one matters, because auto-update is **off by
-default** for third-party marketplaces:
+## Setup
 
 ```bash
 claude plugin marketplace add ex3del/mast
-claude plugin install mast@ex3del --scope user
+claude plugin install mast@ex3del --scope user --config language=en
 ```
 
-Then turn auto-update on, either through the `/plugin` menu inside a session
-(find the `ex3del` marketplace → enable auto-update), or by adding this to
-`~/.claude/settings.json` yourself:
+**Pick your language right here.** `language` is `ru` by default, so pass
+`--config language=en` unless you want the method in Russian. It sets the
+language of the core text and the skills; you can change it later in the
+`/plugin` menu (find `mast` → its configuration screen), and it takes effect
+on the next session start. The scaffolding command is picked by name instead:
+`/mast:init-project` copies the English templates, `/mast:init-project-ru` the
+Russian ones — Claude Code doesn't substitute the setting inside a command or
+skill body, which is why language is split into separate files there.
+
+Then turn auto-update on — this third step matters, because auto-update is
+**off by default** for third-party marketplaces. Either through the `/plugin`
+menu inside a session (find the `ex3del` marketplace → enable auto-update), or
+by adding this to `~/.claude/settings.json` yourself:
 
 ```json
 { "extraKnownMarketplaces": { "ex3del": { "source": { "source": "github", "repo": "ex3del/mast" }, "autoUpdate": true } } }
@@ -48,6 +55,31 @@ Without this step new releases won't reach you — Claude Code only checks
 auto-update-enabled marketplaces in the background, roughly once per session
 start with a random delay of up to ten minutes; a fresh version is picked up
 on the next start or via `/reload-plugins`.
+
+## Where things live, and what happens to your `CLAUDE.md`
+
+Installing the plugin changes nothing in your repository, and it never touches
+your global `~/.claude/CLAUDE.md`. Two separate layers, on purpose:
+
+| | Where it lives | Who updates it |
+|---|---|---|
+| **The method** — the rules of working | injected into each session's context by a `SessionStart` hook, not a file on disk | the plugin, on every update |
+| **The scaffold** — `CLAUDE.md`, `ROADMAP.md`, rules under `.claude/rules/` | files in your repository | you; the plugin writes them once, with your consent |
+
+The hook checks the project you opened: if it has a `ROADMAP.md` or a
+`.claude/rules/` directory, the method is considered deployed and the full
+core text is injected. If it doesn't, you get a single line instead — "MAST is
+not set up in this project, run `/mast:init-project`". So right after
+installing, nothing has appeared in your repository yet: the plugin is there
+and quiet until you run the command.
+
+Your project's `CLAUDE.md` is **not** the method — it's the project's card:
+stack, commands, invariants. `/mast:init-project` creates it in the root of
+the current project from a template, filled in with what it actually read in
+your repository. From then on the file is yours: the plugin doesn't rewrite it
+on update and doesn't touch it when the command runs again. Claude Code loads
+that file into every session in that project — that's its own built-in
+behavior, not something MAST adds.
 
 ## What `/mast:init-project` does
 
@@ -98,22 +130,6 @@ tool before relying on memory for library/framework/SDK/CLI questions. It
 names the tool by role, not by exact server name, so it works whether you use
 the bundled Context7 or one of your own — and if you already have your own
 docs server configured, the command says so and offers to skip.
-
-## Choosing a language
-
-`userConfig.language` picks `ru` (default) or `en` for the core text and the
-skills. The scaffolding command is picked by name: `/mast:init-project` copies
-the English templates, `/mast:init-project-ru` the Russian ones. The platform
-doesn't substitute the setting inside a command or skill body, which is why
-language is split into separate files there rather than a variable. Set the
-setting at install time:
-
-```bash
-claude plugin install mast@ex3del --scope user --config language=en
-```
-
-or change it later from the `/plugin` menu inside a session (find `mast` →
-its configuration screen) — takes effect on the next session start.
 
 ## Honest limitations, today
 
