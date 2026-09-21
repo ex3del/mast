@@ -33,7 +33,7 @@ This part is shared by both: invariants, the line format, the archive, decisions
 
 | Slot | When required | What |
 |---|---|---|
-| status | always | `planned` / `🔨 in progress` / `dropped` with a reason and where it moved. `done` doesn't linger in the file: closing moves the item into `DONE.md`. Legal on old items until archived |
+| status | always | `planned` / `🔨 in progress`. `done` and `dropped` don't linger in the file: both closing and dropping move the item into `DONE.md` — a dropped one into the "Dropped" subsection, one line with the reason. Legal on old items until archived |
 | where it's driven | in progress | `worktree-X-N` or `main copy`; not taken — `—` |
 | session | in progress | the name from `--name`, used to reach it via `SendMessage`. Whether it's alive — `claude agents` shows it |
 | date taken | in progress | an abandoned item shows by its age |
@@ -68,6 +68,8 @@ A decision that clears the bar lives in three places at once:
 - **`.claude/rules/<subsystem>.md` with `paths:`** — for the agent. Named after the top folder from `paths:` (`reports/**` → `rules/reports.md`), not after the technology. Opened at the moment of the decision.
 - **A guard** — a test or a CI step that fails on regression. `rules/` alone isn't enough: `paths:` doesn't fire on an edit from an unexpected folder.
 
+A class is defined by the invariant, not by the incident. A guard that freezes the accidental shape of a failure — today's provider, config, or step order — is the same patch, only dressed as a structural fix.
+
 ## Common mistakes
 
 | Mistake | What it leads to |
@@ -80,6 +82,7 @@ A decision that clears the bar lives in three places at once:
 | A decision lives only in `STATUS.md` or only in `rules/` | the archive isn't read, `paths:` doesn't fire — the decision gets reverted |
 | An ADR for every decision | the important ones drown among the routine ones |
 | A commit hash was recorded before the merge | rebase changed it, the link is broken |
+| One class of error is fixed a third time with prose — a rule in `rules/`, a line in a prompt, a checklist item | prose doesn't enforce itself; it needs a guard — a test, a hook, or a lint that fails on regression |
 
 # Item session
 
@@ -280,6 +283,8 @@ Order:
    Entries for `TECH_DEBT.md` come from the same place — the same commit `[B-4] closed`, then `git push`: otherwise waiting sessions will rebase without this item. A debt entry missing "what it risks" or "the condition that triggers a fix" — send it back to the session, don't guess.
 4. **Clear blockers:** `grep -niE 'Depends on:.*\bB-4\b' ROADMAP.md` — tell live sessions of those items "B-4 is in origin/main, rebase", and the ones that became ready go into the launch queue.
 5. **Clean up:** `claude rm <id>` (the session and the worktree) or `git worktree remove .claude/worktrees/B-4`, then `git branch -d worktree-B-4` and `git push origin --delete worktree-B-4` — the item's session pushed its own branch, and on `origin` it would otherwise stay forever.
+
+**A dropped item goes to the same place.** Its line is removed from `ROADMAP.md`, and `DONE.md` gets a "Dropped" subsection with one line in it: number, title, date, the reason, and where the work moved if another item took it over. That way the archive answers not only "has this been done already?" but also "has this been tried and rejected?" — otherwise what was rejected lives only in an ADR, if one was written, and six months later the same item is opened again.
 
 After merging:
 - `ls docs/roadmap/inbox/` — the branch may have brought findings;

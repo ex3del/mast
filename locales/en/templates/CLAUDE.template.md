@@ -19,6 +19,12 @@
 <lint or build command>
 ```
 
+## Code
+
+- **On an unexpected state, fail loudly or return an explicit `unknown`.** A bare `except`,
+  a default in place of an error, `return None` in place of a check — the program keeps
+  running on wrong data, and the failure surfaces far from its cause.
+
 ## Project invariants
 
 - <a rule that must never break silently>
