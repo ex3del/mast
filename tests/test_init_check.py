@@ -69,3 +69,12 @@ def test_каждая_версия_живёт_в_своей_локали():
     assert "locales/ru/" in text("ru") and "locales/en/" not in text("ru")
     for lang in COMMANDS:                      # язык больше не угадывается по контексту
         assert "<язык>" not in text(lang) and "<lang>" not in text(lang)
+
+
+@pytest.mark.parametrize("lang", sorted(COMMANDS))
+def test_каждый_шаблон_локали_предлагается_командой(lang):
+    """Завести шаблон и забыть предложить его — он не доедет до пользователя никогда."""
+    templates = sorted(p.name for p in (ROOT / "locales" / lang / "templates").glob("*.template.md"))
+    assert templates, f"{lang}: шаблонов не найдено"
+    for name in templates:
+        assert name in text(lang), f"{lang}: команда не знает про шаблон {name}"

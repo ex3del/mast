@@ -103,6 +103,8 @@ Collect and briefly show the human:
   `.claude/rules/example.md`, and whether `.gitignore` (if it exists) has the line `.claude/worktrees/`.
 - **The Context7 rule** — whether `.claude/rules/context7.md` already exists (the sixth artifact,
   separate from the five above, see step 2).
+- **The model rule** — whether `.claude/rules/dispatch.md` already exists (the seventh artifact,
+  also separate, see step 2). No file — the project runs entirely on the stronger model for now.
 - **What else the project has besides the scaffold** — what the method can migrate:
   - `TODO.md` or a homemade roadmap (any file with a task list outside our format) — whether
     there is one, how many items, in what shape.
@@ -181,6 +183,14 @@ only expected one). The file `.claude/rules/context7.md` already exists — it c
 like the other five: it is not compared against the template, and there is no separate question
 about it here (if it has no `paths:` — that is caught by the general table row "a rule in
 `.claude/rules/` without `paths:`" below, as for any other rule).
+
+**The model rule — the seventh artifact, with its own question too.** `.claude/rules/dispatch.md`
+declares the zones that always run on `opus`, and by doing so allows `sonnet` everywhere else:
+while the file doesn't exist, the method keeps everything on `opus`. No file yet — offer a copy
+of `dispatch.rule.template.md`, a degenerate diff. Don't invent the zones (guardrail 5): the
+template ships with placeholders, and the human fills in the paths and the cost of an error —
+only they know where the project hurts. The file already exists — it counts as in place and
+isn't compared against the template.
 
 **Findings that conflict or are due to be carried over** — each gets its own "was → would become"
 diff and its own separate question; the answers to them are independent:

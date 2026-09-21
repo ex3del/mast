@@ -232,21 +232,23 @@ Commit messages: `[B-2] opened: …`, `[A-2] finding added: …`, `[B-2] taken i
 
 ## Which model an item gets
 
-By default the item is driven by a stronger model. Downgrading to a more economical one — only when the answer is "yes" to all three questions:
+By default the item is driven by `opus` with `fable` as its advisor. Downgrading to `sonnet` with `opus` as advisor — only when the answer is "yes" to all three questions:
 
 1. **Discoverability.** A wrong result is caught by checking against something that already exists: a test, a linter, CI, a measurement, code, a spec, an ADR.
 2. **Reversibility.** It reverts with a single `git revert`, without data loss and without action outside the repository.
 3. **Blast radius.** Only this item suffers, not every future session, user, or piece of data.
 
-Missing even one — the stronger model. **When in doubt — the stronger model:** redoing one item costs more than the price gap between models.
+Missing even one — `opus`. **When in doubt — `opus`:** redoing one item costs more than the price gap between models.
 
-The rule rests on the properties of the error, not on the names of areas, so it works in any project. Documentation splits along the same first question: "add a section about existing code", "fix a stale fragment", "tests for a criterion where the number is already written" — the more economical model; "describe the architecture, behavior, invariants, an API contract" — the stronger model, because there's nothing to check it against: the text itself becomes the source of truth.
+The rule rests on the properties of the error, not on the names of areas, so it works in any project. Documentation splits along the same first question: "add a section about existing code", "fix a stale fragment", "tests for a criterion where the number is already written" — `sonnet`; "describe the architecture, behavior, invariants, an API contract" — `opus`, because there's nothing to check it against: the text itself becomes the source of truth.
 
-**Always the stronger model, in any project:** files that agents read as rules — `CLAUDE.md`, `.claude/rules/`, skills, prompts. An error in them silently changes the behavior of every future session — the largest blast radius in this scheme.
+**Always `opus`, in any project:** files that agents read as rules — `CLAUDE.md`, `.claude/rules/`, skills, prompts. An error in them silently changes the behavior of every future session — the largest blast radius in this scheme.
 
-**An item's session has an advisor** — a model one tier above the executor: the `--advisor <model>` flag at startup, or `advisorModel` in Claude Code settings. The executor calls it itself — before committing to an approach, and before declaring the item done. Downgrading the item's model doesn't downgrade the advisor: that's the point, the stronger model catches what the cheaper one missed. Which two models exactly — the project declares in `.claude/rules/dispatch.md` next to its zones; no such file — both come from Claude Code settings.
+**The advisor is set at startup** — the `--advisor <model>` flag, or `advisorModel` in Claude Code settings. The executor calls it itself: before committing to an approach, and before declaring the item done.
 
-**The project declares sensitive zones**, not this skill: `<project>/.claude/rules/dispatch.md`, one line per zone — `auth/** · billing/** · db/migrations/** — stronger model only`. No file — everything goes on the stronger model: a project opts into the more economical one deliberately, it isn't the default. The file exists, even with no zones — the more economical model is allowed under the three questions.
+**The project declares sensitive zones**, not this skill: `<project>/.claude/rules/dispatch.md`, one line per zone — `auth/** · billing/** · db/migrations/** — opus only`. No file — everything goes on `opus`: a project opts into `sonnet` deliberately, it isn't the default. The file exists, even with no zones — `sonnet` is allowed under the three questions.
+
+Don't give `fable` as advisor to a session running `sonnet`: subagents inherit the session's advisor, Fable multiplies across them and ends up costing more than `opus` would have.
 
 ## Starting an item
 
@@ -256,7 +258,7 @@ The rule rests on the properties of the error, not on the names of areas, so it 
    ```bash
    claude --bg --worktree B-2 --name B-2 "Drive item B-2 per skill mast:managing-roadmap-items: a line in ROADMAP.md and docs/roadmap/B-2/STATUS.md if it's opened. First step — the baseline measurement"
    ```
-   An item that went through the downgrade — same flags, but with `--model <economical model>`.
+   An item that went through the downgrade — same flags, but with `--model sonnet --advisor opus`.
    The command prints an id. The name might already be taken by an old live session — the engine then hands out `B-2-<word>`. That's a symptom of an abandoned item: deal with the old session (see "Abandoned items"), don't just record the suffix.
 4. **After the start:** send the human the id and `claude attach <id>`.
 
@@ -302,7 +304,7 @@ After merging:
 | Merged two branches in a row without rebasing the second one | not fast-forward, or changes silently mixed together |
 | Asked the human about a duplicate or a number | the human gets pinged over mechanics, an important question drowns |
 | Opened an item for small stuff the sender could've fixed on their own | the roadmap grows faster than it closes |
-| Handed the economical model work where text becomes the source of truth | there's nothing to check the error against, it propagates through links |
+| Handed `sonnet` work where text becomes the source of truth | there's nothing to check the error against, it propagates through links |
 | Left a closed item in `ROADMAP.md` | the working file bloats, `--ready` drowns in what's already done |
 | Changed "Done when" on your own | acceptance runs against a criterion the human never agreed to |
 | Kept the queue in your head instead of in `ROADMAP.md` | the queue is lost on restart |
