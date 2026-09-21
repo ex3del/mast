@@ -123,6 +123,17 @@ class LintTest(unittest.TestCase):
         text = OK.replace("Готово когда: пустой отчёт → 200.", "Готово когда: пустой отчёт → 200.\n  Зависит от: A-9")
         self.assertEqual(ready(text, LEDGER), ["B-2"])
 
+    def test_снятая_зависимость_не_делает_пункт_готовым(self):
+        # Снятый пункт тоже в DONE.md, но работа брошена, а не сделана
+        ledger = LEDGER + "\n### Снято\n\n- **A-8** Свой рендерер — 11.08 · headless Chrome дешевле.\n"
+        text = OK.replace("Готово когда: пустой отчёт → 200.", "Готово когда: пустой отчёт → 200.\n  Зависит от: A-8")
+        self.assertEqual(ready(text, ledger), [])
+        self.assertIn("B-2: зависит от снятого A-8 — убери зависимость или сними пункт", lint(text, ledger))
+
+    def test_номер_снятого_пункта_занят_навсегда(self):
+        ledger = LEDGER + "\n### Снято\n\n- **B-2** Экспорт CSV — 11.08 · формат не нужен.\n"
+        self.assertIn("B-2: номер занят, пункт уже в DONE.md", lint(OK, ledger))
+
     def test_duplicate_id_across_ledger(self):
         # Номер, уже уехавший в архив, переиспользовать нельзя
         ledger = LEDGER.replace("A-9", "B-2")

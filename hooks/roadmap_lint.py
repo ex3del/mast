@@ -27,6 +27,8 @@ STATUS_ALIASES = {
     "done": "готов", "dropped": "снят",
 }
 DEPS = re.compile(r"(?:зависит от|depends on):\s*([A-Z]-\d+(?:\s*,\s*[A-Z]-\d+)*)", re.IGNORECASE)
+# Подраздел архива со снятыми пунктами — на любом уровне заголовка
+DROPPED_HEADER = re.compile(r"^#+\s*(снято|dropped)\s*$", re.IGNORECASE)
 # Заголовок критерия — только в начале своей строки, иначе фраза в прозе («Переводим
 # заголовок «Done when»…») ложно засчитывается за настоящий критерий
 CRIT_HEADER = re.compile(r"^[ \t]*(?:готово когда|done when)\s*:(.*)$", re.IGNORECASE | re.MULTILINE)
@@ -54,9 +56,27 @@ def parse(text):
     return items, dups
 
 
+def split_ledger(text):
+    """ID из архива (docs/roadmap/DONE.md): (все, снятые).
+
+    Снятые лежат под заголовком «Снято»/«Dropped». Их номер занят навсегда, как и
+    у закрытых, но зависимость на снятый пункт не выполнена — работу бросили.
+    """
+    all_ids, dropped, in_dropped = [], [], False
+    for line in text.splitlines():
+        if line.startswith("#"):
+            in_dropped = bool(DROPPED_HEADER.match(line.strip()))
+        m = ITEM.match(line)
+        if m:
+            all_ids.append(m.group(1))
+            if in_dropped:
+                dropped.append(m.group(1))
+    return all_ids, dropped
+
+
 def ledger_ids(text):
-    """ID закрытых пунктов из верхнего слоя архива (docs/roadmap/DONE.md)."""
-    return [m.group(1) for m in (ITEM.match(line) for line in text.splitlines()) if m]
+    """ID всех пунктов архива — и закрытых, и снятых: номер занят теми и другими."""
+    return split_ledger(text)[0]
 
 
 def detect_lang(text):
@@ -81,7 +101,8 @@ NO_LOCATION_EN = 'in progress, but location not specified — `worktree-…` or 
 
 def lint(text, ledger=""):
     items, dups = parse(text)
-    archived = set(ledger_ids(ledger))
+    all_archived, dropped_list = split_ledger(ledger)
+    archived, dropped = set(all_archived), set(dropped_list)
     lang = detect_lang(text)
     errors = [f"{i}: {msg(lang, 'номер занят дважды', 'item number used twice')}" for i in dups]
     errors += [f"{i}: {msg(lang, 'номер занят, пункт уже в DONE.md', 'item number taken, already in DONE.md')}"
@@ -108,6 +129,12 @@ def lint(text, ledger=""):
             errors.append(f"{i}: {msg(lang, f'готов, но осталась пометка `worktree-{i}`', f'done, but still has the `worktree-{i}` mark')}")
         errors += [f"{i}: {msg(lang, f'зависит от несуществующего {d}', f'depends on nonexistent {d}')}"
                    for d in it["deps"] if d not in items and d not in archived]
+        for d in it["deps"]:
+            if d in dropped:
+                errors.append(f"{i}: " + msg(
+                    lang,
+                    f"зависит от снятого {d} — убери зависимость или сними пункт",
+                    f"depends on dropped {d} — remove the dependency or drop the item"))
     errors += [f"{msg(lang, 'цикл зависимостей', 'dependency cycle')}: {c}" for c in cycles(items)]
     return errors
 
@@ -136,10 +163,11 @@ def cycles(items):
 def ready(text, ledger=""):
     """Запланированные пункты, у которых все зависимости готовы или уже в архиве."""
     items, _ = parse(text)
-    archived = set(ledger_ids(ledger))
+    all_archived, dropped = split_ledger(ledger)
+    closed = set(all_archived) - set(dropped)
 
     def done(d):
-        return d in archived or items.get(d, {}).get("status") == "готов"
+        return d in closed or items.get(d, {}).get("status") == "готов"
 
     return [i for i, it in items.items()
             if it["status"] == "запланирован" and all(done(d) for d in it["deps"])]
