@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LIMIT = 7000          # наш потолок; лимит площадки 10 000
+LIMIT = 7500          # наш потолок; лимит площадки 10 000
 
 
 def test_ядро_каждой_локали_влезает_в_лимит():

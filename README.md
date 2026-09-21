@@ -82,7 +82,7 @@ checkout` away; nothing is created or changed without a question first.
 
 Two different weights, on purpose. The **core** — `locales/<lang>/core.md` —
 is injected into every session automatically by a `SessionStart` hook, capped
-at 7000 characters (the platform's own insertion limit is 10000): where to
+at 7500 characters (the platform's own insertion limit is 10000): where to
 write a decision, the plan-before-code order, how sessions mark ownership of
 work, and how not to step on another session's uncommitted files. It's the
 handful of rules the method breaks without. Everything heavier — how to take

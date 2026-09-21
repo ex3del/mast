@@ -28,6 +28,9 @@ Document invariants — these break silently:
 - **`ROADMAP.md`, `DONE.md` and `TECH_DEBT.md` are edited by the main copy only** — the dispatcher or the human. From an item's branch everything for them travels as a message to the dispatcher. The dispatcher's role in full — skill `mast:worktree-flow`.
 - Left crooked on purpose — `TECH_DEBT.md`, with the condition that triggers a fix.
 - A decision whose reversal is costly lives in three places at once: an ADR + `rules/` + a guard. In one place only — it gets reverted.
+- `docs/roadmap/<A-1>/STATUS.md` — an item's plan and journal. Opened only if the work needs a plan of several tasks, will outlive a `/compact`, or a neighboring item runs on nearby paths; otherwise a line in `ROADMAP.md` plus commits is enough. On closing it moves to `docs/roadmap/done/<A-1>/`.
+- `docs/roadmap/inbox/` — a finding from a worktree, as a file, without a number, while there's no dispatcher; they triage it.
+- `.claude/rules/*.md` with `paths:` — agreements about a specific folder, see the table above.
 
 More about documents — skill `mast:project-structure`.
 
