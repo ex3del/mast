@@ -4,7 +4,14 @@
       {
         "matcher": "startup|resume|clear|compact",
         "hooks": [
-          { "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/../../hooks/core.py", "en"] }
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/../../hooks/core.py",
+              "en"
+            ]
+          }
         ]
       }
     ],
@@ -12,10 +19,42 @@
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py"], "if": "Edit(**/ROADMAP.md)" },
-          { "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py"], "if": "Write(**/ROADMAP.md)" },
-          { "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py"], "if": "Edit(**/docs/roadmap/DONE.md)" },
-          { "type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py"], "if": "Write(**/docs/roadmap/DONE.md)" }
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py",
+              "en"
+            ],
+            "if": "Edit(**/ROADMAP.md)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py",
+              "en"
+            ],
+            "if": "Write(**/ROADMAP.md)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py",
+              "en"
+            ],
+            "if": "Edit(**/docs/roadmap/DONE.md)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py",
+              "en"
+            ],
+            "if": "Write(**/docs/roadmap/DONE.md)"
+          }
         ]
       }
     ]

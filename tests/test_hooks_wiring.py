@@ -44,6 +44,16 @@ def test_ядру_передан_язык_своего_плагина(lang):
 
 
 @pytest.mark.parametrize("lang", LANGS)
+def test_линту_передан_язык_своего_плагина(lang):
+    """Иначе имя скилла в жалобе линта угадывается по языку роадмапа: русский файл
+    под английским плагином отсылал бы к скиллу, которого у пользователя нет."""
+    lint = [h for h in all_hook_entries(load(lang)) if "roadmap_lint.py" in " ".join(h.get("args", []))]
+    assert lint, f"{lang}: линт не подключён к PostToolUse"
+    for h in lint:
+        assert h["args"][-1] == lang, f"{lang}: языком передано {h['args'][-1]}"
+
+
+@pytest.mark.parametrize("lang", LANGS)
 def test_post_tool_use_ловит_роадмап_и_архив(lang):
     ifs = [h.get("if", "") for h in all_hook_entries(load(lang)) if "if" in h]
     for tool in ("Edit", "Write"):

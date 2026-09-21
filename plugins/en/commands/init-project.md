@@ -253,7 +253,7 @@ a finding) but at the file itself (guardrail 2):
 The project now has a `ROADMAP.md` (created or edited) — run:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py ROADMAP.md
+python3 ${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py ROADMAP.md
 ```
 
 **Exit code zero** — say that the scaffold matches the reference, and what to do next:

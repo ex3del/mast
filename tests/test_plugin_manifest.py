@@ -4,11 +4,18 @@
 пользователя три скилла и одна команда, а не шесть и две.
 """
 import json
+import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGINS = {"en": ROOT / "plugins" / "en", "ru": ROOT / "plugins" / "ru"}
 NAMES = {"en": "mast", "ru": "mast-ru"}
+sys.path.insert(0, str(ROOT / "hooks"))
+from plugin_names import PLUGIN  # noqa: E402
+
+# Путь, который текст плагина обещает пользователю или модели
+PLUGIN_ROOT_PATH = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}(/[^\s`)\"']*)")
 
 
 def manifest(lang):
@@ -55,6 +62,31 @@ def test_маркетплейс_отдаёт_оба_плагина_из_подк
     for lang, name in NAMES.items():
         assert entries[name]["source"] == f"./plugins/{lang}"
         assert entries[name]["description"] and entries[name]["license"]
+
+
+def test_имена_плагинов_в_коде_хуков_совпадают_с_манифестами():
+    """Хуки печатают пользователю ссылки на команду и скилл, а имя плагина в них —
+    из `hooks/plugin_names.py`. Разъедется с манифестом — ссылка поведёт в никуда."""
+    assert PLUGIN == {lang: manifest(lang)["name"] for lang in PLUGINS}
+
+
+def test_пути_в_текстах_плагина_ведут_в_существующие_файлы():
+    """Тексты скиллов и команд зовут линт и читают шаблоны по `${CLAUDE_PLUGIN_ROOT}`.
+    Разводку хуков при переезде в подкаталог поправили, а тексты — нет: команды из
+    скиллов полгода указывали в пустоту, и ни один сторож этого не видел."""
+    for lang, plugin in PLUGINS.items():
+        checked = 0
+        for path in [*plugin.rglob("*.md"), *(ROOT / "locales" / lang).rglob("*.md")]:
+            for m in PLUGIN_ROOT_PATH.finditer(path.read_text(encoding="utf-8")):
+                rel = m.group(1).lstrip("/")
+                if not rel:
+                    continue
+                target = plugin / rel
+                hits = (list(target.parent.glob(target.name)) if "*" in target.name
+                        else [target] if target.exists() else [])
+                assert hits, f"{path.relative_to(ROOT)}: ${{CLAUDE_PLUGIN_ROOT}}/{rel} никуда не ведёт"
+                checked += 1
+        assert checked, f"{lang}: путей не нашлось — сторож смотрит не туда"
 
 
 def test_у_каждого_плагина_свой_mcp_и_ничего_лишнего():

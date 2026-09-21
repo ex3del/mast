@@ -52,7 +52,7 @@ Sources: `SendMessage` from sessions, and files in `docs/roadmap/inbox/` — the
      ```
      The sender's branch will drop the transplanted commit on its own during rebase.
    - The finding sits in `inbox/` — it arrived with the branch merge along with its own test, no `cherry-pick` needed. Remove the inbox file with `git rm` in the commit that opens the item.
-6. **Check and commit:** `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py ROADMAP.md` → commit → `git push`. The reply to the sender is the item's number.
+6. **Check and commit:** `python3 ${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py ROADMAP.md` → commit → `git push`. The reply to the sender is the item's number.
 
 Commit messages: `[B-2] opened: …`, `[A-2] finding added: …`, `[B-2] taken into work · <model>`, `[B-2] closed`, `[A-3] criterion changed by human decision: …`.
 
@@ -78,14 +78,14 @@ Don't give `fable` as advisor to a session running `sonnet`: subagents inherit t
 
 ## Starting an item
 
-1. **What can be taken:** `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md`. Don't run two items in parallel whose `My paths` overlap.
+1. **What can be taken:** `python3 ${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py --ready ROADMAP.md`. Don't run two items in parallel whose `My paths` overlap.
 2. **The line** — per the format in `managing-roadmap-items.md`: session `B-2`, `My paths`. `STATUS.md` — only if there's a sign from the "1. Start" section of `managing-roadmap-items-item.md`; the signs "needs a plan" and "a neighbor on nearby paths" are already visible at start time. Commit `[B-2] taken into work · <model>` and `git push` — the model goes in the message, so it's visible at closing time who did the work. All of this **before the session starts**: from inside the worktree, edits to the main copy are blocked, and the worktree is created from `origin/main` — without a push it won't see its own line.
 3. **Start:**
    ```bash
-   claude --bg --worktree B-2 --name B-2 "Drive item B-2 per skill mast:managing-roadmap-items: a line in ROADMAP.md and docs/roadmap/B-2/STATUS.md if it's opened. First step — the baseline measurement"
+   claude --bg --worktree B-2 --name B-2 --advisor fable "Drive item B-2 per skill mast:managing-roadmap-items: a line in ROADMAP.md and docs/roadmap/B-2/STATUS.md if it's opened. First step — the baseline measurement"
    ```
    An item that went through the downgrade — same flags, but with `--model sonnet --advisor opus`.
-   The command prints an id. The name might already be taken by an old live session — the engine then hands out `B-2-<word>`. That's a symptom of an abandoned item: deal with the old session (see "Abandoned items"), don't just record the suffix.
+   The command prints an id. `--advisor fable` gives the session a stronger advisor at the key points; if consent to bill Fable hasn't been given yet, the background session simply starts without an advisor. The name might already be taken by an old live session — the engine then hands out `B-2-<word>`. That's a symptom of an abandoned item: deal with the old session (see "Abandoned items"), don't just record the suffix.
 4. **After the start:** send the human the id and `claude attach <id>`.
 
 ## Merging
@@ -119,8 +119,8 @@ Order:
 
 After merging:
 - `ls docs/roadmap/inbox/` — the branch may have brought findings;
-- `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py ROADMAP.md` — also flags theses with broken links to `done/`;
-- `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md` — what's now ready to start.
+- `python3 ${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py ROADMAP.md` — also flags theses with broken links to `done/`;
+- `python3 ${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py --ready ROADMAP.md` — what's now ready to start.
 
 ## Common mistakes
 
@@ -131,6 +131,7 @@ After merging:
 | Asked the human about a duplicate or a number | the human gets pinged over mechanics, an important question drowns |
 | Opened an item for small stuff the sender could've fixed on their own | the roadmap grows faster than it closes |
 | Handed `sonnet` work where text becomes the source of truth | there's nothing to check the error against, it propagates through links |
+| Gave a session running `sonnet` the `fable` advisor | subagents inherit the advisor, so it costs more than `opus` would have |
 | Left a closed item in `ROADMAP.md` | the working file bloats, `--ready` drowns in what's already done |
 | Changed "Done when" on your own | acceptance runs against a criterion the human never agreed to |
 | Kept the queue in your head instead of in `ROADMAP.md` | the queue is lost on restart |

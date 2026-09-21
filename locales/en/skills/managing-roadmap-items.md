@@ -43,7 +43,7 @@ This part is shared by both: invariants, the line format, the archive, decisions
 | `My paths` | in progress | what the item touches. It sets the bar for a new item and blocks running a neighbor in parallel |
 | Done when | always | with a number. This line is the source of truth |
 
-**Ready to take** — `planned`, and every dependency is **closed**: either `done`, or in `DONE.md` outside the "Dropped" subsection. A dependency that was dropped is not satisfied — the work was abandoned, so the item waits on a human decision rather than a start: `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md`. `Depends on` isn't cleared once the dependency closes.
+**Ready to take** — `planned`, and every dependency is **closed**: either `done`, or in `DONE.md` outside the "Dropped" subsection. A dependency that was dropped is not satisfied — the work was abandoned, so the item waits on a human decision rather than a start: `python3 ${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py --ready ROADMAP.md`. `Depends on` isn't cleared once the dependency closes.
 
 ## Closed: four layers
 

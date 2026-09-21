@@ -24,7 +24,15 @@ def test_в_проекте_с_роадмапом_вкладывается_пол
 def test_в_проекте_без_метода_только_строка_указатель(tmp_path):
     out = core.render(tmp_path, ROOT, "ru")
     assert len(out) < 300
-    assert "/mast:init-project-ru" in out
+    assert "/mast-ru:init-project" in out
+
+
+def test_подсказка_зовёт_команду_своего_плагина(tmp_path):
+    """Имя команды = имя плагина: у `mast-ru` она `/mast-ru:init-project`, у `mast` —
+    `/mast:init-project`. Литерал от прошлой схемы отправлял в несуществующую команду."""
+    for lang, name in (("ru", "mast-ru"), ("en", "mast")):
+        out = core.render(tmp_path, ROOT, lang)
+        assert f"/{name}:init-project`" in out or f"/{name}:init-project` " in out, out
 
 
 def test_нечитаемое_ядро_возвращает_сообщение_а_не_падает(tmp_path):

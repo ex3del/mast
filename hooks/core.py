@@ -4,10 +4,12 @@ import os
 import sys
 from pathlib import Path
 
+from plugin_names import PLUGIN
+
 LANGS = ("ru", "en")
 HINT = {
-    "ru": "В этом проекте метод MAST не развёрнут. Развернуть — команда `/mast:init-project-ru`.",
-    "en": "MAST is not set up in this project. Run `/mast:init-project` to scaffold it.",
+    "ru": "В этом проекте метод MAST не развёрнут. Развернуть — команда `/{p}:init-project`.",
+    "en": "MAST is not set up in this project. Run `/{p}:init-project` to scaffold it.",
 }
 UNREADABLE = {
     "ru": "MAST: не удалось прочитать ядро ({path}). Проверь установку плагина.",
@@ -33,7 +35,7 @@ def render(project_dir, root, lang):
     project_dir = Path(project_dir)
     deployed = (project_dir / "ROADMAP.md").exists() or (project_dir / ".claude" / "rules").is_dir()
     if not deployed:
-        return HINT[lang]
+        return HINT[lang].format(p=PLUGIN[lang])
     core_path = Path(root) / "locales" / lang / "core.md"
     try:
         return core_path.read_text(encoding="utf-8")

@@ -6,12 +6,18 @@
   без аргументов                      — режим PostToolUse-хука: JSON на stdin,
                                         при новых (относительно HEAD) нарушениях
                                         код 2 и текст в stderr
+
+Первым аргументом может стоять язык (`ru` или `en`) — его передаёт разводка
+хуков того плагина, который позвал линт; остальные аргументы разбираются как
+обычно.
 """
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+from plugin_names import PLUGIN
 
 ITEM = re.compile(r"^- \*\*([A-Z]-\d+)\*\*(.*)$")
 # Статус стоит после разделителя «—» или «·», поэтому слово «готов» в названии не считается.
@@ -101,11 +107,13 @@ DONE_WHEN_NO_NUMBER_EN = '"Done when" has no number'
 NO_LOCATION_EN = 'in progress, but location not specified — `worktree-…` or "main copy"'
 
 
-def lint(text, ledger=""):
+def lint(text, ledger="", lang=None):
+    """`lang` приходит от плагина, который позвал линт; из CLI его нет — тогда
+    язык жалоб определяется по самому роадмапу."""
     items, dups = parse(text)
     all_archived, dropped_list = split_ledger(ledger)
     archived, dropped = set(all_archived), set(dropped_list)
-    lang = detect_lang(text)
+    lang = lang or detect_lang(text)
     errors = [f"{i}: {msg(lang, 'номер занят дважды', 'item number used twice')}" for i in dups]
     errors += [f"{i}: {msg(lang, 'номер занят, пункт уже в DONE.md', 'item number taken, already in DONE.md')}"
                for i in items if i in archived]
@@ -175,16 +183,19 @@ def ready(text, ledger=""):
             if it["status"] == "запланирован" and all(done(d) for d in it["deps"])]
 
 
-def orphans(ledger, base):
+def orphans(ledger, base, lang="ru"):
     """Битые ссылки тезисов на слой подробностей. base — папка, где лежит DONE.md.
 
     Ссылки нет — это норма: пункт закрылся в одну сессию и STATUS.md не заводил.
+    Язык приходит снаружи: по самому архиву его не угадать — слово `done` в нём
+    стоит в каждой ссылке `done/<пункт>/`, и русский файл сошёл бы за английский.
     """
     errors = []
     for line in ledger.splitlines():
         m = ITEM.match(line)
         if m:
-            errors += [f"{m.group(1)}: ссылка {link} никуда не ведёт"
+            errors += [f"{m.group(1)}: " + msg(lang, f"ссылка {link} никуда не ведёт",
+                                               f"link {link} leads nowhere")
                        for link in re.findall(r"\]\((done/[^)\s]+)\)", line)
                        if not (Path(base) / link).exists()]
     return errors
@@ -216,15 +227,26 @@ def from_head(project, rel):
     return r.stdout if r.returncode == 0 else ""
 
 
+def pick_language(argv):
+    """Язык жалоб — первым аргументом от того плагина, чья разводка вызвала хук
+    (так же, как у `core.py`): код линта общий на оба плагина. Вручную из
+    командной строки язык не передают — тогда его угадывает `detect_lang`."""
+    if argv[:1] and argv[0] in PLUGIN:
+        return argv[0], argv[1:]
+    return None, argv
+
+
 def main():
-    args = sys.argv[1:]
+    lang, args = pick_language(sys.argv[1:])
     if args[:1] == ["--ready"]:
         print("\n".join(ready(Path(args[1]).read_text(encoding="utf-8"), read_ledger(args[1]))))
         return 0
     if args:
         ledger = read_ledger(args[0])
-        errors = lint(Path(args[0]).read_text(encoding="utf-8"), ledger)
-        errors += orphans(ledger, Path(args[0]).parent / "docs/roadmap")
+        content = Path(args[0]).read_text(encoding="utf-8")
+        lang = lang or detect_lang(content)
+        errors = lint(content, ledger, lang)
+        errors += orphans(ledger, Path(args[0]).parent / "docs/roadmap", lang)
         print("\n".join(errors))
         return 1 if errors else 0
     path = Path(json.load(sys.stdin).get("tool_input", {}).get("file_path", ""))
@@ -234,15 +256,21 @@ def main():
     # Нарушения, которые уже были в HEAD, не показываем — их вносила не эта правка
     ledger = read_ledger(roadmap)
     content = roadmap.read_text(encoding="utf-8")
+    # Язык один на весь вывод: считай жалобы «до» и «после» на разных языках — ни одна
+    # старая не совпадёт с новой, и правка одной строки покажет весь файл как ошибку
+    lang = lang or detect_lang(content)
     old = set(lint(from_head(roadmap.parent, "ROADMAP.md"),
-                   from_head(roadmap.parent, "docs/roadmap/DONE.md")))
-    errors = [e for e in lint(content, ledger) if e not in old]
-    errors += [e for e in orphans(ledger, roadmap.parent / "docs/roadmap")
+                   from_head(roadmap.parent, "docs/roadmap/DONE.md"), lang))
+    errors = [e for e in lint(content, ledger, lang) if e not in old]
+    errors += [e for e in orphans(ledger, roadmap.parent / "docs/roadmap", lang)
                if e not in old]
     if errors:
-        header = msg(detect_lang(content + ledger),
-                     "Роадмап нарушает формат (скилл `mast:managing-roadmap-items-ru`), исправь:",
-                     "The roadmap violates the format (skill `mast:managing-roadmap-items`), fix:")
+        # Имя скилла зависит от плагина, а не от языка файла: русский роадмап
+        # под английским плагином должен отсылать к скиллу этого плагина
+        skill = f"{PLUGIN[lang]}:managing-roadmap-items"
+        header = msg(lang,
+                     f"Роадмап нарушает формат (скилл `{skill}`), исправь:",
+                     f"The roadmap violates the format (skill `{skill}`), fix:")
         print(header + "\n" + "\n".join(f"- {e}" for e in errors), file=sys.stderr)
         return 2
     return 0

@@ -56,6 +56,7 @@ A task that a Claude session is driving gets tagged with **that session's name**
 - **A roadmap item** — in the "where it's driven" slot of its `ROADMAP.md` line: `` `worktree-A-1` · session `A-1` · since 15.09 ``. An item's session starts with `--name <item ID>`, so the name is known in advance: whoever sets up the worktree puts the tag in place, in the main copy, before the session starts. (the start command is in skill `mast:worktree-flow`)
 - **A task outside the roadmap** in the main copy (a name like `fine-tune-llm-c8`) — the session writes its own name next to the task, wherever that task is tracked.
 - Finished or dropped a task — the name comes off along with the status change.
+- **An item runs on `opus` by default, with `fable` as its advisor.** Downgrading to `sonnet` with `opus` as advisor — only if the error is discoverable by checking against what already exists, reverts with a single `git revert`, and hits one item only. Zones that always run on `opus` are declared by the project in `.claude/rules/dispatch.md`; no such file — everything goes to `opus`, file present (even with no zones) — `sonnet` is allowed under those three conditions. The three questions in full — skill `mast:managing-roadmap-items`.
 
 ## Concurrent sessions in one working copy
 
@@ -64,6 +65,16 @@ Another Claude session, with its own uncommitted files, can be working in parall
 - **Before `git commit`, `git push`, `git stash`, `git checkout`, `git rebase` in a copy where another session is working — warn it first** (`ListAgents` → `SendMessage`) and wait for a reply: it will commit its files or leave them untouched.
 - Another session is busy in the main copy and you have a **small edit outside the roadmap** — do it in a separate worktree and push an explicit branch from there (`git push origin <branch>:main`), so the other session's local commits don't get carried along. A roadmap item is never merged this way — see skill `mast:worktree-flow`.
 - Run a git command with hooks as the **only** Bash call in a round: parallel calls share one shell, their `cd`s get mixed up, and the command ends up in the wrong copy.
+
+## Execution
+
+Turn the task into a checkable goal, otherwise autonomous work won't happen:
+
+- "Add validation" → "tests for invalid input, then make them pass"
+- "Fix the bug" → "a test that reproduces the bug, then green"
+- "Refactor X" → "tests green before and after"
+
+The cycle is TDAID: plan → red test → green → refactor → verify. The project has tests — use them, and cover new features. Prefer e2e.
 
 ## More details — in the skills
 

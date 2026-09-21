@@ -249,7 +249,7 @@ description: Развернуть каркас метода MAST в новом �
 `ROADMAP.md` в проекте теперь есть (создан или отредактирован) — прогони:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py ROADMAP.md
+python3 ${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py ROADMAP.md
 ```
 
 **Код ноль** — скажи, что каркас соответствует эталону, и что сделать дальше:

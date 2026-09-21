@@ -206,9 +206,32 @@ class LintTest(unittest.TestCase):
 
 
 class HookTest(unittest.TestCase):
-    def run_hook(self, file_path):
+    def run_hook(self, file_path, lang=None):
         payload = json.dumps({"tool_name": "Edit", "tool_input": {"file_path": str(file_path)}})
-        return subprocess.run([sys.executable, str(SCRIPT)], input=payload, capture_output=True, text=True)
+        cmd = [sys.executable, str(SCRIPT)] + ([lang] if lang else [])
+        return subprocess.run(cmd, input=payload, capture_output=True, text=True)
+
+    def broken(self, d):
+        path = Path(d) / "ROADMAP.md"
+        path.write_text(OK.replace("  Готово когда: пустой отчёт → 200.\n", ""), encoding="utf-8")
+        return path
+
+    def test_язык_плагина_задаёт_весь_вывод_а_не_только_заголовок(self):
+        """Русский роадмап под английским плагином: и скилл в заголовке, и сами
+        жалобы — того плагина, что позвал линт. Иначе половина вывода зовёт в
+        скилл, которого у пользователя не установлено."""
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_hook(self.broken(d), "en")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("skill `mast:managing-roadmap-items`", result.stderr)
+        self.assertIn('no "Done when"', result.stderr)
+        self.assertNotIn("Готово когда", result.stderr)
+
+    def test_русский_плагин_зовёт_свой_скилл(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_hook(self.broken(d), "ru")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("скилл `mast-ru:managing-roadmap-items`", result.stderr)
 
     def test_hook_ignores_other_files(self):
         self.assertEqual(self.run_hook("/tmp/README.md").returncode, 0)
