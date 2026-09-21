@@ -43,8 +43,8 @@ other:
 claude plugin install mast-ru@ex3del --scope user
 ```
 
-Then turn auto-update on — this third step matters, because auto-update is
-**off by default** for third-party marketplaces. Either through the `/plugin`
+Then turn auto-update on — this step is easy to skip and shouldn't be,
+because auto-update is **off by default** for third-party marketplaces. Either through the `/plugin`
 menu inside a session (find the `ex3del` marketplace → enable auto-update), or
 by adding this to `~/.claude/settings.json` yourself:
 
