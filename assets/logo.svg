@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="MAST">
+  <rect width="256" height="256" rx="56" fill="#0E2238"/>
+  <!-- паруса — агенты: три яруса на одной мачте, бока выгнуты ветром -->
+  <path d="M94 76 H162 Q176 88 170 104 Q128 97 86 104 Q80 88 94 76 Z" fill="#F5F1E8"/>
+  <path d="M82 118 H174 Q192 134 184 154 Q128 145 72 154 Q64 134 82 118 Z" fill="#F5F1E8"/>
+  <path d="M70 166 H186 Q208 184 198 208 Q128 197 58 208 Q48 184 70 166 Z" fill="#F5F1E8"/>
+  <!-- мачта — диспетчер, на котором держится всё -->
+  <rect x="123" y="34" width="10" height="186" rx="5" fill="#0E2238"/>
+  <rect x="125.5" y="34" width="5" height="186" rx="2.5" fill="#F5F1E8"/>
+  <!-- реи -->
+  <rect x="88" y="71" width="80" height="6" rx="3" fill="#F5F1E8"/>
+  <rect x="76" y="113" width="104" height="6" rx="3" fill="#F5F1E8"/>
+  <rect x="64" y="161" width="128" height="6" rx="3" fill="#F5F1E8"/>
+  <!-- флаг — цвет Claude -->
+  <path d="M130.5 34 L168 43.5 L130.5 53 Z" fill="#D97757"/>
+  <!-- волна -->
+  <path d="M40 228 Q58 218 76 228 T112 228 T148 228 T184 228 T220 228" fill="none" stroke="#4F7CAC" stroke-width="5" stroke-linecap="round"/>
+</svg>

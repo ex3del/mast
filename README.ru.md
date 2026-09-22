@@ -1,6 +1,16 @@
-# MAST
+<p align="center">
+  <img src="assets/logo.svg" width="128" alt="MAST">
+</p>
 
-*English version: [README.md](README.md)*
+<h1 align="center">MAST</h1>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fex3del%2Fmast%2Fmain%2Fplugins%2Fen%2F.claude-plugin%2Fplugin.json&query=%24.version&label=version&color=0E2238" alt="version">
+  <img src="https://img.shields.io/badge/Claude%20Code-%E2%89%A5%202.1.242-D97757" alt="Claude Code ≥ 2.1.242">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ex3del/mast?color=4F7CAC" alt="MIT"></a>
+</p>
+
+<p align="center"><i>English version: <a href="README.md">README.md</a></i></p>
 
 **MAST — Method for Agents, Sessions and Tasks.** Способ вести проект силами нескольких
 агентов Claude Code так, чтобы они не мешали друг другу, а сделанное не расползалось.
