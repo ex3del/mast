@@ -2,14 +2,44 @@
 
 *Read this in Russian: [README.ru.md](README.ru.md)*
 
-MAST — Method for Agents, Sessions and Tasks. A Claude Code plugin that brings a
-particular way of working into your project: roadmap items with measurable
-acceptance criteria, a worktree per item, a dispatcher for parallel work,
-path-scoped rules, an archive of closed work. It never touches your global
-`~/.claude/CLAUDE.md`, and it doesn't write to your project without asking
-first. Claude Code itself records the plugin being enabled in your
-`settings.json` — the same bookkeeping entry any plugin gets — but the
-method and its hooks never write there themselves.
+**MAST — Method for Agents, Sessions and Tasks.** A way to run a project with several
+Claude Code agents so they don't get in each other's way, and what they build doesn't
+drift apart.
+
+## Where it came from
+
+It started with ultracode mode: it launches dozens of agents at once, and there's no
+keeping track of who's doing what or what's already done. The goal was the same reach,
+but under control. The pieces turned up in other projects:
+
+- **[beads](https://github.com/steveyegge/beads)** — tasks live in a tracker agents
+  understand: what's free, what's taken, what's waiting on what;
+- **[Agent Teams](https://code.claude.com/docs/en/agent-teams.md)** — a dispatcher role,
+  and agents that message each other, not just the human;
+- **[claude-squad](https://github.com/smtg-ai/claude-squad)** — every task gets its own
+  working copy, so agents don't trample each other's files;
+- **[superpowers](https://github.com/obra/superpowers)** — discipline around the code:
+  plan first, then tests and implementation, then review.
+
+One thing none of them had — **a single source of truth**. When agents write the code,
+everything drifts: docs fall behind the code, decisions get forgotten, and the next
+session undoes what was agreed yesterday. MAST organizes the work around documents that
+grow as the work goes and can be trusted: the roadmap, the archive of what's done,
+per-folder rules, debts with the condition for fixing them.
+
+Later, some rules came from **[Ouroboros](https://github.com/razzant/ouroboros)** — a
+system that rewrites its own rules: a recurring mistake gets caught by a check, not by
+one more paragraph of instructions, and every fact has exactly one owner.
+
+## What's inside
+
+A Claude Code plugin that brings a particular way of working into your project: roadmap
+items with measurable acceptance criteria, a worktree per item, a dispatcher for parallel
+work, path-scoped rules, an archive of closed work. It never touches your global
+`~/.claude/CLAUDE.md`, and it doesn't write to your project without asking first. Claude
+Code itself records the plugin being enabled in your `settings.json` — the same
+bookkeeping entry any plugin gets — but the method and its hooks never write there
+themselves.
 
 ## Requirements
 
