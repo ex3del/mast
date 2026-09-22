@@ -57,6 +57,38 @@ one more paragraph of instructions, and every fact has exactly one owner.
 8. **Memory lives in documents.** Decisions, debts, and rules are written down next to the
    code, so the next session reads them instead of guessing.
 
+### Documentation layers
+
+Each document answers its own question, and every fact has one home.
+
+**What we're doing**
+
+- `ROADMAP.md` — the overall plan: open items only, each with a done-criterion that has a
+  number, who drives it, and what it depends on.
+- `docs/roadmap/<A-1>/STATUS.md` — the detailed plan of one item: tasks, a step-by-step
+  journal, issues, decisions made. It survives an agent restart; opened only when the item
+  needs it.
+- `docs/roadmap/inbox/` — agents' findings nobody has triaged yet.
+
+**What we did and why**
+
+- `docs/roadmap/DONE.md` — the archive of closed work: two lines per item — what changed,
+  with a number, when, and in which commits. It answers "has this been done before?", and
+  its "Dropped" subsection answers "was this tried and rejected?".
+- `docs/adr/` — why it was done this way: for decisions that are costly to reverse. Such a
+  decision also lives in a rule for the agent and in a test that fails if it's undone.
+- `TECH_DEBT.md` — what was deliberately left crooked, and under what condition we fix it.
+
+**Rules**
+
+- `CLAUDE.md` — the project's passport: stack, commands, invariants. It loads into every
+  session, so it stays under 200 lines; reference material lives in `docs/`.
+- `.claude/rules/*.md` — agreements about a specific folder: they reach the agent only
+  when it touches those files.
+
+A closed item reads top-down exactly as deep as you need: a line in the archive → the
+item's journal → why it was decided that way → the code itself in `git diff`.
+
 ## What's inside
 
 A Claude Code plugin that brings a particular way of working into your project: roadmap
