@@ -92,6 +92,33 @@ the full worktree/merge/dispatcher cycle — lives in **skills** instead, and
 loads only when its description matches what you're doing, so it costs
 nothing in sessions that don't need it.
 
+### When the core is injected, and how to get it everywhere
+
+The hook looks at the project: `ROADMAP.md` or a `.claude/rules/` directory
+present — it injects the whole core. Neither one — a single line arrives:
+"the method isn't set up here, run `/mast:init-project`". That way the plugin
+weighs nothing in other people's repositories.
+
+If you want the method everywhere, including projects with no scaffold yet,
+turn on the `always_core` option: an unscaffolded project then gets that same
+hint line with the core underneath it.
+
+```bash
+claude plugin uninstall mast@ex3del
+claude plugin install mast@ex3del --scope user --config always_core=true
+```
+
+Uninstalling first is necessary because `--config` only applies during an
+actual install: on an already installed plugin, `install` reports "already
+installed" and stores nothing. After that `~/.claude/settings.json` holds this
+block — you can also write it by hand:
+
+```json
+{ "pluginConfigs": { "mast@ex3del": { "options": { "always_core": true } } } }
+```
+
+The option is read at session start: in the current one run `/reload-plugins`.
+
 ## Context7 bundled
 
 The plugin ships the [Context7](https://context7.com) MCP server (remote,
