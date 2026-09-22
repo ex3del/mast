@@ -29,10 +29,20 @@ def headings(lang):
     return re.findall(r"^## .+$", text(lang), re.M)
 
 
-def guards(lang):
+# Находки ручной проверки 22.09 (пункт A-9): предложения шли текстом файла целиком,
+# а оригинал после переноса оставался рядом с копией — две истины об одном.
+DIFF_BLOCK = {"en": r"a `diff` block", "ru": r"блоком `diff`"}
+ORIGINAL_QUESTION = {"en": r"delete the original", "ru": r"удалить ли оригинал"}
+
+
+def guard_section(lang):
     section = re.search(rf"^{re.escape(GUARD_SECTION[lang])}\n(.*?)^## ", text(lang), re.S | re.M)
     assert section, f"{COMMANDS[lang].name}: нет секции «{GUARD_SECTION[lang]}»"
-    return re.findall(r"^\d+\. \*\*(.+?)\*\*", section.group(1), re.M)
+    return section.group(1)
+
+
+def guards(lang):
+    return re.findall(r"^\d+\. \*\*(.+?)\*\*", guard_section(lang), re.M)
 
 
 def test_образец_содержит_все_случаи_ревизии():
@@ -51,6 +61,25 @@ def test_ограждения_ревизии_на_месте_в_тексте_к�
     for g in found:
         assert re.search(GUARD_WORDS[lang], g.lower()), \
             f"{lang}: ограждение ничего не запрещает и ничего не требует: {g}"
+
+
+@pytest.mark.parametrize("lang", sorted(COMMANDS))
+def test_предложение_по_существующему_файлу_показано_блоком_diff(lang):
+    """Текст файла целиком прячет, что именно меняется: 18 тыс. символов без единой
+    строки `-`/`+` человек не проверит, а просто согласится."""
+    assert re.search(DIFF_BLOCK[lang], guard_section(lang)), \
+        f"{lang}: ограждения не требуют блока diff для существующего файла"
+
+
+@pytest.mark.parametrize("lang", sorted(COMMANDS))
+def test_перенос_спрашивает_удалить_ли_оригинал(lang):
+    """После переноса `TODO.md` → `ROADMAP.md` и `CHANGELOG.md` → `DONE.md` оригинал без
+    вопроса остаётся рядом, и в проекте две истины об одном."""
+    rows = [r for r in text(lang).splitlines() if r.startswith(("| `TODO.md`", "| `CHANGELOG.md`"))]
+    assert len(rows) == 2, f"{lang}: строк переноса в таблице находок {len(rows)}, ждали 2"
+    for row in rows:
+        assert re.search(ORIGINAL_QUESTION[lang], row, re.I), \
+            f"{lang}: «{row[:40]}…» не спрашивает про оригинал"
 
 
 def test_языковые_версии_команды_не_разъехались():

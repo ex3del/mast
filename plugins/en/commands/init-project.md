@@ -48,7 +48,9 @@ There are five, and they hold for the whole scenario below, not only for finding
    without `paths:`, appending a line to an existing `.gitignore`, an already existing
    `ROADMAP.md`) — a dirty tree blocks exactly that edit, ask for a commit first.
 3. **No file is overwritten silently.** There is a file — a "was → would become" diff and a
-   separate question about it. A human's refusal is a legitimate outcome, not an error to be worked around.
+   separate question about it. The diff is shown as a `diff` block with `-` and `+` lines, not as
+   the whole file's text: the human must see what changes, not reread the file. A human's refusal
+   is a legitimate outcome, not an error to be worked around.
 4. **The Claude Code version is checked in the survey.** The dispatcher and parallel sessions
    (`SendMessage`, `ListAgents`) require 2.1.234 or higher, and the declared dependency on
    `superpowers` requires 2.1.242, so the plugin's minimum is 2.1.242.
@@ -197,10 +199,10 @@ diff and its own separate question; the answers to them are independent:
 
 | What was found | What we propose |
 |---|---|
-| `TODO.md` or a homemade roadmap | the items in our format: section letter, number, status, `My paths`, `Done when` — the diff shows the proposed `ROADMAP.md` text. A criterion with no number in the original — carried over as text and marked as not set (guardrail 1), not invented |
+| `TODO.md` or a homemade roadmap | the items in our format: section letter, number, status, `My paths`, `Done when` — the diff shows the proposed `ROADMAP.md` text. A criterion with no number in the original — carried over as text and marked as not set (guardrail 1), not invented. Plus a separate question: delete the original after the transfer? Otherwise the project holds two truths about one thing |
 | `CLAUDE.md` longer than 200 lines | what to move out to `docs/` (architecture, reference), what to `.claude/rules/*.md` with `paths:`, what to leave as is — a separate diff per piece |
 | a rule in `.claude/rules/` without `paths:` | add `paths:` frontmatter and the likely paths — a diff of the rule itself |
-| `CHANGELOG.md` with closed work | theses in `docs/roadmap/DONE.md`, two lines per item — a diff of the lines being added |
+| `CHANGELOG.md` with closed work | theses in `docs/roadmap/DONE.md`, two lines per item — a diff of the lines being added. Plus a separate question: delete the original after the transfer? |
 | `.claude/worktrees/` exists, no line in `.gitignore` | the line `.claude/worktrees/` at the end of `.gitignore` |
 
 The format of the criterion line when carrying items over matters to the lint, not only to the
@@ -241,7 +243,8 @@ a finding) but at the file itself (guardrail 2):
   create them anyway, but warn the human in one line: these files will land on top of
   uncommitted changes;
 - **the file already existed and you change it in place** — a long `CLAUDE.md`, a rule without
-  `paths:`, appending a line to an existing `.gitignore`, an already existing `ROADMAP.md`.
+  `paths:`, appending a line to an existing `.gitignore`, an already existing `ROADMAP.md`,
+  deleting a transferred original (`git rm`, and only after its copy has been written).
   Apply only if the tree at step 1 was clean. It was dirty — don't apply this edit at all, tell
   the human to commit first and come back to this step; that doesn't roll back or touch the
   files created from scratch in the point above. The tree was clean — apply exactly as shown at
