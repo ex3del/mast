@@ -13,11 +13,18 @@ keeping track of who's doing what or what's already done. The goal was the same 
 but under control. The pieces turned up in other projects:
 
 - **[beads](https://github.com/steveyegge/beads)** — tasks live in a tracker agents
-  understand: what's free, what's taken, what's waiting on what;
+  understand: what's free, what's taken, what's waiting on what. *But* it's a separate
+  database (Dolt) with its own CLI, in embedded mode only one process writes to it, and
+  tasks move out of the text next to the code — for a small project that's more
+  machinery than benefit;
 - **[Agent Teams](https://code.claude.com/docs/en/agent-teams.md)** — a dispatcher role,
-  and agents that message each other, not just the human;
+  and agents that message each other, not just the human. *But* it's experimental and
+  built as "a lead hands out work to subordinates": the lead can't change, one team per
+  session, and teammates don't survive `/resume`;
 - **[claude-squad](https://github.com/smtg-ai/claude-squad)** — every task gets its own
-  working copy, so agents don't trample each other's files;
+  working copy, so agents don't trample each other's files. *But* it's a separate program
+  on top of tmux, and Claude Code now does worktrees and background sessions natively —
+  an extra layer;
 - **[superpowers](https://github.com/obra/superpowers)** — discipline around the code:
   plan first, then tests and implementation, then review.
 
