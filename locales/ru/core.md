@@ -82,3 +82,4 @@ paths:
 - структура документов проекта → скилл `mast-ru:project-structure`
 - цикл worktree, вливание ветки пункта, роль диспетчера → скилл `mast-ru:worktree-flow`
 - ведение пунктов, находки, закрытие → скилл `mast-ru:managing-roadmap-items`
+
