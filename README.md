@@ -6,6 +6,12 @@
 Claude Code agents so they don't get in each other's way, and what they build doesn't
 drift apart.
 
+The goal is development that runs as autonomously as possible. Several tasks move in
+parallel while you work from **a single terminal**: you talk to one dispatcher session,
+and it hands work out to agents, collects the results, and comes to you only when a
+decision is yours to make. Your attention isn't spread across a dozen windows, and you
+don't have to keep track of who's doing what, where.
+
 ## Where it came from
 
 It started with ultracode mode: it launches dozens of agents at once, and there's no
