@@ -27,13 +27,22 @@ def pick_language(argv):
     return lang if lang in LANGS else "ru"
 
 
-def wants_core_everywhere(env):
-    """Настройка плагина `always_core`: приезжает в хук через `env` его разводки.
+# Настройка `always_core` доезжает до хука двумя путями: подстановкой
+# `${user_config.always_core}` в `env` разводки и автоматической переменной
+# площадки. Живой прогон на 3.1.0 показал, что первая не сработала, — поэтому
+# читаем обе и не зависим от того, какая жива в конкретной версии Claude Code.
+ALWAYS_CORE_VARS = ("MAST_ALWAYS_CORE", "CLAUDE_PLUGIN_OPTION_ALWAYS_CORE")
 
-    Значение не задано — приходит пустая строка; всё, кроме явного «да», считаем «нет»,
-    чтобы у постороннего плагин молчал в чужих проектах, пока он не попросил обратного.
-    """
-    return env.get("MAST_ALWAYS_CORE", "").strip().lower() in {"true", "1", "yes", "on"}
+
+def wants_core_everywhere(env):
+    """Значение не задано — приходит пустая строка или переменной нет вовсе; всё,
+    кроме явного «да», считаем «нет», чтобы у постороннего плагин молчал в чужих
+    проектах, пока он не попросил обратного."""
+    for name in ALWAYS_CORE_VARS:
+        value = env.get(name, "").strip().lower()
+        if value:
+            return value in {"true", "1", "yes", "on"}
+    return False
 
 
 def read_core(root, lang):

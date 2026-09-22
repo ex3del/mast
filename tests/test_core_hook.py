@@ -40,6 +40,12 @@ def test_настройка_ядро_везде_читается_из_окруж
     assert core.wants_core_everywhere({"MAST_ALWAYS_CORE": "true"})
     assert core.wants_core_everywhere({"MAST_ALWAYS_CORE": " True "})
     assert core.wants_core_everywhere({"MAST_ALWAYS_CORE": "1"})
+    # Второй путь: автоматическая переменная площадки, когда подстановка в `env` не сработала
+    assert core.wants_core_everywhere({"CLAUDE_PLUGIN_OPTION_ALWAYS_CORE": "true"})
+    assert not core.wants_core_everywhere({"CLAUDE_PLUGIN_OPTION_ALWAYS_CORE": "false"})
+    # Пустая подстановка не заслоняет вторую переменную
+    assert core.wants_core_everywhere({"MAST_ALWAYS_CORE": "",
+                                       "CLAUDE_PLUGIN_OPTION_ALWAYS_CORE": "true"})
     assert not core.wants_core_everywhere({"MAST_ALWAYS_CORE": "false"})
     assert not core.wants_core_everywhere({"MAST_ALWAYS_CORE": ""})
     assert not core.wants_core_everywhere({})
