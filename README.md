@@ -323,3 +323,9 @@ docs server configured, the command says so and offers to skip.
   read its own template files under the plugin's install directory; if it
   reports templates as unavailable, relaunch the session with
   `--add-dir <path to the mast plugin>`.
+
+## Contributing
+
+Bugs and ideas go to [issues](https://github.com/ex3del/mast/issues), code through a pull
+request. The rules that aren't obvious — where to edit, both languages, the version bump — are in
+[CONTRIBUTING.md](CONTRIBUTING.md).

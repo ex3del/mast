@@ -1,0 +1,37 @@
+name: Bug report
+description: Something in the plugin behaves wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Writing in Russian is fine too. / Можно писать по-русски."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead. Paste the exact output if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Steps, or a minimal ROADMAP.md / project layout that shows it.
+    validations:
+      required: true
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin and version
+      description: "`claude plugin list | grep -A1 mast`"
+      placeholder: "mast-ru@ex3del 3.2.1"
+    validations:
+      required: true
+  - type: input
+    id: claude
+    attributes:
+      label: Claude Code version
+      description: "`claude --version`"
+      placeholder: "2.1.278"
+    validations:
+      required: true

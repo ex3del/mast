@@ -1,0 +1,21 @@
+name: Idea or proposal
+description: A new rule, skill, or change to the method
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: "Writing in Russian is fine too. / Можно писать по-русски."
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What goes wrong or costs too much today — ideally with a real case.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: What you'd change, and how we'd know it worked — a number if possible.
+    validations:
+      required: true
