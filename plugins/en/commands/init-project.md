@@ -208,9 +208,10 @@ diff and its own separate question; the answers to them are independent:
 The format of the criterion line when carrying items over matters to the lint, not only to the
 human: the `Done when:` line must contain exactly `not set` and nothing else. The carried-over
 wording ("add PDF export", "piled up 10000 tasks") goes into the item's title or a separate line
-below it, not inside the criterion line — otherwise its digits (if there are any there, but they
-describe the problem rather than a measurement) will be taken by `roadmap_lint.py` for a
-criterion that is set, and guardrail 1 stops being visible to the lint at step 3.
+right under it — above `My paths` and `Done when`, not inside the criterion and not below it: the
+lint reads the criterion together with its wrapped lines up to the next field, and digits that
+describe the problem rather than a measurement would be taken for a criterion that is set —
+guardrail 1 stops being visible to the lint at step 3.
 
 If there is one finding but several decisions inside it (three pieces to move out of a long
 `CLAUDE.md`, for example) — then there are several questions too, and the human may accept some

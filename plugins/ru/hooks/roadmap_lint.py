@@ -40,6 +40,30 @@ DROPPED_HEADER = re.compile(r"^#+[\s\W]*(снят|dropped)", re.IGNORECASE)
 # Заголовок критерия — только в начале своей строки, иначе фраза в прозе («Переводим
 # заголовок «Done when»…») ложно засчитывается за настоящий критерий
 CRIT_HEADER = re.compile(r"^[ \t]*(?:готово когда|done when)\s*:(.*)$", re.IGNORECASE | re.MULTILINE)
+# Другие поля пункта — на них продолжение критерия кончается
+FIELD = re.compile(r"^[ \t]*(?:зависит от|мои пути|depends on|my paths)\s*:", re.IGNORECASE)
+# Критерий, помеченный незаданным при переносе, незадан при любых цифрах ниже
+NOT_SET = ("не задан", "not set")
+
+
+def criterion(body):
+    """Текст «Готово когда» с продолжением, или None, если критерия нет.
+
+    Проекты переносят критерий по ширине строки, и число уезжает на следующую строку:
+    читать одну первую — значит ругаться на заданный критерий. Продолжение — строки
+    пункта до следующего поля.
+    """
+    lines = body.splitlines()
+    for i, line in enumerate(lines):
+        m = CRIT_HEADER.match(line)
+        if m:
+            tail = [m.group(1)]
+            for nxt in lines[i + 1:]:
+                if FIELD.match(nxt):
+                    break
+                tail.append(nxt)
+            return " ".join(t.strip() for t in tail).strip()
+    return None
 
 
 def parse(text):
@@ -120,10 +144,10 @@ def lint(text, ledger="", lang=None):
     for i, it in items.items():
         if not it["status"]:
             errors.append(f"{i}: {msg(lang, 'нет статуса', 'no status')}")
-        crit_m = CRIT_HEADER.search(it["body"])
-        if not crit_m:
+        crit = criterion(it["body"])
+        if crit is None:
             errors.append(f"{i}: {msg(lang, 'нет «Готово когда»', DONE_WHEN_MISSING_EN)}")
-        elif not re.search(r"\d", crit_m.group(1)):
+        elif crit.lower().startswith(NOT_SET) or not re.search(r"\d", crit):
             errors.append(f"{i}: {msg(lang, 'в «Готово когда» нет числа', DONE_WHEN_NO_NUMBER_EN)}")
         if it["status"] == "в работе":
             if ("worktree-" not in it["head"] and "основная копия" not in it["head"]
