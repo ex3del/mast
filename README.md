@@ -57,6 +57,32 @@ auto-update-enabled marketplaces in the background, roughly once per session
 start with a random delay of up to ten minutes; a fresh version is picked up
 on the next start or via `/reload-plugins`.
 
+### Install variant: the core in every project
+
+```bash
+claude plugin install mast@ex3del --scope user --config always_core=true
+```
+
+How this differs from the install above: by default the core reaches **only**
+projects where the method is already set up (`ROADMAP.md` or `.claude/rules/`
+present), and everywhere else a single line arrives instead — "the method isn't
+set up here, run `/mast:init-project`". With `always_core=true` the core reaches
+**every** project; in unscaffolded ones that same line stays on top as a hint.
+Nothing else changes: same skills, same command, same lint — the only difference
+is whether the rules show up where there's no scaffold.
+
+Install it this way if the method is how you work in general, not only in
+prepared repositories. The price is roughly 8k characters of context per session.
+
+- `--config` is stored **only during an actual install**. Already installed —
+  `install` reports "already installed" and stores nothing: run
+  `claude plugin uninstall mast@ex3del` first, then the command above.
+- The value lands in `~/.claude/settings.json` — you can also write it by hand:
+  ```json
+  { "pluginConfigs": { "mast@ex3del": { "options": { "always_core": true } } } }
+  ```
+- It takes effect from the next session; in the current one run `/reload-plugins`.
+
 ## What `/mast:init-project` does
 
 One command, one scenario, for both a brand-new project and one with history:
@@ -94,23 +120,8 @@ checkout` away; nothing is created or changed without a question first.
   one — a single line, "the method isn't set up here, run `/mast:init-project`". That
   way the plugin weighs nothing in other people's repositories.
 - **The `always_core` option** lifts that condition: the core arrives in unscaffolded
-  projects too, underneath the same hint line.
+  projects too, underneath the same hint line. How to turn it on — see "Setup".
 - **Language is which plugin you install** (`mast` or `mast-ru`), not a setting inside one.
-
-### Turning the core on everywhere
-
-```bash
-claude plugin install mast@ex3del --scope user --config always_core=true
-```
-
-- `--config` is stored **only during an actual install**. Already installed — `install`
-  reports "already installed" and stores nothing: run `claude plugin uninstall mast@ex3del`
-  first, then the command above.
-- The value lands in `~/.claude/settings.json` — you can also write it by hand:
-  ```json
-  { "pluginConfigs": { "mast@ex3del": { "options": { "always_core": true } } } }
-  ```
-- It takes effect from the next session; in the current one run `/reload-plugins`.
 
 ## Context7 bundled
 
