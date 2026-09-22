@@ -71,7 +71,8 @@ def test_все_пути_в_аргументах_через_claude_plugin_root_�
         rel = arg[len("${CLAUDE_PLUGIN_ROOT}/"):]
         target = (PLUGINS[lang] / rel).resolve()
         assert target.is_file(), f"{arg}: файла {target} нет"
-        assert ROOT / "hooks" == target.parent, f"{arg}: код хуков должен быть общим"
+        # Внутри плагина, а не в корне репозитория: в кэш едет только он сам
+        assert target.parent == PLUGINS[lang] / "hooks", f"{arg}: файл вне каталога плагина"
 
 
 @pytest.mark.parametrize("lang", LANGS)

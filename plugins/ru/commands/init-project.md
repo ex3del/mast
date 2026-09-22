@@ -3,7 +3,7 @@ description: Развернуть каркас метода MAST в новом �
 ---
 
 Тексты каркаса, которые эта команда скопирует (`CLAUDE.md`, `ROADMAP.md`, пример правила),
-берутся из русской локали плагина — `${CLAUDE_PLUGIN_ROOT}/../../locales/ru/`.
+берутся из русской локали плагина — `${CLAUDE_PLUGIN_ROOT}/locales/ru/`.
 
 Ты приводишь текущий проект к каркасу метода MAST. Пять артефактов каркаса:
 `CLAUDE.md`, `ROADMAP.md`, каталог `docs/roadmap/`, файл `.claude/rules/example.md`
@@ -14,7 +14,7 @@ description: Развернуть каркас метода MAST в новом �
 `.claude/rules/context7.md` (плагин несёт вместе с ним и сам MCP-сервер, см. README);
 предлагается своим отдельным вопросом на шаге 2, не в общей пятёрке.
 
-Шаблоны для копирования лежат в плагине: `${CLAUDE_PLUGIN_ROOT}/../../locales/ru/templates/`
+Шаблоны для копирования лежат в плагине: `${CLAUDE_PLUGIN_ROOT}/locales/ru/templates/`
 — `CLAUDE.template.md`, `ROADMAP.template.md`, `rule.template.md`, `context7.rule.template.md`.
 
 ## Аргумент `--check`
@@ -129,7 +129,7 @@ description: Развернуть каркас метода MAST в новом �
 
 Раздели то, что будешь предлагать, на два вида.
 
-**Сначала проверь, что шаблоны читаются** — `${CLAUDE_PLUGIN_ROOT}/../../locales/ru/templates/*.template.md`.
+**Сначала проверь, что шаблоны читаются** — `${CLAUDE_PLUGIN_ROOT}/locales/ru/templates/*.template.md`.
 Недоступны (бывает — доступ сессии ограничен рабочим каталогом проекта, и
 каталог плагина в него не входит) — это касается не только диффа `ROADMAP.md` при переносе
 `TODO.md`, а всех пяти базовых артефактов разом (и правила Context7 тоже — оно такой же
@@ -146,7 +146,7 @@ description: Развернуть каркас метода MAST в новом �
 **Недостающие артефакты каркаса** — те из пяти, которых нет вовсе. Для них дифф
 вырожденный: файла не было — появится копия шаблона. Покажи список конкретно:
 
-1. `CLAUDE.md` — шаблон `${CLAUDE_PLUGIN_ROOT}/../../locales/ru/templates/CLAUDE.template.md`
+1. `CLAUDE.md` — шаблон `${CLAUDE_PLUGIN_ROOT}/locales/ru/templates/CLAUDE.template.md`
    с вписанными данными из описи: стек, команды, тесты, конвенции, корневые папки, описание
    из `README.md`. Дифф здесь не вырожденный — покажи получившийся текст целиком. Секции
    «Инварианты проекта» и «Код» команда не придумывает: они едут из шаблона как есть.
@@ -249,7 +249,7 @@ description: Развернуть каркас метода MAST в новом �
 `ROADMAP.md` в проекте теперь есть (создан или отредактирован) — прогони:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py ROADMAP.md
+python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py ROADMAP.md
 ```
 
 **Код ноль** — скажи, что каркас соответствует эталону, и что сделать дальше:

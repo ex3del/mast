@@ -15,6 +15,12 @@ git rev-parse --verify HEAD >/dev/null 2>&1 || exit 0   # первый комм�
 
 git diff --cached --name-only | grep -Eq "$METHOD" || exit 0
 
+# Копии внутри плагинов обязаны совпадать с корневым источником: плагин ставится
+# из своего подкаталога, и отставшая копия уедет пользователю вместо правки.
+if [ -f tools/sync_plugins.py ] && command -v python3 >/dev/null 2>&1; then
+  python3 tools/sync_plugins.py --check || exit 1
+fi
+
 # Нечем проверить — падаем громко. Молчаливый пропуск выпускает релиз,
 # которого никто не получит, и узнается это через месяц от пользователя.
 command -v python3 >/dev/null 2>&1 || {

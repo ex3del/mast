@@ -8,7 +8,7 @@
             "type": "command",
             "command": "python3",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/../../hooks/core.py",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/core.py",
               "ru"
             ]
           }
@@ -23,7 +23,7 @@
             "type": "command",
             "command": "python3",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py",
               "ru"
             ],
             "if": "Edit(**/ROADMAP.md)"
@@ -32,7 +32,7 @@
             "type": "command",
             "command": "python3",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py",
               "ru"
             ],
             "if": "Write(**/ROADMAP.md)"
@@ -41,7 +41,7 @@
             "type": "command",
             "command": "python3",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py",
               "ru"
             ],
             "if": "Edit(**/docs/roadmap/DONE.md)"
@@ -50,7 +50,7 @@
             "type": "command",
             "command": "python3",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/../../hooks/roadmap_lint.py",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py",
               "ru"
             ],
             "if": "Write(**/docs/roadmap/DONE.md)"

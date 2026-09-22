@@ -111,13 +111,21 @@ def test_ссылки_на_скиллы_и_команды_ведут_в_свое
         assert found, f"{lang}: ссылок не нашлось — сторож смотрит не туда"
 
 
-def test_у_каждого_плагина_свой_mcp_и_ничего_лишнего():
-    """В подкаталоге плагина — только обёртка: манифест, хуки, скиллы, команда, MCP.
-    Код и тексты общие и лежат в корне, иначе они разъедутся между языками."""
+def test_плагин_самодостаточен():
+    """Площадка копирует в кэш только содержимое каталога плагина — проверено живьём
+    на установке из маркетплейса. Значит код и тексты обязаны лежать внутри него."""
     for lang, root in PLUGINS.items():
         files = {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
-        assert ".mcp.json" in files
-        assert "hooks/hooks.json" in files
-        assert "commands/init-project.md" in files
-        assert not [f for f in files if f.endswith(".py")], f"{lang}: код должен быть общим"
-        assert not [f for f in files if f.startswith("locales/")], f"{lang}: тексты должны быть общими"
+        for required in (".mcp.json", "hooks/hooks.json", "hooks/core.py",
+                         "hooks/roadmap_lint.py", "commands/init-project.md",
+                         f"locales/{lang}/core.md"):
+            assert required in files, f"{lang}: нет {required}"
+
+
+def test_копии_в_плагинах_не_отстали_от_источника():
+    """Истина одна — корневые `hooks/` и `locales/`; внутри плагина её копии,
+    разложенные `tools/sync_plugins.py`. Отстали — релиз уедет с чужим текстом."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    import sync_plugins  # noqa: PLC0415 — импорт здесь, чтобы тест не требовал tools/ в sys.path
+
+    assert sync_plugins.check() == [], "разложить: python3 tools/sync_plugins.py"
