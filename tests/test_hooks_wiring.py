@@ -44,6 +44,15 @@ def test_ядру_передан_язык_своего_плагина(lang):
 
 
 @pytest.mark.parametrize("lang", LANGS)
+def test_настройка_ядро_везде_доезжает_до_хука(lang):
+    """`${user_config.*}` подставляется только в `env` exec-формы — не в командную
+    строку. Потеряется подстановка — настройка молча перестанет работать."""
+    start = [h for h in all_hook_entries(load(lang)) if "core.py" in " ".join(h.get("args", []))]
+    for h in start:
+        assert h.get("env", {}).get("MAST_ALWAYS_CORE") == "${user_config.always_core}", h
+
+
+@pytest.mark.parametrize("lang", LANGS)
 def test_линту_передан_язык_своего_плагина(lang):
     """Иначе имя скилла в жалобе линта угадывается по языку роадмапа: русский файл
     под английским плагином отсылал бы к скиллу, которого у пользователя нет."""

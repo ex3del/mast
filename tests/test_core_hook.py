@@ -35,6 +35,36 @@ def test_подсказка_зовёт_команду_своего_плагин�
         assert f"/{name}:init-project`" in out or f"/{name}:init-project` " in out, out
 
 
+def test_настройка_ядро_везде_читается_из_окружения():
+    """Значение приезжает строкой из `env` разводки хука; не задано — пустая строка."""
+    assert core.wants_core_everywhere({"MAST_ALWAYS_CORE": "true"})
+    assert core.wants_core_everywhere({"MAST_ALWAYS_CORE": " True "})
+    assert core.wants_core_everywhere({"MAST_ALWAYS_CORE": "1"})
+    assert not core.wants_core_everywhere({"MAST_ALWAYS_CORE": "false"})
+    assert not core.wants_core_everywhere({"MAST_ALWAYS_CORE": ""})
+    assert not core.wants_core_everywhere({})
+
+
+def test_с_настройкой_ядро_приезжает_и_в_неразвёрнутый_проект(tmp_path):
+    """Правила про план, записи и параллельные сессии нужны и там, где роадмапа нет;
+    подсказка при этом остаётся — иначе непонятно, почему каркаса не видно."""
+    out = core.render(tmp_path, ROOT, "ru", always=True)
+    assert "/mast-ru:init-project" in out
+    assert "## Планирование" in out
+    assert out.endswith((ROOT / "locales/ru/core.md").read_text(encoding="utf-8"))
+
+
+def test_без_настройки_в_неразвёрнутом_проекте_только_подсказка(tmp_path):
+    assert core.render(tmp_path, ROOT, "ru", always=False) == core.render(tmp_path, ROOT, "ru")
+
+
+def test_в_развёрнутом_проекте_настройка_ничего_не_меняет(tmp_path):
+    (tmp_path / "ROADMAP.md").write_text("- **A-1** что-то\n")
+    core_md = (ROOT / "locales/ru/core.md").read_text(encoding="utf-8")
+    assert core.render(tmp_path, ROOT, "ru", always=True) == core_md
+    assert core.render(tmp_path, ROOT, "ru", always=False) == core_md
+
+
 def test_нечитаемое_ядро_возвращает_сообщение_а_не_падает(tmp_path):
     (tmp_path / "ROADMAP.md").write_text("- **A-1** что-то\n")
     missing_root = tmp_path / "no-such-plugin-root"

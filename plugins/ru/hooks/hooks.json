@@ -10,7 +10,10 @@
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/core.py",
               "ru"
-            ]
+            ],
+            "env": {
+              "MAST_ALWAYS_CORE": "${user_config.always_core}"
+            }
           }
         ]
       }

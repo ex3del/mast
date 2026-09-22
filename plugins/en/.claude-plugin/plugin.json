@@ -1,6 +1,6 @@
 {
   "name": "mast",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Method for Agents, Sessions and Tasks — roadmap items, worktree per item, dispatcher, path-scoped rules",
   "license": "MIT",
   "dependencies": [
@@ -15,6 +15,12 @@
       "title": "Context7 API key (optional)",
       "description": "Optional key for the bundled Context7 MCP server; the free tier works without it",
       "sensitive": true
+    },
+    "always_core": {
+      "type": "boolean",
+      "title": "Method core in every project",
+      "description": "Inject the core even where the method's scaffold isn't set up yet (no ROADMAP.md, no .claude/rules/). By default such projects get a one-line hint instead.",
+      "default": false
     }
   }
 }

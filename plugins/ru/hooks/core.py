@@ -27,21 +27,35 @@ def pick_language(argv):
     return lang if lang in LANGS else "ru"
 
 
-def render(project_dir, root, lang):
-    """Полное ядро там, где метод развёрнут, иначе одна строка-указатель.
+def wants_core_everywhere(env):
+    """Настройка плагина `always_core`: приезжает в хук через `env` его разводки.
 
-    Нечитаемый файл ядра не роняет хук — вместо трассировки короткое сообщение.
+    Значение не задано — приходит пустая строка; всё, кроме явного «да», считаем «нет»,
+    чтобы у постороннего плагин молчал в чужих проектах, пока он не попросил обратного.
     """
-    project_dir = Path(project_dir)
-    deployed = (project_dir / "ROADMAP.md").exists() or (project_dir / ".claude" / "rules").is_dir()
-    if not deployed:
-        return HINT[lang].format(p=PLUGIN[lang])
+    return env.get("MAST_ALWAYS_CORE", "").strip().lower() in {"true", "1", "yes", "on"}
+
+
+def read_core(root, lang):
+    """Текст ядра. Нечитаемый файл не роняет хук — вместо трассировки сообщение."""
     core_path = Path(root) / "locales" / lang / "core.md"
     try:
         return core_path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         # Битые байты в файле ядра — такая же непрочитанность, как и его отсутствие
         return UNREADABLE[lang].format(path=core_path)
+
+
+def render(project_dir, root, lang, always=False):
+    """Развёрнут метод — ядро целиком. Нет — строка-указатель, а с настройкой
+    `always_core` ещё и само ядро: правила про план, записи и параллельные сессии
+    работают и там, где роадмапа пока нет."""
+    project_dir = Path(project_dir)
+    deployed = (project_dir / "ROADMAP.md").exists() or (project_dir / ".claude" / "rules").is_dir()
+    if deployed:
+        return read_core(root, lang)
+    hint = HINT[lang].format(p=PLUGIN[lang])
+    return f"{hint}\n\n{read_core(root, lang)}" if always else hint
 
 
 def project_dir(env):
@@ -58,7 +72,8 @@ def project_dir(env):
 def main():
     # Тексты лежат рядом с этим файлом, а не в каталоге плагина: код общий на оба
     root = Path(__file__).resolve().parent.parent
-    text = render(project_dir(os.environ), root, pick_language(sys.argv[1:]))
+    text = render(project_dir(os.environ), root, pick_language(sys.argv[1:]),
+                  wants_core_everywhere(os.environ))
     sys.stdout.buffer.write(text.encode("utf-8") + b"\n")
     return 0
 

@@ -37,6 +37,15 @@ def test_манифесты_обоих_плагинов_на_месте():
         assert m["description"] and m["license"]
 
 
+def test_настройка_ядро_везде_объявлена_одинаково():
+    """Дефолт «нет» — у постороннего плагин молчит в чужих проектах, пока он сам
+    не попросит обратного; разъехавшийся дефолт дал бы разное поведение по языкам."""
+    for lang in PLUGINS:
+        opt = manifest(lang)["userConfig"]["always_core"]
+        assert opt["type"] == "boolean" and opt["default"] is False, f"{lang}: {opt}"
+        assert opt["title"] and opt["description"]
+
+
 def test_настройки_языка_больше_нет():
     """Настройка не подставляется в тело скилла и команды — язык выбирается плагином."""
     for lang in PLUGINS:

@@ -1,6 +1,6 @@
 {
   "name": "mast-ru",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Method for Agents, Sessions and Tasks — пункты роадмапа, worktree на пункт, диспетчер, правила с paths:",
   "license": "MIT",
   "dependencies": [
@@ -15,6 +15,12 @@
       "title": "Context7 API key (optional)",
       "description": "Optional key for the bundled Context7 MCP server; the free tier works without it",
       "sensitive": true
+    },
+    "always_core": {
+      "type": "boolean",
+      "title": "Ядро метода во всех проектах",
+      "description": "Вкладывать ядро и там, где каркас метода ещё не развёрнут (нет ROADMAP.md и .claude/rules/). По умолчанию в таких проектах приходит только строка-подсказка.",
+      "default": false
     }
   }
 }
