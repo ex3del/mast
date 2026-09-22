@@ -8,13 +8,12 @@ drift apart.
 
 The goal is development that runs as autonomously as possible. Several tasks move in
 parallel while you work from **a single terminal**: you talk to one dispatcher session,
-and it hands work out to agents, collects the results, and comes to you only when a
-decision is yours to make. Your attention isn't spread across a dozen windows, and you
-don't have to keep track of who's doing what, where.
+and it hands work out to agents, collects the results, talks to other sessions, turns to
+a stronger model for advice, and comes to you only when a decision is yours to make.
 
 ## Where it came from
 
-It started with ultracode mode: it launches dozens of agents at once, and there's no
+It started with the problems of ultracode mode: it launches dozens of agents at once, and there's no
 keeping track of who's doing what or what's already done. The goal was the same reach,
 but under control. The pieces turned up in other projects:
 
@@ -177,7 +176,7 @@ prepared repositories. The price is roughly 8k characters of context per session
   ```
 - It takes effect from the next session; in the current one run `/reload-plugins`.
 
-## What `/mast:init-project` does
+## Setting up a project: what `/mast:init-project` does
 
 One command, one scenario, for both a brand-new project and one with history:
 it surveys the repository (stack, tests, existing `CLAUDE.md`/`ROADMAP.md`/
@@ -225,24 +224,68 @@ claude --name <project>-dispatch --model opus --advisor fable \
 - **No dispatcher** is fine while there's a single item: drive it yourself in the main
   copy; findings land as files in `docs/roadmap/inbox/` and wait for a dispatcher.
 
-## The core: what it is and how it arrives
+## What's in the plugin
 
-- **The core** — `locales/<lang>/core.md`: the rules the method breaks without. Where
-  to write a decision, plan before code, marking ownership with the session's name,
-  which model an item runs on, turning a task into a checkable goal, concurrent
-  sessions in one working copy.
-- **It arrives through a `SessionStart` hook.** At session start Claude Code runs
-  `hooks/core.py` and puts its output into the context. No file in your project, no
-  import — just the hook's output.
-- **Capped at 8200 characters**, against the platform's 10000-per-insertion limit.
-  Anything heavier lives in **skills**: they load only when their description matches
-  the task, and cost nothing in the sessions that don't need them.
-- **The condition:** `ROADMAP.md` or `.claude/rules/` present — the whole core; neither
-  one — a single line, "the method isn't set up here, run `/mast:init-project`". That
-  way the plugin weighs nothing in other people's repositories.
-- **The `always_core` option** lifts that condition: the core arrives in unscaffolded
-  projects too, underneath the same hint line. How to turn it on — see "Setup".
-- **Language is which plugin you install** (`mast` or `mast-ru`), not a setting inside one.
+Everything is edited at the repository root — `hooks/` and `locales/`; inside
+`plugins/<lang>/` sit their copies, laid out by `tools/sync_plugins.py`. The links below
+point to the sources.
+
+### The core — rules in every session
+
+[`locales/en/core.md`](locales/en/core.md) — the handful of rules the method breaks without:
+where to write a decision, plan before code, marking ownership with the session's name, an
+item's model and advisor, concurrent sessions in one working copy, turning a task into a
+checkable goal. Every rule names the skill that holds the details.
+
+- **How it arrives.** At session start a `SessionStart` hook runs
+  [`hooks/core.py`](hooks/core.py), and Claude Code puts its output into the context —
+  nothing is copied into your project.
+- **When.** `ROADMAP.md` or `.claude/rules/` present — the whole core; neither — a single
+  line, "the method isn't set up here". With the `always_core` option — the core
+  everywhere (see "Setup").
+- **Size.** Capped at 8200 characters against the platform's 10000 limit: anything
+  heavier lives in skills.
+
+### Skills — load when their description matches the task
+
+| Skill | Files | What's inside |
+|---|---|---|
+| `mast:managing-roadmap-items` | [shared](locales/en/skills/managing-roadmap-items.md) · [item session](locales/en/skills/managing-roadmap-items-item.md) · [dispatcher](locales/en/skills/managing-roadmap-items-dispatcher.md) | Shared: invariants, the item line format, the archive of closed work, where decisions go. Item session: the baseline measurement, `STATUS.md`, findings outside the item, the closing checklist. Dispatcher: abandoned items, triaging findings, choosing the model, starting sessions, merging branches. Each role reads only its own file |
+| `mast:worktree-flow` | [worktree-flow.md](locales/en/skills/worktree-flow.md) | An item's worktree cycle: starting the background session, `[A-1]` commits, rebase, merging by the main copy, cleanup; the dispatcher's role in brief |
+| `mast:project-structure` | [project-structure.md](locales/en/skills/project-structure.md) | The table of project documents: when each one appears and what goes in it |
+
+The `skills/<name>/SKILL.md` files in the plugin hold only the description used to pick
+the skill and a line saying "read the file above": the texts live in `locales/` so they
+aren't duplicated per language.
+
+### The command
+
+[`/mast:init-project`](plugins/en/commands/init-project.md) — survey the project →
+proposals with a question per file → apply and lint. Five guardrails: no invented
+criterion, an existing file is changed only on a clean git tree, no silent overwrite, the
+Claude Code version is checked, only what was found goes into `CLAUDE.md`. `--check` — the
+same without writing anything.
+
+### Scaffold templates — [`locales/en/templates/`](locales/en/templates/)
+
+| Template | What it becomes |
+|---|---|
+| [`CLAUDE.template.md`](locales/en/templates/CLAUDE.template.md) | the project's `CLAUDE.md`: stack, commands, code (fail loud), invariants |
+| [`ROADMAP.template.md`](locales/en/templates/ROADMAP.template.md) | an empty `ROADMAP.md` that passes the lint |
+| [`rule.template.md`](locales/en/templates/rule.template.md) | `.claude/rules/example.md` — an example rule with `paths:` |
+| [`context7.rule.template.md`](locales/en/templates/context7.rule.template.md) | `.claude/rules/context7.md` — library docs through the tool, not from memory |
+| [`dispatch.rule.template.md`](locales/en/templates/dispatch.rule.template.md) | `.claude/rules/dispatch.md` — the zones that always run on `opus` |
+
+### Hooks and plumbing
+
+| File | What it does |
+|---|---|
+| [`hooks.json`](plugins/en/hooks/hooks.json) | the wiring: `SessionStart` → `core.py` with the plugin's language; an edit to `ROADMAP.md` or `DONE.md` → `roadmap_lint.py` |
+| [`hooks/core.py`](hooks/core.py) | injects the core or the one-line hint |
+| [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | catches format violations in the roadmap and the archive right after an edit; with `--ready` — the items ready to take |
+| [`hooks/plugin_names.py`](hooks/plugin_names.py) | the plugin's name per language — for the links the hooks print |
+| [`.mcp.json`](plugins/en/.mcp.json) | the Context7 MCP server |
+| [`plugin.json`](plugins/en/.claude-plugin/plugin.json) | the manifest: version, the `superpowers` dependency, the `always_core` and `context7_key` options |
 
 ## Context7 bundled
 
