@@ -104,6 +104,33 @@ invented — a vague acceptance line is carried over as-is and flagged as
 against a clean git tree, so the diff and the rollback are `git diff`/`git
 checkout` away; nothing is created or changed without a question first.
 
+## Working: starting the dispatcher
+
+The method's main command. Once the scaffold is in place, start a dispatcher
+session in the project's **main copy** — it drives the whole chain from there:
+
+```bash
+cd ~/code/<project>
+claude --name <project>-dispatch --model opus --advisor fable \
+  "You are this project's roadmap dispatcher: run it per skill mast:managing-roadmap-items. Start by checking for abandoned items, then show what's ready to take."
+```
+
+- **`--name <project>-dispatch`** — item sessions find the dispatcher by this name in
+  `ListAgents` and send it findings and "done". The project is in the name because
+  `ListAgents` lists sessions from every project on the machine.
+- **`--model opus --advisor fable`** — the dispatcher decides what to take, who runs it,
+  and when to merge; don't save on it. If you have `opus[1m]`, use it: a dispatcher
+  accumulates context for hours.
+- **What it does:** opens items in `ROADMAP.md`, starts a session per item in its own
+  worktree, triages findings, merges ready branches one at a time, moves closed items to
+  `DONE.md`. Only the dispatcher edits `ROADMAP.md`, `DONE.md`, and `TECH_DEBT.md`.
+- **You don't start item sessions by hand** — the dispatcher launches them in the
+  background: `claude --bg --worktree A-1 --name A-1 --advisor fable "…"`, and for items
+  that passed the downgrade — `--model sonnet --advisor opus`. List them with
+  `claude agents`, step into one with `claude attach <id>`.
+- **No dispatcher** is fine while there's a single item: drive it yourself in the main
+  copy; findings land as files in `docs/roadmap/inbox/` and wait for a dispatcher.
+
 ## The core: what it is and how it arrives
 
 - **The core** — `locales/<lang>/core.md`: the rules the method breaks without. Where
