@@ -78,46 +78,39 @@ invented — a vague acceptance line is carried over as-is and flagged as
 against a clean git tree, so the diff and the rollback are `git diff`/`git
 checkout` away; nothing is created or changed without a question first.
 
-## Core vs. skills
+## The core: what it is and how it arrives
 
-Two different weights, on purpose. The **core** — `locales/<lang>/core.md` —
-is injected into every session automatically by a `SessionStart` hook, capped
-at 8200 characters (the platform's own insertion limit is 10000): where to
-write a decision, the plan-before-code order, how sessions mark ownership of
-work, which model an item runs on, how a task becomes a checkable goal, and
-how not to step on another session's uncommitted files. It's the
-handful of rules the method breaks without. Everything heavier — how to take
-a roadmap item into work or close one, how project documents are laid out,
-the full worktree/merge/dispatcher cycle — lives in **skills** instead, and
-loads only when its description matches what you're doing, so it costs
-nothing in sessions that don't need it.
+- **The core** — `locales/<lang>/core.md`: the rules the method breaks without. Where
+  to write a decision, plan before code, marking ownership with the session's name,
+  which model an item runs on, turning a task into a checkable goal, concurrent
+  sessions in one working copy.
+- **It arrives through a `SessionStart` hook.** At session start Claude Code runs
+  `hooks/core.py` and puts its output into the context. No file in your project, no
+  import — just the hook's output.
+- **Capped at 8200 characters**, against the platform's 10000-per-insertion limit.
+  Anything heavier lives in **skills**: they load only when their description matches
+  the task, and cost nothing in the sessions that don't need them.
+- **The condition:** `ROADMAP.md` or `.claude/rules/` present — the whole core; neither
+  one — a single line, "the method isn't set up here, run `/mast:init-project`". That
+  way the plugin weighs nothing in other people's repositories.
+- **The `always_core` option** lifts that condition: the core arrives in unscaffolded
+  projects too, underneath the same hint line.
+- **Language is which plugin you install** (`mast` or `mast-ru`), not a setting inside one.
 
-### When the core is injected, and how to get it everywhere
-
-The hook looks at the project: `ROADMAP.md` or a `.claude/rules/` directory
-present — it injects the whole core. Neither one — a single line arrives:
-"the method isn't set up here, run `/mast:init-project`". That way the plugin
-weighs nothing in other people's repositories.
-
-If you want the method everywhere, including projects with no scaffold yet,
-turn on the `always_core` option: an unscaffolded project then gets that same
-hint line with the core underneath it.
+### Turning the core on everywhere
 
 ```bash
-claude plugin uninstall mast@ex3del
 claude plugin install mast@ex3del --scope user --config always_core=true
 ```
 
-Uninstalling first is necessary because `--config` only applies during an
-actual install: on an already installed plugin, `install` reports "already
-installed" and stores nothing. After that `~/.claude/settings.json` holds this
-block — you can also write it by hand:
-
-```json
-{ "pluginConfigs": { "mast@ex3del": { "options": { "always_core": true } } } }
-```
-
-The option is read at session start: in the current one run `/reload-plugins`.
+- `--config` is stored **only during an actual install**. Already installed — `install`
+  reports "already installed" and stores nothing: run `claude plugin uninstall mast@ex3del`
+  first, then the command above.
+- The value lands in `~/.claude/settings.json` — you can also write it by hand:
+  ```json
+  { "pluginConfigs": { "mast@ex3del": { "options": { "always_core": true } } } }
+  ```
+- It takes effect from the next session; in the current one run `/reload-plugins`.
 
 ## Context7 bundled
 
