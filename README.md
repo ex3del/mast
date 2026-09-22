@@ -38,6 +38,25 @@ Later, some rules came from **[Ouroboros](https://github.com/razzant/ouroboros)*
 system that rewrites its own rules: a recurring mistake gets caught by a check, not by
 one more paragraph of instructions, and every fact has exactly one owner.
 
+## How it works
+
+1. **The rules arrive on their own.** The plugin injects a short core of rules into every
+   session — nobody has to remind the agent.
+2. **The scaffold.** `/mast:init-project` lays out the project's documents once:
+   `CLAUDE.md`, the roadmap, the archive, per-folder rules.
+3. **Work comes in items.** A task bigger than one session becomes a roadmap item with a
+   measurable "Done when".
+4. **The dispatcher.** One session in the main copy runs the roadmap: it decides what to
+   take and starts a separate agent for each item.
+5. **Each item gets its own copy.** The agent works in its own worktree and branch, so
+   parallel items don't get in each other's way.
+6. **Agents message each other.** Findings and "done" go to the dispatcher as messages
+   instead of getting lost in someone's context.
+7. **Merge and archive.** The dispatcher merges ready branches one at a time, and a closed
+   item moves to the archive with its "before → after" measurements.
+8. **Memory lives in documents.** Decisions, debts, and rules are written down next to the
+   code, so the next session reads them instead of guessing.
+
 ## What's inside
 
 A Claude Code plugin that brings a particular way of working into your project: roadmap
