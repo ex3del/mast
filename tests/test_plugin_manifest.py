@@ -16,6 +16,9 @@ from plugin_names import PLUGIN  # noqa: E402
 
 # Путь, который текст плагина обещает пользователю или модели
 PLUGIN_ROOT_PATH = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}(/[^\s`)\"']*)")
+# Ссылка на скилл (`mast-ru:worktree-flow`) или команду (`/mast:init-project`)
+REFERENCE = re.compile(r"(/?)\b(mast(?:-ru)?):([a-z0-9-]+)")
+READMES = {"en": "README.md", "ru": "README.ru.md"}
 
 
 def manifest(lang):
@@ -87,6 +90,25 @@ def test_пути_в_текстах_плагина_ведут_в_существ�
                 assert hits, f"{path.relative_to(ROOT)}: ${{CLAUDE_PLUGIN_ROOT}}/{rel} никуда не ведёт"
                 checked += 1
         assert checked, f"{lang}: путей не нашлось — сторож смотрит не туда"
+
+
+def test_ссылки_на_скиллы_и_команды_ведут_в_своего_плагина():
+    """Каждое `mast…:<имя>` в текстах языка — имя плагина этого языка плюс скилл
+    или команда, которые у него правда есть. Именно этот класс ошибок трижды
+    доехал до пользователя: префикс от старой схемы вёл в никуда."""
+    for lang, plugin in PLUGINS.items():
+        skills = {p.parent.name for p in plugin.glob("skills/*/SKILL.md")}
+        commands = {p.stem for p in plugin.glob("commands/*.md")}
+        texts = [*plugin.rglob("*.md"), *(ROOT / "locales" / lang).rglob("*.md"),
+                 ROOT / READMES[lang]]
+        found = 0
+        for path in texts:
+            for slash, prefix, name in REFERENCE.findall(path.read_text(encoding="utf-8")):
+                where = f"{path.relative_to(ROOT)}: {slash}{prefix}:{name}"
+                assert prefix == NAMES[lang], f"{where} — чужой плагин, ждали {NAMES[lang]}"
+                assert name in (commands if slash else skills), f"{where} — такого нет у плагина"
+                found += 1
+        assert found, f"{lang}: ссылок не нашлось — сторож смотрит не туда"
 
 
 def test_у_каждого_плагина_свой_mcp_и_ничего_лишнего():
