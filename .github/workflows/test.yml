@@ -1,0 +1,35 @@
+# Проверки на каждый PR и push в main: локальный pre-commit у контрибьютора может
+# быть не подключён, а мердж через веб-интерфейс обходит его всегда.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # проверке бампа нужна база PR, а тестам — история git
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+
+      - name: Plugin copies match the sources
+        run: python tools/sync_plugins.py --check
+
+      - name: Plugin version grew if the method changed
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="origin/${{ github.base_ref }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          python tools/check_version_bump.py "$base"
+
+      - name: Tests
+        run: pytest -q
