@@ -1,6 +1,6 @@
 {
   "name": "mast-ru",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "Method for Agents, Sessions and Tasks — пункты роадмапа, worktree на пункт, диспетчер, правила с paths:",
   "license": "MIT",
   "dependencies": [

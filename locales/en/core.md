@@ -57,6 +57,7 @@ A task that a Claude session is driving gets tagged with **that session's name**
 - **A task outside the roadmap** in the main copy (a name like `fine-tune-llm-c8`) — the session writes its own name next to the task, wherever that task is tracked.
 - Finished or dropped a task — the name comes off along with the status change.
 - **An item runs on `opus` by default, with `fable` as its advisor.** Downgrading to `sonnet` with `opus` as advisor — only if the error is discoverable by checking against what already exists, reverts with a single `git revert`, and hits one item only. Zones that always run on `opus` are declared by the project in `.claude/rules/dispatch.md`; no such file — everything goes to `opus`, file present (even with no zones) — `sonnet` is allowed under those three conditions. The three questions in full — skill `mast:managing-roadmap-items`.
+- **The advisor can't be set per model:** `advisorModel` is one for all models, and `--advisor` overrides it. Switched a session to `sonnet` (`/model`) — run `/advisor opus` right away; back to `opus` — `/advisor fable`: otherwise `fable` reaches every subagent of a `sonnet` session.
 
 ## Concurrent sessions in one working copy
 
