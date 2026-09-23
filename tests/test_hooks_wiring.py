@@ -22,7 +22,7 @@ def all_hook_entries(data):
 @pytest.mark.parametrize("lang", LANGS)
 def test_hooks_json_валиден(lang):
     data = load(lang)
-    assert set(data["hooks"]) == {"SessionStart", "PostToolUse"}
+    assert set(data["hooks"]) == {"SessionStart", "PreToolUse", "PostToolUse"}
     assert all_hook_entries(data), "ни одного хука не зарегистрировано"
 
 
@@ -60,6 +60,20 @@ def test_линту_передан_язык_своего_плагина(lang):
     assert lint, f"{lang}: линт не подключён к PostToolUse"
     for h in lint:
         assert h["args"][-1] == lang, f"{lang}: языком передано {h['args'][-1]}"
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_хук_диспетчера_видит_старт_и_его_вызовы(lang):
+    """Роль узнаётся на старте, а запреты стоят на PreToolUse: потеряется одно — хук
+    молча перестанет отказывать, и диспетчер снова повесит очередь на модальном вопросе."""
+    need = {"SessionStart": {"startup", "resume", "clear", "compact"},
+            "PreToolUse": {"AskUserQuestion", "Edit", "Write"}}
+    for event, matchers in need.items():
+        found = [(e["matcher"], h) for e in load(lang)["hooks"][event] for h in e["hooks"]
+                 if "dispatcher.py" in " ".join(h.get("args", []))]
+        assert found, f"{lang}: dispatcher.py не подключён к {event}"
+        assert matchers <= {m for matcher, _ in found for m in matcher.split("|")}, event
+        assert all(h["args"][-1] == lang for _, h in found), f"{lang}: чужой язык в {event}"
 
 
 @pytest.mark.parametrize("lang", LANGS)
