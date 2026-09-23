@@ -7,15 +7,15 @@
 `../../hooks/core.py` вёл в пустоту. Поэтому плагин обязан быть самодостаточным.
 
 Копируется только код: корневые `hooks/` общие на оба плагина, внутри каждого лежит
-их копия, и править её руками нельзя — следующий запуск скрипта затрёт правку.
+их копия с пометкой «сгенерировано», и править её руками нельзя — следующий запуск
+скрипта затрёт правку. Символьная ссылка вместо копии не годится: git на Windows по
+умолчанию выкладывает её текстовым файлом с путём, и хук падает с SyntaxError.
 Тексты каждого языка едут ровно в один плагин, поэтому живут сразу в
 `plugins/<язык>/locales/<язык>/` и копий не имеют.
 
   sync_plugins.py           — разложить копии
   sync_plugins.py --check   — код 1, если копии отличаются от источника
 """
-import filecmp
-import shutil
 import sys
 from pathlib import Path
 
@@ -38,13 +38,25 @@ def sources(src):
             if p.is_file() and not (SKIP & set(p.parts))}
 
 
+def generated(path):
+    """Содержимое копии: источник с пометкой, что копия сгенерирована. Пометка —
+    первой строкой, при shebang — сразу после него: открывший копию видит, где править."""
+    body = path.read_bytes()
+    if path.suffix != ".py":
+        return body
+    mark = (f"# Сгенерировано tools/sync_plugins.py из {path.relative_to(ROOT).as_posix()}"
+            " — правь там, здесь затрётся\n").encode("utf-8")
+    head, sep, rest = body.partition(b"\n")
+    return head + sep + mark + rest if head.startswith(b"#!") else mark + body
+
+
 def stale(src, dst):
-    """Что разошлось: отсутствующие, отличающиеся и лишние файлы копии."""
+    """Что разошлось: отсутствующие, отличающиеся (в том числе без пометки) и лишние файлы копии."""
     wanted = sources(src)
     if not dst.is_dir():
         return [f"нет каталога {dst.name}"]
     diff = [str(rel) for rel, path in wanted.items()
-            if not (dst / rel).is_file() or not filecmp.cmp(path, dst / rel, shallow=False)]
+            if not (dst / rel).is_file() or (dst / rel).read_bytes() != generated(path)]
     diff += [f"лишний: {p.relative_to(dst)}" for p in sorted(dst.rglob("*"))
              if p.is_file() and p.relative_to(dst) not in wanted and p.name not in KEEP]
     return diff
@@ -62,7 +74,7 @@ def sync():
             for rel, path in wanted.items():
                 twin = dst / rel
                 twin.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(path, twin)
+                twin.write_bytes(generated(path))
             # Файл выбыл из источника — выбывает и из копии, но обёртку не трогаем
             for path in sorted(dst.rglob("*"), reverse=True):
                 if path.is_file() and path.relative_to(dst) not in wanted and path.name not in KEEP:

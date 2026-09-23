@@ -1,0 +1,2 @@
+# Копии корневого hooks/, раскладывает tools/sync_plugins.py — в диффах и статистике GitHub свёрнуты
+plugins/*/hooks/*.py linguist-generated=true

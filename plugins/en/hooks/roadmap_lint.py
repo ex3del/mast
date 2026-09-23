@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Сгенерировано tools/sync_plugins.py из hooks/roadmap_lint.py — правь там, здесь затрётся
 """Проверка формата ROADMAP.md и очередь готовых к взятию пунктов.
 
   roadmap_lint.py ROADMAP.md          — список нарушений, код 1 если есть

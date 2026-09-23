@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Сгенерировано tools/sync_plugins.py из hooks/core.py — правь там, здесь затрётся
 """SessionStart: вкладывает ядро метода MAST в контекст сессии."""
 import os
 import sys
