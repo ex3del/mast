@@ -90,44 +90,24 @@ Don't give `fable` as advisor to a session running `sonnet`: subagents inherit t
 
 ## Merging
 
-An item's session writes "ready, branch on a fresh main". Queue rules:
-- **Ready branches before your own commits.** Any commit of yours on `main` breaks fast-forward for a branch that already rebased.
-- **One branch at a time.** Every merge shifts `main`, and the next branch needs its own rebase.
-- **Measurements first.** `git log --format=%B origin/main..worktree-B-2` (and `STATUS.md`, if there is one): "before" from the date taken, and "after" with the measuring command. Numbers with no command — send the item back for more work. Numbers matching the skill's example is a reason to check the command, not a verdict.
+The item's session says "ready" — you merge from the main copy with one command:
 
-Order:
+```bash
+mast merge B-4            # push not allowed — add --no-push
+```
 
-1. **Merge:** `git merge --ff-only worktree-B-4`. Not fast-forward — the item's session repeats the rebase.
-2. **The range — right after the merge, and check it's clean:**
-   ```bash
-   git log --format=%h -1 ORIG_HEAD; git log --format=%h -1 HEAD
-   git log --format=%s ORIG_HEAD..HEAD | grep -vc '^\[B-4\]'   # 0 — only the item's commits are in range
-   ```
-   Not 0 — foreign commits got into the branch, and `git diff` over the range will show more than this item. Don't write the range in that case, use `git log --grep='\[B-4\]'` in the thesis instead.
-   
-   When an item merges in multiple passes (the branch was merged twice, or part of it was done on the main copy), the thesis lists several ranges separated by commas; each is checked for cleanliness in isolation. If any one is dirty — use `git log --grep` for all of them instead.
-3. **The thesis in `DONE.md` first, then remove the line from `ROADMAP.md`.** In the reverse order, the hook would briefly see items with `Depends on: B-4` pointing at nothing. The thesis is a draft from the session, taken from the body of the branch's last commit plus the range — no need to retell the item. The section is its own letter (a heading like in the roadmap, none exists — create one), the date is the day of the merge, links to `STATUS.md` and an ADR — if they exist:
-   ```markdown
-   - **B-4** Export reports to PDF — 17.09 · `a1b2c3d..e4f5a6b` · [STATUS](done/B-4/STATUS.md) · [ADR](../adr/B-4-reportlab.md)
-     A 500-row report renders in 8.2s → 2.4s, peak memory 210 MB.
-   ```
-   Entries for `TECH_DEBT.md` come from the same place — the same commit `[B-4] closed`, then `git push`: otherwise waiting sessions will rebase without this item. A debt entry missing "what it risks" or "the condition that triggers a fix" — send it back to the session, don't guess.
-4. **Clear blockers:** `grep -niE 'Depends on:.*\bB-4\b' ROADMAP.md` — tell live sessions of those items "B-4 is in origin/main, rebase", and the ones that became ready go into the launch queue.
-5. **Clean up:** `claude rm <id>` (the session and the worktree) or `git worktree remove .claude/worktrees/B-4`, then `git branch -d worktree-B-4` and `git push origin --delete worktree-B-4` — the item's session pushed its own branch, and on `origin` it would otherwise stay forever.
+The script checks the form, not the truth: fast-forward, only `[B-4]` in the range, the branch left `ROADMAP.md`, `DONE.md` and `TECH_DEBT.md` alone, the last commit has "Done when" verbatim, "before → after" and a thesis. A refusal changes nothing: the reason goes to the item's session, "part of the work is already in main" — merge by hand with the human. Passed — a commit `[B-4] closed` with the thesis, the line and the debt, push, cleanup of the session, worktree and branch. Ready branches this merge moved are merged next after a rebase and the tests from the `Tests:` line in `.claude/rules/dispatch.md`; if that fails, the output has a text for their session. The rest of the output — whom to tell "rebase", what is ready to take, `inbox/`.
 
-**A dropped item goes to the same place.** Its line is removed from `ROADMAP.md`, and `DONE.md` gets a "Dropped" subsection with one line in it: number, title, date, the reason, and where the work moved if another item took it over. The `docs/roadmap/<X-N>/` folder, if one was opened, moves along with it into `done/<X-N>/` — otherwise the link in the "Dropped" line is broken; there was no folder, so there is no link. That way the archive answers not only "has this been done already?" but also "has this been tried and rejected?" — otherwise what was rejected lives only in an ADR, if one was written, and six months later the same item is opened again.
+## Dropping an item
 
-After merging:
-- `ls docs/roadmap/inbox/` — the branch may have brought findings;
-- `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py ROADMAP.md` — also flags theses with broken links to `done/`;
-- `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md` — what's now ready to start.
+**A dropped item goes to the archive too** — by hand, `mast merge` doesn't drop. Its line is removed from `ROADMAP.md`, and `DONE.md` gets a "Dropped" subsection with one line in it: number, title, date, the reason, and where the work moved if another item took it over. The `docs/roadmap/<X-N>/` folder, if one was opened, moves along with it into `done/<X-N>/` — otherwise the link in the "Dropped" line is broken; there was no folder, so there is no link. That way the archive answers not only "has this been done already?" but also "has this been tried and rejected?" — otherwise what was rejected lives only in an ADR, if one was written, and six months later the same item is opened again.
 
 ## Common mistakes
 
 | Mistake | What it leads to |
 |---|---|
 | Started a session before pushing the line | a worktree from `origin/main` doesn't see its own line, the session takes the item again |
-| Merged two branches in a row without rebasing the second one | not fast-forward, or changes silently mixed together |
+| Merged a branch by hand, `git merge` instead of `mast merge` | thesis, line and debt become three edits, the lint complains about the in-between state, cleanup gets forgotten |
 | Asked the human about a duplicate or a number | the human gets pinged over mechanics, an important question drowns |
 | Opened an item for small stuff the sender could've fixed on their own | the roadmap grows faster than it closes |
 | Handed `sonnet` work where text becomes the source of truth | there's nothing to check the error against, it propagates through links |

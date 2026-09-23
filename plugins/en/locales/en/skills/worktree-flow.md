@@ -5,14 +5,8 @@
 1. Start: `claude --bg --worktree A-1 --name A-1` plus `--model` and `--advisor` per the rule "Which model an item gets" in skill `mast:managing-roadmap-items` — a background session, its working copy in `.claude/worktrees/A-1/`, branch `worktree-A-1`, base `origin/main` (your repository's default branch; here and below, swap in your own if it's named differently, e.g. `master`). The command prints an id: attach with `claude attach <id>`, list with `claude agents`. Without `--bg` the session opens in the current terminal. The item's line in `ROADMAP.md` must be pushed before the start, or the worktree won't see it.
 2. Inside the worktree, edits to the main copy are blocked by the engine (Edit/Write, bash with cwd in the main copy, `git -C` into it). This is a safeguard, not a bug: two roadmap items don't corrupt each other's index or see each other's half-finished files.
 3. Commits carry the item's prefix: `[A-1] description`. **The item's session never pushes to `main`** — neither `git push` nor `git push origin <branch>:main`: only the main copy merges (step 4). Before finishing, the background session commits and pushes on its own — only its own branch `worktree-A-1`, after a rebase, via `git push --force-with-lease`.
-4. The item is ready (the "Done when" criterion is met, the whole test suite is green) → the item's session runs `git fetch origin && git rebase origin/main` on its own and tells the main copy. **The main copy** merges — it can't be done from the worktree, `main` is occupied by it:
-   ```bash
-   git merge --ff-only worktree-A-1
-   git log --format=%h -1 ORIG_HEAD; git log --format=%h -1 HEAD   # the item's range
-   # a thesis in docs/roadmap/DONE.md, the line removed from ROADMAP.md → commit "[A-1] closed" → git push
-   ```
-   The range `<base>..<tip>` goes into the thesis: `— 17.09 · a1b2c3d..e4f5a6b`, so `git diff a1b2c3d..e4f5a6b` is everything the item did. Hashes are never written before the merge: rebase changes them.
-5. After merging — `claude rm <id>` (removes the background session and the worktree) or `git worktree remove .claude/worktrees/A-1`, then `git branch -d worktree-A-1` and `git push origin --delete worktree-A-1`.
+4. The item is ready (the "Done when" criterion is met, the whole test suite is green) → the item's session runs `git fetch origin && git rebase origin/main` on its own and tells the main copy. **The main copy** merges — it can't be done from the worktree, `main` is occupied by it — with `mast merge A-1` (the "Merging" section of the skill `mast:managing-roadmap-items`): a fast-forward merge, a thesis with the range `<base>..<tip>` in `DONE.md`, the line removed from `ROADMAP.md` — in the commit "[A-1] closed", push. Then `git diff <base>..<tip>` is everything the item did. Hashes are never written before the merge: rebase changes them.
+5. The same command cleans up: the background session (`claude rm`), the worktree, the branch locally and on `origin`.
 
 - `.claude/worktrees/` is in the project's `.gitignore`.
 - Need gitignored files (`.env` and the like) in every worktree — list them in `.worktreeinclude` at the project root.

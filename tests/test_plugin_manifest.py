@@ -5,6 +5,7 @@
 """
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -126,9 +127,21 @@ def test_плагин_самодостаточен():
     for lang, root in PLUGINS.items():
         files = {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
         for required in (".mcp.json", "hooks/hooks.json", "hooks/core.py",
-                         "hooks/roadmap_lint.py", "commands/init-project.md",
+                         "hooks/roadmap_lint.py", "hooks/plugin_names.py", "hooks/mast.py",
+                         "bin/mast", "commands/init-project.md",
                          f"locales/{lang}/core.md"):
             assert required in files, f"{lang}: нет {required}"
+
+
+def test_обёртка_mast_исполняемая_и_передаёт_свой_язык():
+    """Голая команда `mast` в Bash живёт на exec-бите, а кэш площадки берёт режим из git:
+    потерянный бит — «permission denied» у пользователя, а не у нас."""
+    for lang, root in PLUGINS.items():
+        rel = f"plugins/{lang}/bin/mast"
+        mode = subprocess.run(["git", "ls-files", "-s", rel], cwd=ROOT,
+                              capture_output=True, text=True).stdout.split()[:1]
+        assert mode == ["100755"], f"{rel}: режим в git {mode}, нужен 100755"
+        assert f'/../hooks/mast.py" {lang} "$@"' in (root / "bin" / "mast").read_text(encoding="utf-8")
 
 
 def test_копии_в_плагинах_не_отстали_от_источника():

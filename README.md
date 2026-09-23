@@ -67,8 +67,9 @@ one more paragraph of instructions, and every fact has exactly one owner.
    parallel items don't get in each other's way.
 6. **Agents message each other.** Findings and "done" go to the dispatcher as messages
    instead of getting lost in someone's context.
-7. **Merge and archive.** The dispatcher merges ready branches one at a time, and a closed
-   item moves to the archive with its "before → after" measurements.
+7. **Merge and archive.** The dispatcher merges a ready branch with one command, `mast merge`:
+   the closed item moves to the archive with its "before → after" measurements, and other ready
+   branches the merge has moved are rebased, tested and merged next, without their sessions.
 8. **Memory lives in documents.** Decisions, debts, and rules are written down next to the
    code, so the next session reads them instead of guessing.
 

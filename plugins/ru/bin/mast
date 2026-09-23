@@ -1,0 +1,4 @@
+#!/bin/sh
+# Обёртка CLI метода: площадка кладёт bin/ плагина в PATH Bash-инструмента.
+# Язык — этого плагина, код общий: hooks/mast.py.
+exec python3 "$(dirname "$0")/../hooks/mast.py" ru "$@"

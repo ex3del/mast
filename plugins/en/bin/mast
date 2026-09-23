@@ -1,0 +1,4 @@
+#!/bin/sh
+# Wrapper for the method CLI: the platform puts the plugin bin/ on the Bash tool PATH.
+# The language is this plugin's, the code is shared: hooks/mast.py.
+exec python3 "$(dirname "$0")/../hooks/mast.py" en "$@"
