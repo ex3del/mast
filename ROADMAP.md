@@ -10,7 +10,7 @@
   Мои пути: plugins/*/.codex-plugin/**, .agents/**, hooks/**, plugins/*/locales/*/**, tools/sync_plugins.py, tests/**, README.md, README.ru.md, CONTRIBUTING.md, CONTRIBUTING.ru.md
   Готово когда: в песочнице на Codex CLI ≥ 0.156, плагины `mast` и `mast-ru` поставлены через `codex plugin marketplace add ex3del/mast`: маркер ядра в контексте — 2 из 2; линт после правки `ROADMAP.md` через `apply_patch` вернул ошибку на критерии без числа — 2 из 2; 4 скилла видны в `/skills` — 8 из 8; сторож: каждая Claude-специфичная команда из скиллов (`claude --bg`, `claude agents`, `ListAgents`, `SendMessage`, `--advisor`) есть в `codex-tools.md` — 0 непокрытых; набор тестов Claude-плагинов зелёный.
 
-- **A-12** Линт роадмапа видит правку через Bash и коммит — 🔨 в работе · `worktree-A-12` · сессия `A-12` · с 23.09
+- **A-12** Линт роадмапа видит правку через Bash и коммит — 🔨 в работе · `worktree-A-12` · сессия `A-12` · с 23.09 · ждёт человека: git-команды замедляются на 28 мс при пороге 20, в среднем по всем командам 17 мс — принять по среднему?
   Зависит от: A-18
   Хук `PostToolUse` линтует `ROADMAP.md` только после Edit/Write; в `reinhold-dispatch` строку пункта переписывала Python-вставка через Bash, и линт молчал. Проверка по состоянию файла, а не по команде: после Bash — если `git diff` по `ROADMAP.md` или `docs/roadmap/DONE.md` не пуст, перед `git commit` — линт индекса. Список запрещённых команд обходится через `perl -i`, поэтому не он. Попутно в своих путях: комментарий в `hooks/core.py` (`main`, «Тексты лежат рядом с этим файлом, а не в каталоге плагина») после A-18 перевёрнут — тексты теперь только в каталоге плагина.
   Мои пути: hooks/**, plugins/*/hooks/**, plugins/*/.claude-plugin/**, tests/**
