@@ -277,8 +277,11 @@ Claude Code проверяется, в `CLAUDE.md` пишется только �
 
 | Файл | Что делает |
 |---|---|
-| [`hooks.json`](plugins/ru/hooks/hooks.json) | разводка: `SessionStart` → `core.py` с языком плагина; правка `ROADMAP.md` или `DONE.md` → `roadmap_lint.py` |
+| [`hooks.json`](plugins/ru/hooks/hooks.json) | разводка: `SessionStart` → `core.py` с языком плагина и `dispatcher.py` (роль по имени сессии); `AskUserQuestion`, Edit или Write → `dispatcher.py`; правка `ROADMAP.md` или `DONE.md` → `roadmap_lint.py` |
 | [`hooks/core.py`](hooks/core.py) | вкладывает ядро или строку-подсказку |
+| [`hooks/dispatcher.py`](hooks/dispatcher.py) | в сессии `<проект>-dispatch` (или с `MAST_ROLE=dispatcher`) отклоняет `AskUserQuestion` и Edit/Write в основной копии вне `ROADMAP.md`, `docs/roadmap/**` и `TECH_DEBT.md` |
+| [`hooks/mast.py`](hooks/mast.py) | `mast merge X-N` — вливание ветки пункта одной командой: проверки, тезис в `DONE.md`, строка из `ROADMAP.md`, уборка, потом готовые ветки, которые сдвинул мердж |
+| [`bin/mast`](plugins/ru/bin/mast) | обёртка: площадка кладёт `bin/` плагина в `PATH` Bash-инструмента, и `mast` — голая команда |
 | [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | ловит нарушения формата роадмапа и архива сразу после правки; с `--ready` — список пунктов, готовых к взятию |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | имя плагина по языку — для ссылок, которые печатают хуки |
 | [`.mcp.json`](plugins/ru/.mcp.json) | MCP-сервер Context7 |

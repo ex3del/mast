@@ -296,8 +296,11 @@ same without writing anything.
 
 | File | What it does |
 |---|---|
-| [`hooks.json`](plugins/en/hooks/hooks.json) | the wiring: `SessionStart` → `core.py` with the plugin's language; an edit to `ROADMAP.md` or `DONE.md` → `roadmap_lint.py` |
+| [`hooks.json`](plugins/en/hooks/hooks.json) | the wiring: `SessionStart` → `core.py` with the plugin's language and `dispatcher.py` (the role by the session's name); `AskUserQuestion`, Edit or Write → `dispatcher.py`; an edit to `ROADMAP.md` or `DONE.md` → `roadmap_lint.py` |
 | [`hooks/core.py`](hooks/core.py) | injects the core or the one-line hint |
+| [`hooks/dispatcher.py`](hooks/dispatcher.py) | in a `<project>-dispatch` session (or with `MAST_ROLE=dispatcher`) denies `AskUserQuestion` and Edit/Write in the main copy outside `ROADMAP.md`, `docs/roadmap/**` and `TECH_DEBT.md` |
+| [`hooks/mast.py`](hooks/mast.py) | `mast merge X-N` — merges an item's branch in one command: the checks, the thesis in `DONE.md`, the line out of `ROADMAP.md`, cleanup, then the ready branches the merge moved |
+| [`bin/mast`](plugins/en/bin/mast) | the wrapper: the platform puts the plugin's `bin/` on the Bash tool's `PATH`, so `mast` is a bare command |
 | [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | catches format violations in the roadmap and the archive right after an edit; with `--ready` — the items ready to take |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | the plugin's name per language — for the links the hooks print |
 | [`.mcp.json`](plugins/en/.mcp.json) | the Context7 MCP server |

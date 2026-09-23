@@ -206,6 +206,7 @@ def test_отказ_пункт_не_в_работе(p):
 
 @pytest.mark.parametrize("subject", ["[B-1] находка: токен не отзывается",
                                      "[B-1] заведён: токен не отзывается",
+                                     "[B-1] [B-2] заведены: токен, выгрузка",
                                      "[B-1] взят в работу · opus"])
 def test_учётные_коммиты_диспетчера_не_второй_заход(p, subject):
     """Диспетчер заводит пункт из находки вместе с её тестом, при взятии кладёт ресёрч —
@@ -373,6 +374,19 @@ def test_шаблон_dispatch_объявляет_команду_тестов():
     for lang in ("ru", "en"):
         text = (ROOT / f"plugins/{lang}/locales/{lang}/templates/dispatch.rule.template.md").read_text(encoding="utf-8")
         assert mast.TESTS.search(text), f"{lang}: в шаблоне нет строки с командой тестов"
+
+
+def test_скилл_учит_форме_которую_разбирает_mast_merge():
+    """Форму последнего коммита описывает скилл сессии пункта, а читает `mast merge`.
+    Поменяют заголовок в тексте, не тронув разбор, — каждая ветка получит отказ."""
+    for lang in ("ru", "en"):
+        text = (ROOT / f"plugins/{lang}/locales/{lang}/skills/managing-roadmap-items-item.md").read_text(encoding="utf-8")
+        heads = re.findall(r"^  - `([^`]+)`", text, re.M)
+        assert len(heads) == 3, f"{lang}: блоки последнего коммита не найдены: {heads}"
+        crit, thesis, debt = heads
+        assert mast.CRIT_LINE.match(crit + "x"), f"{lang}: {crit!r}"
+        assert mast.THESIS.match(thesis + "x"), f"{lang}: {thesis!r}"
+        assert mast.DEBT_HEAD.match(debt), f"{lang}: {debt!r}"
 
 
 def test_раздел_вливание_короткий():

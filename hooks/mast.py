@@ -36,7 +36,7 @@ TESTS = re.compile(r"^\s*(?:тесты|tests)\s*:\s*`([^`]+)`", re.I | re.M)
 PREFIX = re.compile(r"(?:\[[A-Z]-\d+\]\s*)+")
 # Коммиты пункта в main, которые делает диспетчер по скиллу (завёл, взял, поменял
 # критерий, перенёс находку с её тестом) или сессия находкой, — не часть работы пункта
-BOOKKEEPING = re.compile(r"заведён|взят|критерий изменён|находк|opened|taken into work|criterion changed|finding", re.I)
+BOOKKEEPING = re.compile(r"завед|взят|критерий изменён|находк|opened|taken into work|criterion changed|finding", re.I)
 
 LANG = "ru"
 T = {
