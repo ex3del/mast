@@ -8,7 +8,7 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).parent.parent / "hooks/roadmap_lint.py"
 sys.path.insert(0, str(SCRIPT.parent))
-from roadmap_lint import lint, orphans, ready  # noqa: E402
+from roadmap_lint import lint, orphans, ready, waiting  # noqa: E402
 
 # Верхний слой архива: по 2 строки на закрытый пункт
 LEDGER = """# Сделано
@@ -227,6 +227,40 @@ class LintTest(unittest.TestCase):
         errors = lint(text)
         self.assertIn("A-1: no status", errors)
         self.assertFalse(any("нет статуса" in e for e in errors))
+
+
+# Два пункта из четырёх ждут ответа человека: слот последним в шапке строки
+WAITING = (OK
+           .replace("· с 10.09\n", "· с 10.09 · ждёт человека: меняем приёмку на 2 шт.?\n")
+           .replace("зависит от: A-2\n", "зависит от: A-2 · Ждёт человека: снять пункт?\n"))
+
+
+class WaitingTest(unittest.TestCase):
+    def test_слот_не_ломает_строку(self):
+        self.assertEqual(lint(WAITING), [])
+
+    def test_waiting_выводит_только_пункты_со_слотом(self):
+        self.assertEqual(waiting(WAITING), ["A-2: меняем приёмку на 2 шт.?", "B-1: снять пункт?"])
+
+    def test_waiting_из_командной_строки(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "ROADMAP.md"
+            path.write_text(WAITING, encoding="utf-8")
+            result = subprocess.run([sys.executable, str(SCRIPT), "--waiting", str(path)],
+                                    capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.splitlines(), ["A-2: меняем приёмку на 2 шт.?", "B-1: снять пункт?"])
+
+    def test_слот_без_вопроса_ловится(self):
+        text = WAITING.replace("ждёт человека: меняем приёмку на 2 шт.?", "ждёт человека:")
+        self.assertEqual(lint(text), ["A-2: слот «ждёт человека» без вопроса"])
+        self.assertEqual(waiting(text), ["B-1: снять пункт?"])
+
+    def test_английский_слот(self):
+        text = "- **A-1** Export — planned · — · waiting on human: drop it?\n  Done when: 1 file.\n"
+        self.assertEqual(waiting(text), ["A-1: drop it?"])
+        self.assertEqual(lint(text.replace(" drop it?", "")),
+                         ['A-1: "waiting on human" slot has no question'])
 
 
 class HookTest(unittest.TestCase):

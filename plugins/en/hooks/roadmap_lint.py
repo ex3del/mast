@@ -3,6 +3,7 @@
 
   roadmap_lint.py ROADMAP.md          — список нарушений, код 1 если есть
   roadmap_lint.py --ready ROADMAP.md  — пункты, которые можно брать в работу
+  roadmap_lint.py --waiting ROADMAP.md — пункты, которые ждут ответа человека
   без аргументов                      — режим PostToolUse-хука: JSON на stdin,
                                         при новых (относительно HEAD) нарушениях
                                         код 2 и текст в stderr
@@ -32,6 +33,10 @@ STATUS_ALIASES = {
     "planned": "запланирован", "in progress": "в работе",
     "done": "готов", "dropped": "снят",
 }
+# Вопрос человеку — последний слот шапки строки: `grep` по нему печатает и номер
+# пункта, а вопрос тянется до конца строки. Тело пункта не читаем — там вопрос
+# слился бы с продолжением «Готово когда»
+WAITING = re.compile(r"(?:—|·)\s*(?:жд[её]т человека|waiting on human)\s*:(.*)$", re.IGNORECASE)
 DEPS = re.compile(r"(?:зависит от|depends on):\s*([A-Z]-\d+(?:\s*,\s*[A-Z]-\d+)*)", re.IGNORECASE)
 # Подраздел архива со снятыми пунктами — на любом уровне заголовка. Заголовок
 # пишет сессия прозой, поэтому хвост («Снято (архив)», «Dropped items») и эмодзи
@@ -77,8 +82,10 @@ def parse(text):
                 dups.append(cur)
             s = STATUS.search(m.group(2))
             raw = s and s.group(1).replace("🔨", "").strip()
+            w = WAITING.search(m.group(2))
             items[cur] = {"status": STATUS_ALIASES.get(raw, raw),
-                          "head": m.group(2), "body": line}
+                          "head": m.group(2), "body": line,
+                          "waiting": w and w.group(1).strip()}
         elif cur and line.startswith((" ", "\t")):
             items[cur]["body"] += "\n" + line
         else:
@@ -128,7 +135,8 @@ def msg(lang, ru, en):
 
 DONE_WHEN_MISSING_EN = 'no "Done when"'
 DONE_WHEN_NO_NUMBER_EN = '"Done when" has no number'
-NO_LOCATION_EN = 'in progress, but location not specified — `worktree-…` or "main copy"'
+WAITING_EMPTY_EN = '"waiting on human" slot has no question'
+NO_LOCATION_EN ='in progress, but location not specified — `worktree-…` or "main copy"'
 
 
 def lint(text, ledger="", lang=None):
@@ -149,6 +157,8 @@ def lint(text, ledger="", lang=None):
             errors.append(f"{i}: {msg(lang, 'нет «Готово когда»', DONE_WHEN_MISSING_EN)}")
         elif crit.lower().startswith(NOT_SET) or not re.search(r"\d", crit):
             errors.append(f"{i}: {msg(lang, 'в «Готово когда» нет числа', DONE_WHEN_NO_NUMBER_EN)}")
+        if it["waiting"] == "":
+            errors.append(f"{i}: {msg(lang, 'слот «ждёт человека» без вопроса', WAITING_EMPTY_EN)}")
         if it["status"] == "в работе":
             if ("worktree-" not in it["head"] and "основная копия" not in it["head"]
                     and "main copy" not in it["head"]):
@@ -205,6 +215,12 @@ def ready(text, ledger=""):
 
     return [i for i, it in items.items()
             if it["status"] == "запланирован" and all(done(d) for d in it["deps"])]
+
+
+def waiting(text):
+    """Пункты, которые ждут ответа человека: «A-2: <вопрос>»."""
+    items, _ = parse(text)
+    return [f"{i}: {it['waiting']}" for i, it in items.items() if it["waiting"]]
 
 
 def orphans(ledger, base, lang="ru"):
@@ -264,6 +280,9 @@ def main():
     lang, args = pick_language(sys.argv[1:])
     if args[:1] == ["--ready"]:
         print("\n".join(ready(Path(args[1]).read_text(encoding="utf-8"), read_ledger(args[1]))))
+        return 0
+    if args[:1] == ["--waiting"]:
+        print("\n".join(waiting(Path(args[1]).read_text(encoding="utf-8"))))
         return 0
     if args:
         ledger = read_ledger(args[0])

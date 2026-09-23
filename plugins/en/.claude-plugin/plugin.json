@@ -1,6 +1,6 @@
 {
   "name": "mast",
-  "version": "3.2.1",
+  "version": "3.3.0",
   "description": "Method for Agents, Sessions and Tasks — roadmap items, worktree per item, dispatcher, path-scoped rules",
   "license": "MIT",
   "dependencies": [
