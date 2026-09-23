@@ -20,8 +20,15 @@ To try your changes in Claude Code without publishing: `claude --plugin-dir plug
 
 - **Texts live in their plugin — `plugins/<lang>/locales/<lang>/`; hook code at the root,
   in `hooks/`.** The marketplace installs only the plugin's own directory, so each plugin
-  carries a copy of the shared `hooks/`. Refresh the copies with
-  `python3 tools/sync_plugins.py`; a copy that falls behind fails both the pre-commit and CI.
+  carries a copy of the shared `hooks/`. Edit hook code only in the root `hooks/`:
+  `plugins/<lang>/hooks/*.py` are generated copies whose first line (after the shebang)
+  reads «Сгенерировано… правь там» ("generated… edit there"). Refresh them with
+  `python3 tools/sync_plugins.py`; `--check` in the pre-commit and CI rejects both a copy
+  that falls behind and a copy without the marker.
+- **Copies, not symlinks.** Each plugin is installed from its own directory, and both need
+  the code. Git on Windows (`core.symlinks=false` by default) checks a symlink out as a plain
+  text file — the hook dies with `SyntaxError` and the core never loads (0 of 2 in the A-18
+  probe). Don't replace the copies with symlinks.
 - **Change both languages together.** A text edit in `plugins/en/locales/en/` needs the same
   edit in `plugins/ru/locales/ru/`; the guards compare the file set and the heading tree. If
   you can't write one of the languages, say so in the PR — we'll finish the translation.
