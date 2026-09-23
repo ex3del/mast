@@ -21,6 +21,7 @@ This part is shared by both: invariants, the line format, the archive, decisions
 - **The main copy assigns the item's number** — the next free one across `ROADMAP.md` and `DONE.md`. A number from the archive is taken forever.
 - **An item's session in a worktree never pushes to `main`** — only its own branch.
 - **"Done when" holds a checkable number** — time, volume, count, size, a memory ceiling. ❌ "the PDF renders correctly" ✅ "500 rows < 3s, file < 2 MB".
+- **A message to the human — a question, a report, an escalation — is self-contained:** it's understood without knowing this item or its neighbors. It holds what happened, why it matters to the human, a concrete example, options with their consequences, a recommendation; an item number only with a phrase saying what the item is; a term or a file name only with why it's here. ❌ "waits on B-2" ✅ "waits on B-2, the data export the report is built from". There's no length limit; if the human has to ask back, the message failed.
 - **`ROADMAP.md` is edited with Edit or Write, not `sed`:** after an edit, a hook runs `roadmap_lint.py` and reports violations introduced by that edit. It doesn't see an edit made through Bash.
 - ⚠️ **Numbers and names in the skill's examples are made up.** Copied a number from an example — there was no measurement.
 
