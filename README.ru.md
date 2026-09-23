@@ -226,12 +226,13 @@ claude --name <проект>-dispatch --model opus --advisor fable \
 
 ## Что лежит в плагине
 
-Правится всё в корне репозитория — `hooks/` и `locales/`; внутри `plugins/<язык>/` лежат их
-копии, которые раскладывает `tools/sync_plugins.py`. Ссылки ниже ведут на источники.
+Тексты лежат в `plugins/<язык>/locales/<язык>/` и правятся прямо там. Код хуков общий на оба
+плагина: правится в корне, в `hooks/`, а его копии внутри `plugins/<язык>/` раскладывает
+`tools/sync_plugins.py`. Ссылки ниже ведут на источники.
 
 ### Ядро — правила в каждой сессии
 
-[`locales/ru/core.md`](locales/ru/core.md) — горстка правил, без которых метод ломается:
+[`plugins/ru/locales/ru/core.md`](plugins/ru/locales/ru/core.md) — горстка правил, без которых метод ломается:
 куда записывать решение, план прежде кода, пометка занятости именем сессии, модель пункта и
 советник, параллельные сессии в одной копии, задача как проверяемая цель. В каждом правиле
 стоит имя скилла, где лежат подробности.
@@ -247,9 +248,9 @@ claude --name <проект>-dispatch --model opus --advisor fable \
 
 | Скилл | Файлы | Что внутри |
 |---|---|---|
-| `mast-ru:managing-roadmap-items` | [общее](locales/ru/skills/managing-roadmap-items.md) · [сессия пункта](locales/ru/skills/managing-roadmap-items-item.md) · [диспетчер](locales/ru/skills/managing-roadmap-items-dispatcher.md) | Общее: инварианты, формат строки пункта, архив закрытого, куда класть решения. Сессия пункта: базовый замер, `STATUS.md`, находки вне пункта, чек-лист закрытия. Диспетчер: брошенные пункты, разбор находок, выбор модели, запуск сессий, вливание веток. Каждая роль читает только свой файл |
-| `mast-ru:worktree-flow` | [worktree-flow.md](locales/ru/skills/worktree-flow.md) | Цикл пункта в worktree: старт фоновой сессии, коммиты `[A-1]`, rebase, вливание основной копией, уборка; коротко о роли диспетчера |
-| `mast-ru:project-structure` | [project-structure.md](locales/ru/skills/project-structure.md) | Таблица документов проекта: когда какой заводится и что в нём лежит |
+| `mast-ru:managing-roadmap-items` | [общее](plugins/ru/locales/ru/skills/managing-roadmap-items.md) · [сессия пункта](plugins/ru/locales/ru/skills/managing-roadmap-items-item.md) · [диспетчер](plugins/ru/locales/ru/skills/managing-roadmap-items-dispatcher.md) | Общее: инварианты, формат строки пункта, архив закрытого, куда класть решения. Сессия пункта: базовый замер, `STATUS.md`, находки вне пункта, чек-лист закрытия. Диспетчер: брошенные пункты, разбор находок, выбор модели, запуск сессий, вливание веток. Каждая роль читает только свой файл |
+| `mast-ru:worktree-flow` | [worktree-flow.md](plugins/ru/locales/ru/skills/worktree-flow.md) | Цикл пункта в worktree: старт фоновой сессии, коммиты `[A-1]`, rebase, вливание основной копией, уборка; коротко о роли диспетчера |
+| `mast-ru:project-structure` | [project-structure.md](plugins/ru/locales/ru/skills/project-structure.md) | Таблица документов проекта: когда какой заводится и что в нём лежит |
 
 Сами `skills/<имя>/SKILL.md` в плагине — только описание для выбора скилла и строка
 «прочитай файл выше»: тексты лежат в `locales/`, чтобы не дублироваться по языкам.
@@ -261,15 +262,15 @@ claude --name <проект>-dispatch --model opus --advisor fable \
 существующий файл правится только на чистом дереве git, молчаливой перезаписи нет, версия
 Claude Code проверяется, в `CLAUDE.md` пишется только найденное. `--check` — то же без записи.
 
-### Шаблоны каркаса — [`locales/ru/templates/`](locales/ru/templates/)
+### Шаблоны каркаса — [`plugins/ru/locales/ru/templates/`](plugins/ru/locales/ru/templates/)
 
 | Шаблон | Во что превращается |
 |---|---|
-| [`CLAUDE.template.md`](locales/ru/templates/CLAUDE.template.md) | `CLAUDE.md` проекта: стек, команды, код (fail loud), инварианты |
-| [`ROADMAP.template.md`](locales/ru/templates/ROADMAP.template.md) | пустой `ROADMAP.md`, который проходит линт |
-| [`rule.template.md`](locales/ru/templates/rule.template.md) | `.claude/rules/example.md` — пример правила с `paths:` |
-| [`context7.rule.template.md`](locales/ru/templates/context7.rule.template.md) | `.claude/rules/context7.md` — документация библиотек через инструмент, а не по памяти |
-| [`dispatch.rule.template.md`](locales/ru/templates/dispatch.rule.template.md) | `.claude/rules/dispatch.md` — зоны, которые всегда ведёт `opus` |
+| [`CLAUDE.template.md`](plugins/ru/locales/ru/templates/CLAUDE.template.md) | `CLAUDE.md` проекта: стек, команды, код (fail loud), инварианты |
+| [`ROADMAP.template.md`](plugins/ru/locales/ru/templates/ROADMAP.template.md) | пустой `ROADMAP.md`, который проходит линт |
+| [`rule.template.md`](plugins/ru/locales/ru/templates/rule.template.md) | `.claude/rules/example.md` — пример правила с `paths:` |
+| [`context7.rule.template.md`](plugins/ru/locales/ru/templates/context7.rule.template.md) | `.claude/rules/context7.md` — документация библиотек через инструмент, а не по памяти |
+| [`dispatch.rule.template.md`](plugins/ru/locales/ru/templates/dispatch.rule.template.md) | `.claude/rules/dispatch.md` — зоны, которые всегда ведёт `opus` |
 
 ### Хуки и служебное
 

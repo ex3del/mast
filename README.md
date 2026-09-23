@@ -240,13 +240,14 @@ claude --name <project>-dispatch --model opus --advisor fable \
 
 ## What's in the plugin
 
-Everything is edited at the repository root — `hooks/` and `locales/`; inside
-`plugins/<lang>/` sit their copies, laid out by `tools/sync_plugins.py`. The links below
+The texts live in `plugins/<lang>/locales/<lang>/` and are edited right there. The hook
+code is shared by both plugins: it is edited at the root, in `hooks/`, and
+`tools/sync_plugins.py` lays out its copies inside `plugins/<lang>/`. The links below
 point to the sources.
 
 ### The core — rules in every session
 
-[`locales/en/core.md`](locales/en/core.md) — the handful of rules the method breaks without:
+[`plugins/en/locales/en/core.md`](plugins/en/locales/en/core.md) — the handful of rules the method breaks without:
 where to write a decision, plan before code, marking ownership with the session's name, an
 item's model and advisor, concurrent sessions in one working copy, turning a task into a
 checkable goal. Every rule names the skill that holds the details.
@@ -264,9 +265,9 @@ checkable goal. Every rule names the skill that holds the details.
 
 | Skill | Files | What's inside |
 |---|---|---|
-| `mast:managing-roadmap-items` | [shared](locales/en/skills/managing-roadmap-items.md) · [item session](locales/en/skills/managing-roadmap-items-item.md) · [dispatcher](locales/en/skills/managing-roadmap-items-dispatcher.md) | Shared: invariants, the item line format, the archive of closed work, where decisions go. Item session: the baseline measurement, `STATUS.md`, findings outside the item, the closing checklist. Dispatcher: abandoned items, triaging findings, choosing the model, starting sessions, merging branches. Each role reads only its own file |
-| `mast:worktree-flow` | [worktree-flow.md](locales/en/skills/worktree-flow.md) | An item's worktree cycle: starting the background session, `[A-1]` commits, rebase, merging by the main copy, cleanup; the dispatcher's role in brief |
-| `mast:project-structure` | [project-structure.md](locales/en/skills/project-structure.md) | The table of project documents: when each one appears and what goes in it |
+| `mast:managing-roadmap-items` | [shared](plugins/en/locales/en/skills/managing-roadmap-items.md) · [item session](plugins/en/locales/en/skills/managing-roadmap-items-item.md) · [dispatcher](plugins/en/locales/en/skills/managing-roadmap-items-dispatcher.md) | Shared: invariants, the item line format, the archive of closed work, where decisions go. Item session: the baseline measurement, `STATUS.md`, findings outside the item, the closing checklist. Dispatcher: abandoned items, triaging findings, choosing the model, starting sessions, merging branches. Each role reads only its own file |
+| `mast:worktree-flow` | [worktree-flow.md](plugins/en/locales/en/skills/worktree-flow.md) | An item's worktree cycle: starting the background session, `[A-1]` commits, rebase, merging by the main copy, cleanup; the dispatcher's role in brief |
+| `mast:project-structure` | [project-structure.md](plugins/en/locales/en/skills/project-structure.md) | The table of project documents: when each one appears and what goes in it |
 
 The `skills/<name>/SKILL.md` files in the plugin hold only the description used to pick
 the skill and a line saying "read the file above": the texts live in `locales/` so they
@@ -280,15 +281,15 @@ criterion, an existing file is changed only on a clean git tree, no silent overw
 Claude Code version is checked, only what was found goes into `CLAUDE.md`. `--check` — the
 same without writing anything.
 
-### Scaffold templates — [`locales/en/templates/`](locales/en/templates/)
+### Scaffold templates — [`plugins/en/locales/en/templates/`](plugins/en/locales/en/templates/)
 
 | Template | What it becomes |
 |---|---|
-| [`CLAUDE.template.md`](locales/en/templates/CLAUDE.template.md) | the project's `CLAUDE.md`: stack, commands, code (fail loud), invariants |
-| [`ROADMAP.template.md`](locales/en/templates/ROADMAP.template.md) | an empty `ROADMAP.md` that passes the lint |
-| [`rule.template.md`](locales/en/templates/rule.template.md) | `.claude/rules/example.md` — an example rule with `paths:` |
-| [`context7.rule.template.md`](locales/en/templates/context7.rule.template.md) | `.claude/rules/context7.md` — library docs through the tool, not from memory |
-| [`dispatch.rule.template.md`](locales/en/templates/dispatch.rule.template.md) | `.claude/rules/dispatch.md` — the zones that always run on `opus` |
+| [`CLAUDE.template.md`](plugins/en/locales/en/templates/CLAUDE.template.md) | the project's `CLAUDE.md`: stack, commands, code (fail loud), invariants |
+| [`ROADMAP.template.md`](plugins/en/locales/en/templates/ROADMAP.template.md) | an empty `ROADMAP.md` that passes the lint |
+| [`rule.template.md`](plugins/en/locales/en/templates/rule.template.md) | `.claude/rules/example.md` — an example rule with `paths:` |
+| [`context7.rule.template.md`](plugins/en/locales/en/templates/context7.rule.template.md) | `.claude/rules/context7.md` — library docs through the tool, not from memory |
+| [`dispatch.rule.template.md`](plugins/en/locales/en/templates/dispatch.rule.template.md) | `.claude/rules/dispatch.md` — the zones that always run on `opus` |
 
 ### Hooks and plumbing
 

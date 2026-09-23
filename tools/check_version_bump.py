@@ -12,7 +12,7 @@ import subprocess
 import sys
 
 MANIFEST = "plugins/en/.claude-plugin/plugin.json"
-METHOD = ("hooks/", "locales/", "plugins/")
+METHOD = ("hooks/", "plugins/")
 
 
 def git(*args):

@@ -103,7 +103,7 @@ def test_каждая_версия_живёт_в_своей_локали():
 @pytest.mark.parametrize("lang", sorted(COMMANDS))
 def test_каждый_шаблон_локали_предлагается_командой(lang):
     """Завести шаблон и забыть предложить его — он не доедет до пользователя никогда."""
-    templates = sorted(p.name for p in (ROOT / "locales" / lang / "templates").glob("*.template.md"))
+    templates = sorted(p.name for p in (ROOT / "plugins" / lang / "locales" / lang / "templates").glob("*.template.md"))
     assert templates, f"{lang}: шаблонов не найдено"
     for name in templates:
         assert name in text(lang), f"{lang}: команда не знает про шаблон {name}"

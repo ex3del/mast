@@ -7,7 +7,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = "plugins/en/.claude-plugin/plugin.json"
-METHOD = ["hooks", "locales", "plugins"]
+METHOD = ["hooks", "plugins"]
 
 
 def _последний_коммит(*пути):

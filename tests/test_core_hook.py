@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+PLUGIN = ROOT / "plugins" / "ru"   # корень плагина: ядро лежит в нём, а не в корне репозитория
 sys.path.insert(0, str(ROOT / "hooks"))
 import core  # noqa: E402
 
@@ -18,11 +19,11 @@ def test_язык_приходит_аргументом_от_своего_пла
 
 def test_в_проекте_с_роадмапом_вкладывается_полное_ядро(tmp_path):
     (tmp_path / "ROADMAP.md").write_text("- **A-1** что-то\n")
-    assert core.render(tmp_path, ROOT, "ru") == (ROOT / "locales/ru/core.md").read_text(encoding="utf-8")
+    assert core.render(tmp_path, PLUGIN, "ru") == (PLUGIN / "locales/ru/core.md").read_text(encoding="utf-8")
 
 
 def test_в_проекте_без_метода_только_строка_указатель(tmp_path):
-    out = core.render(tmp_path, ROOT, "ru")
+    out = core.render(tmp_path, PLUGIN, "ru")
     assert len(out) < 300
     assert "/mast-ru:init-project" in out
 
@@ -54,21 +55,21 @@ def test_настройка_ядро_везде_читается_из_окруж
 def test_с_настройкой_ядро_приезжает_и_в_неразвёрнутый_проект(tmp_path):
     """Правила про план, записи и параллельные сессии нужны и там, где роадмапа нет;
     подсказка при этом остаётся — иначе непонятно, почему каркаса не видно."""
-    out = core.render(tmp_path, ROOT, "ru", always=True)
+    out = core.render(tmp_path, PLUGIN, "ru", always=True)
     assert "/mast-ru:init-project" in out
     assert "## Планирование" in out
-    assert out.endswith((ROOT / "locales/ru/core.md").read_text(encoding="utf-8"))
+    assert out.endswith((PLUGIN / "locales/ru/core.md").read_text(encoding="utf-8"))
 
 
 def test_без_настройки_в_неразвёрнутом_проекте_только_подсказка(tmp_path):
-    assert core.render(tmp_path, ROOT, "ru", always=False) == core.render(tmp_path, ROOT, "ru")
+    assert core.render(tmp_path, PLUGIN, "ru", always=False) == core.render(tmp_path, PLUGIN, "ru")
 
 
 def test_в_развёрнутом_проекте_настройка_ничего_не_меняет(tmp_path):
     (tmp_path / "ROADMAP.md").write_text("- **A-1** что-то\n")
-    core_md = (ROOT / "locales/ru/core.md").read_text(encoding="utf-8")
-    assert core.render(tmp_path, ROOT, "ru", always=True) == core_md
-    assert core.render(tmp_path, ROOT, "ru", always=False) == core_md
+    core_md = (PLUGIN / "locales/ru/core.md").read_text(encoding="utf-8")
+    assert core.render(tmp_path, PLUGIN, "ru", always=True) == core_md
+    assert core.render(tmp_path, PLUGIN, "ru", always=False) == core_md
 
 
 def test_нечитаемое_ядро_возвращает_сообщение_а_не_падает(tmp_path):
@@ -108,12 +109,13 @@ def test_вывод_utf8_даже_при_не_utf8_кодировке_окруж
     env = dict(os.environ)
     env["PYTHONIOENCODING"] = "cp1252"
     env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    env["CLAUDE_PLUGIN_ROOT"] = str(ROOT)
+    env["CLAUDE_PLUGIN_ROOT"] = str(PLUGIN)
     result = subprocess.run(
-        [sys.executable, str(ROOT / "hooks" / "core.py")],
+        # Копия из плагина: ядро хук ищет относительно себя, а тексты живут только там
+        [sys.executable, str(PLUGIN / "hooks" / "core.py")],
         env=env,
         capture_output=True,
     )
     assert result.returncode == 0
-    expected = (ROOT / "locales/ru/core.md").read_text(encoding="utf-8") + "\n"
+    expected = (PLUGIN / "locales/ru/core.md").read_text(encoding="utf-8") + "\n"
     assert result.stdout.decode("utf-8") == expected

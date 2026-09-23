@@ -88,7 +88,7 @@ def test_пути_в_текстах_плагина_ведут_в_существ�
     скиллов полгода указывали в пустоту, и ни один сторож этого не видел."""
     for lang, plugin in PLUGINS.items():
         checked = 0
-        for path in [*plugin.rglob("*.md"), *(ROOT / "locales" / lang).rglob("*.md")]:
+        for path in plugin.rglob("*.md"):
             for m in PLUGIN_ROOT_PATH.finditer(path.read_text(encoding="utf-8")):
                 rel = m.group(1).lstrip("/")
                 if not rel:
@@ -108,7 +108,7 @@ def test_ссылки_на_скиллы_и_команды_ведут_в_свое
     for lang, plugin in PLUGINS.items():
         skills = {p.parent.name for p in plugin.glob("skills/*/SKILL.md")}
         commands = {p.stem for p in plugin.glob("commands/*.md")}
-        texts = [*plugin.rglob("*.md"), *(ROOT / "locales" / lang).rglob("*.md"),
+        texts = [*plugin.rglob("*.md"),
                  ROOT / READMES[lang]]
         found = 0
         for path in texts:
@@ -132,8 +132,8 @@ def test_плагин_самодостаточен():
 
 
 def test_копии_в_плагинах_не_отстали_от_источника():
-    """Истина одна — корневые `hooks/` и `locales/`; внутри плагина её копии,
-    разложенные `tools/sync_plugins.py`. Отстали — релиз уедет с чужим текстом."""
+    """Код хуков общий — корневые `hooks/`; внутри плагина их копии, разложенные
+    `tools/sync_plugins.py`. Отстали — релиз уедет со старым кодом."""
     sys.path.insert(0, str(ROOT / "tools"))
     import sync_plugins  # noqa: PLC0415 — импорт здесь, чтобы тест не требовал tools/ в sys.path
 

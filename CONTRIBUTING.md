@@ -18,18 +18,18 @@ To try your changes in Claude Code without publishing: `claude --plugin-dir plug
 
 ## Rules that aren't obvious
 
-- **Edit the sources at the root — `hooks/` and `locales/<lang>/`.** Each plugin in
-  `plugins/<lang>/` carries copies of them, because the marketplace installs only the plugin's
-  own directory. Refresh the copies with `python3 tools/sync_plugins.py`; a copy that falls
-  behind fails both the pre-commit and CI.
-- **Change both languages together.** A text edit in `locales/en/` needs the same edit in
-  `locales/ru/`; the guards compare the file set and the heading tree. If you can't write one
-  of the languages, say so in the PR — we'll finish the translation.
+- **Texts live in their plugin — `plugins/<lang>/locales/<lang>/`; hook code at the root,
+  in `hooks/`.** The marketplace installs only the plugin's own directory, so each plugin
+  carries a copy of the shared `hooks/`. Refresh the copies with
+  `python3 tools/sync_plugins.py`; a copy that falls behind fails both the pre-commit and CI.
+- **Change both languages together.** A text edit in `plugins/en/locales/en/` needs the same
+  edit in `plugins/ru/locales/ru/`; the guards compare the file set and the heading tree. If
+  you can't write one of the languages, say so in the PR — we'll finish the translation.
 - **A change to the method bumps the version** in both `plugins/*/.claude-plugin/plugin.json`
   (they must stay equal). Without a bump Claude Code never delivers the update to anyone.
   Changes to `README`, `docs/`, or `tests/` alone need no bump.
-- **The core has a ceiling** — `locales/<lang>/core.md` stays under 8200 characters; the
-  English one is already close. Anything heavier belongs in a skill.
+- **The core has a ceiling** — `plugins/<lang>/locales/<lang>/core.md` stays under 8200
+  characters; the English one is already close. Anything heavier belongs in a skill.
 - **Don't edit `ROADMAP.md`, `docs/roadmap/DONE.md`, or `TECH_DEBT.md`.** In MAST only the
   main copy edits them — here that's the maintainer, at merge time. Put a finding or a
   proposal in an issue instead.

@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SKILL = "locales/{lang}/skills/managing-roadmap-items-dispatcher.md"
+SKILL = "plugins/{lang}/locales/{lang}/skills/managing-roadmap-items-dispatcher.md"
 START = {"ru": "## Запуск пункта", "en": "## Starting an item"}
 PROMPT_LIMIT = 300
 

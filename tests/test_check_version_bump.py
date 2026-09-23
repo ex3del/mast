@@ -30,7 +30,7 @@ def repo(tmp_path, monkeypatch):
     git(tmp_path, "config", "user.email", "t@t")
     git(tmp_path, "config", "user.name", "t")
     set_version(tmp_path, "3.9.0")
-    write(tmp_path, "locales/ru/core.md", "ядро")
+    write(tmp_path, "plugins/ru/locales/ru/core.md", "ядро")
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-qm", "база")
     git(tmp_path, "branch", "base")
@@ -44,13 +44,13 @@ def commit(repo, msg):
 
 
 def test_правка_метода_без_бампа_отклоняется(repo):
-    write(repo, "locales/ru/core.md", "новое ядро")
+    write(repo, "plugins/ru/locales/ru/core.md", "новое ядро")
     commit(repo, "правка без бампа")
     assert "не выросла" in cvb.check("base")
 
 
 def test_правка_метода_с_бампом_проходит(repo):
-    write(repo, "locales/ru/core.md", "новое ядро")
+    write(repo, "plugins/ru/locales/ru/core.md", "новое ядро")
     set_version(repo, "3.10.0")                 # 3.10 > 3.9 — сравнение чисел, не строк
     commit(repo, "правка с бампом")
     assert cvb.check("base") is None
