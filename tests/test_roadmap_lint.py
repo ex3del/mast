@@ -1,5 +1,6 @@
 """Тесты guard-скрипта формата ROADMAP.md. Запуск: python3 -m unittest discover tests"""
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -357,6 +358,76 @@ class HookTest(unittest.TestCase):
             path = Path(d) / "ROADMAP.md"
             path.write_text(OK, encoding="utf-8")
             self.assertEqual(self.run_hook(path).returncode, 0)
+
+
+# Критерий B-2 до и после правки: число пропадает — линт обязан пожаловаться
+CRIT, BAD_CRIT = "Готово когда: пустой отчёт → 200.", "Готово когда: быстро."
+
+
+class BashHookTest(unittest.TestCase):
+    """Роадмап, переписанный командой Bash, а не Edit/Write: хук смотрит на
+    состояние файла, а не на команду — список команд обходится через `perl -i`."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.git = ["git", "-C", self.tmp.name, "-c", "user.name=t", "-c", "user.email=t@t"]
+        (self.root / "ROADMAP.md").write_text(OK, encoding="utf-8")
+        subprocess.run(self.git + ["init", "-q"], check=True)
+        subprocess.run(self.git + ["add", "."], check=True)
+        subprocess.run(self.git + ["commit", "-qm", "init"], check=True)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_hook(self, event, command, cwd=None):
+        cwd = cwd or self.tmp.name
+        payload = json.dumps({"hook_event_name": event, "tool_name": "Bash",
+                              "tool_input": {"command": command}, "cwd": cwd})
+        return subprocess.run([sys.executable, str(SCRIPT), "ru"], input=payload, capture_output=True,
+                              text=True, cwd=cwd, env={"PATH": os.environ["PATH"], "CLAUDE_PROJECT_DIR": cwd})
+
+    def test_правка_через_bash_ловится(self):
+        commands = {
+            # `-i.bak` одинаково понимают GNU и BSD sed
+            "sed": f"sed -i.bak 's/{CRIT}/{BAD_CRIT}/' ROADMAP.md",
+            "python3": f"{sys.executable} -c \"import pathlib; p = pathlib.Path('ROADMAP.md'); "
+                       f"p.write_text(p.read_text().replace('{CRIT}', '{BAD_CRIT}'))\"",
+            "perl": f"perl -i -pe 's/{CRIT}/{BAD_CRIT}/' ROADMAP.md",
+        }
+        for name, command in commands.items():
+            with self.subTest(name):
+                subprocess.run(self.git + ["checkout", "-q", "ROADMAP.md"], check=True)
+                subprocess.run(command, shell=True, cwd=self.tmp.name, check=True)
+                self.assertIn(BAD_CRIT, (self.root / "ROADMAP.md").read_text(encoding="utf-8"))
+                result = self.run_hook("PostToolUse", command)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("B-2: в «Готово когда» нет числа", result.stderr)
+
+    def test_bash_без_правки_роадмапа_молчит(self):
+        result = self.run_hook("PostToolUse", "ls")
+        self.assertEqual((result.returncode, result.stderr), (0, ""))
+
+    def test_bash_вне_репозитория_молчит(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "ROADMAP.md").write_text(OK.replace(CRIT, BAD_CRIT), encoding="utf-8")
+            result = self.run_hook("PostToolUse", "ls", cwd=d)
+        self.assertEqual((result.returncode, result.stderr), (0, ""))
+
+    def test_коммит_с_нарушением_в_индексе_отклонён(self):
+        (self.root / "ROADMAP.md").write_text(OK.replace(CRIT, BAD_CRIT), encoding="utf-8")
+        subprocess.run(self.git + ["add", "ROADMAP.md"], check=True)
+        # Рабочая копия уже исправлена, а в индексе осталась сломанная версия — её и закоммитят
+        (self.root / "ROADMAP.md").write_text(OK, encoding="utf-8")
+        result = self.run_hook("PreToolUse", "git commit -m 'правка роадмапа'")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("B-2: в «Готово когда» нет числа", result.stderr)
+
+    def test_коммит_без_нарушений_проходит(self):
+        (self.root / "ROADMAP.md").write_text(OK.replace(CRIT, "Готово когда: 3 отчёта."), encoding="utf-8")
+        subprocess.run(self.git + ["add", "ROADMAP.md"], check=True)
+        result = self.run_hook("PreToolUse", "git commit -m 'правка роадмапа'")
+        self.assertEqual((result.returncode, result.stderr), (0, ""))
 
 
 if __name__ == "__main__":

@@ -84,6 +84,26 @@ def test_post_tool_use_ловит_роадмап_и_архив(lang):
         assert any(tool in i and "DONE.md" in i for i in ifs), ifs
 
 
+def lint_hooks(lang, event):
+    """Хуки линта события, сгруппированные по матчеру."""
+    return [(entry["matcher"], h) for entry in load(lang)["hooks"].get(event, []) for h in entry["hooks"]
+            if "roadmap_lint.py" in " ".join(h.get("args", []))]
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_post_tool_use_ловит_правку_через_bash(lang):
+    """Без `if`: команда, переписавшая роадмап, может быть любой — `sed -i`,
+    `perl -i`, скрипт. Что роадмап изменён, линт узнаёт по `git diff`."""
+    bash = [h for m, h in lint_hooks(lang, "PostToolUse") if "Bash" in m.split("|")]
+    assert bash and all("if" not in h for h in bash), bash
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_pre_tool_use_проверяет_коммит(lang):
+    bash = [h for m, h in lint_hooks(lang, "PreToolUse") if "Bash" in m.split("|")]
+    assert [h.get("if") for h in bash] == ["Bash(git commit *)"], bash
+
+
 @pytest.mark.parametrize("lang", LANGS)
 def test_все_пути_в_аргументах_через_claude_plugin_root_и_существуют(lang):
     args = [a for h in all_hook_entries(load(lang)) for a in h.get("args", [])]
