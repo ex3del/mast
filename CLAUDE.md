@@ -40,21 +40,24 @@ python3 tools/sync_plugins.py --check     # копии отстали от ис�
 ## Живая проверка установки
 
 Маркетплейс-каталог (локальная папка) площадка грузит на месте, без кэша, — он не проверяет
-то, что получит пользователь с GitHub. Без push через кэш идёт только git-маркетплейс:
+то, что получит пользователь с GitHub. Без push через кэш идёт только git-маркетплейс — его
+поднимает скрипт:
 
-- до установки снять копии `~/.claude/settings.json`, `~/.claude/plugins/known_marketplaces.json`,
-  `~/.claude/plugins/installed_plugins.json`;
-- bare-репозиторий с `plugins/` и `.claude-plugin/marketplace.json`, имя маркетплейса не
-  `ex3del` (занято установленным). `file://` и `git://` площадка не принимает, dumb HTTP не
-  умеет shallow-клон — отдать по smart HTTP: `python3 -m http.server --cgi` + обёртка над
-  `git http-backend` в `cgi-bin/git`;
-- во временном проекте с `ROADMAP.md` (иначе ядро не вкладывается):
-  `claude plugin marketplace add http://127.0.0.1:<порт>/cgi-bin/git/<repo>.git --scope local`,
-  плагин ставить `--scope local`, `mast-ru@ex3del` там выключить `--scope local`; плагин
-  должен грузиться из `cache/<маркетплейс>/<плагин>/<версия>`, маркер ядра («## Где что
-  записывать» / «## Where to write things») — в контексте;
-- после — удалить плагины и маркетплейс, остановить сервер, сравнить три файла с копиями:
-  0 отличий (автообновление чужих плагинов — не своё, не чинить).
+```bash
+python3 tools/serve_marketplace.py snapshot <каталог>  # до установки: копии общих файлов ~/.claude
+python3 tools/serve_marketplace.py                     # до Ctrl+C; --name (по умолчанию mast-local), --port
+python3 tools/serve_marketplace.py compare <каталог>   # после уборки: 0 отличий — код 0
+```
+
+Скрипт собирает bare-репозиторий из текущего дерева, а не из HEAD (`plugins/` и манифест
+с другим именем — `ex3del` занято установленным), отдаёт его по smart HTTP через
+`git http-backend` (`file://` и `git://` площадка не принимает, dumb HTTP не умеет
+shallow-клон) и печатает команды `claude plugin …`: добавить маркетплейс, поставить и убрать
+плагин, выключить `mast-ru@ex3del` — всё `--scope local` во временном проекте с `ROADMAP.md`
+(иначе ядро не вкладывается). Плагин должен грузиться из `cache/<маркетплейс>/<плагин>/<версия>`,
+маркер ядра («## Где что записывать» / «## Where to write things») — в контексте. `compare`
+сверяет `settings.json`, `known_marketplaces.json`, `installed_plugins.json`;
+автообновление чужих плагинов — не своё, не чинить.
 
 Детали прогона — в телах коммитов `8b8f307` и `1a20e4c`.
 
