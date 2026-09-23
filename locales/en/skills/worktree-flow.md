@@ -23,7 +23,7 @@
 
 When items run in parallel, one main-copy session becomes the **dispatcher**, `--name <project>-dispatch` (the name includes the project: `ListAgents` shows sessions for every project on the machine).
 
-- Only the main copy — the dispatcher or a human — edits `ROADMAP.md`, `docs/roadmap/DONE.md`, and `TECH_DEBT.md`. Item sessions send the dispatcher findings and "done" via `SendMessage`; no dispatcher — the finding goes as a file in `docs/roadmap/inbox/`. Only the main copy assigns an item's number.
+- Only the main copy — the dispatcher or a human — edits `ROADMAP.md`, `docs/roadmap/DONE.md`, and `TECH_DEBT.md`. Item sessions send the dispatcher findings and "done" via `SendMessage`, and negotiate with a neighbor on paths directly; no dispatcher — the finding goes as a file in `docs/roadmap/inbox/`. Only the main copy assigns an item's number.
 - The dispatcher triages findings, assigns numbers and dependencies, starts sessions on items ready to take (model per the rule below), merges branches one at a time, moves closed items into `DONE.md`, clears blockers, and writes back to waiting sessions. Order — skill `mast:managing-roadmap-items`.
 - It asks the human only when the decision changes the meaning or is irreversible: the "Done when" criterion, dropping or merging items with different goals, two items conflicting over the same paths, deleting an unmerged branch, an urgent finding. It decides everything else on its own, the reason goes in the commit message.
 - The dispatcher's state is `ROADMAP.md`, `claude agents`, `git worktree list` — not its context: a restart loses nothing.

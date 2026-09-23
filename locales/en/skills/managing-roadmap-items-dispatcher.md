@@ -35,7 +35,7 @@ Don't delete anything yourself: a worktree may hold uncommitted changes. Send th
 | an abandoned item, an orphaned worktree, a stray session — resume, close, or drop | |
 | | send an item back for more work if there are no measurements in the journal or the commits |
 
-A question to the human is one message: facts with numbers (no numbers — ask the item's session for them first), 2–3 options, your recommendation. While you wait for a reply, don't touch the line, the item keeps going. Decided it yourself — the reason goes in the commit message.
+A question to the human is one message **as text, not `AskUserQuestion`**: a modal question holds both merges and incoming messages from sessions until the human answers. In the message — facts with numbers (no numbers — ask the item's session for them first), 2–3 options, your recommendation. A question about an item also goes into its line as the last slot — `· waiting on human: <question>`; that's the only edit to the line while you wait, and the item keeps going meanwhile. "What do you need from me" — `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --waiting ROADMAP.md`. Got the answer — remove the slot. Decided it yourself — the reason goes in the commit message.
 
 ## Triaging findings
 
@@ -79,12 +79,12 @@ Don't give `fable` as advisor to a session running `sonnet`: subagents inherit t
 ## Starting an item
 
 1. **What can be taken:** `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md`. Don't run two items in parallel whose `My paths` overlap.
-2. **The line** — per the format in `managing-roadmap-items.md`: session `B-2`, `My paths`. `STATUS.md` — only if there's a sign from the "1. Start" section of `managing-roadmap-items-item.md`; the signs "needs a plan" and "a neighbor on nearby paths" are already visible at start time. Commit `[B-2] taken into work · <model>` and `git push` — the model goes in the message, so it's visible at closing time who did the work. All of this **before the session starts**: from inside the worktree, edits to the main copy are blocked, and the worktree is created from `origin/main` — without a push it won't see its own line.
+2. **The line** — per the format in `managing-roadmap-items.md`: session `B-2`, `My paths`. The description carries the context of your conversation with the human: why the item exists, which options were rejected and why, what constraints they set. The start prompt is gone once sent, while the session rereads the line even after a restart. Don't write the plan or pick the implementation: the item's session does that after studying the code. Commit `[B-2] taken into work · <model>` and `git push` — the model goes in the message, so it's visible at closing time who did the work. All of this **before the session starts**: from inside the worktree, edits to the main copy are blocked, and the worktree is created from `origin/main` — without a push it won't see its own line.
 3. **Start:**
    ```bash
-   claude --bg --worktree B-2 --name B-2 --advisor fable "Drive item B-2 per skill mast:managing-roadmap-items: a line in ROADMAP.md and docs/roadmap/B-2/STATUS.md if it's opened. First step — the baseline measurement"
+   claude --bg --worktree B-2 --name B-2 --advisor fable "Drive item B-2 per skill mast:managing-roadmap-items: its line in ROADMAP.md. First step — the baseline measurement. No neighbors on nearby paths in progress"
    ```
-   An item that went through the downgrade — same flags, but with `--model sonnet --advisor opus`.
+   After the template — coordination facts only: neighbors on nearby paths in progress and their session names (the session negotiates with them directly), windows on shared resources, what moved in `main`. An item that went through the downgrade — same flags, but with `--model sonnet --advisor opus`.
    The command prints an id. `--advisor fable` gives the session a stronger advisor at the key points; if consent to bill Fable hasn't been given yet, the background session simply starts without an advisor. The name might already be taken by an old live session — the engine then hands out `B-2-<word>`. That's a symptom of an abandoned item: deal with the old session (see "Abandoned items"), don't just record the suffix.
 4. **After the start:** send the human the id and `claude attach <id>`.
 

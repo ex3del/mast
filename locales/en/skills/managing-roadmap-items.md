@@ -39,6 +39,7 @@ This part is shared by both: invariants, the line format, the archive, decisions
 | where it's driven | in progress | `worktree-X-N` or `main copy`; not taken — `—` |
 | session | in progress | the name from `--name`, used to reach it via `SendMessage`. Whether it's alive — `claude agents` shows it |
 | date taken | in progress | an abandoned item shows by its age |
+| `waiting on human` | if awaiting an answer | the last slot of the head: `· waiting on human: <question>`. Set and removed by the main copy; the list — `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --waiting ROADMAP.md`, a slot without a question is a lint error |
 | `Depends on` | if waiting | only the form `Depends on: B-2, A-3`: "blocks" or "waiting on" isn't seen by the check |
 | `My paths` | in progress | what the item touches. It sets the bar for a new item and blocks running a neighbor in parallel |
 | Done when | always | with a number. This line is the source of truth |

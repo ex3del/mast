@@ -231,6 +231,10 @@ claude --name <project>-dispatch --model opus --advisor fable \
   background: `claude --bg --worktree A-1 --name A-1 --advisor fable "…"`, and for items
   that passed the downgrade — `--model sonnet --advisor opus`. List them with
   `claude agents`, step into one with `claude attach <id>`.
+- **Questions about state** ("what do you need from me", "what did A-4 end up doing") — ask
+  with `/btw`: the answer comes from the dispatcher's context and stays out of its history.
+  The dispatcher asks you as plain text and marks the item's line with
+  `waiting on human: <question>` — `grep 'waiting on human' ROADMAP.md` lists what waits on you.
 - **No dispatcher** is fine while there's a single item: drive it yourself in the main
   copy; findings land as files in `docs/roadmap/inbox/` and wait for a dispatcher.
 

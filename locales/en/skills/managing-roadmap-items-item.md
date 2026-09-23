@@ -6,11 +6,11 @@ Read it in full at the start, reread section 3 before closing: the checklist is 
 
 **Take the baseline measurement now, not at closing.** Run the scenario from "Done when" against the current code and record "before" together with the measuring command: in `Journal`, or in the body of the item's first commit if there's no `STATUS.md`. If the feature doesn't exist yet, say so: the command and "no, n/a". Without a "before", the decision stays just words.
 
-**`STATUS.md` is opened only if at least one of these signs holds:**
+**`STATUS.md` is opened by you, not the dispatcher, and only if at least one of these signs holds:**
 
 1. a plan with several tasks is needed — call `writing-plans`;
 2. the work will outlive a restart or `/compact` — you'll come back later, or the session has already been restarted;
-3. a neighboring item is running on nearby paths — you need `Don't touch` and a log of agreements with the neighbor.
+3. a neighboring item is running on nearby paths — you need `Don't touch` and a log of agreements with the neighbor. Negotiate with its session directly — `SendMessage` to the name from its line, not through the dispatcher.
 
 None of these — a line in the roadmap plus commits: decisions and small findings go into commit messages. A sign shows up along the way — open the file right then.
 

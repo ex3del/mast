@@ -37,7 +37,7 @@ paths:
 ## Планирование
 
 - Любая фича дороже одной сессии → сначала план, потом код.
-- Перед `superpowers:writing-plans` — всегда скилл `mast-ru:managing-roadmap-items`: сперва пункт заводится в `ROADMAP.md` и создаётся `STATUS.md`, и только потом план наполняется задачами. `brainstorming` зовёт `writing-plans` напрямую — этот порядок его перекрывает.
+- Перед `superpowers:writing-plans` — всегда скилл `mast-ru:managing-roadmap-items`: сперва пункт заводится в `ROADMAP.md`, потом сессия пункта создаёт `STATUS.md` и наполняет план задачами. `brainstorming` зовёт `writing-plans` напрямую — этот порядок его перекрывает.
 - Планы и спеки скиллов superpowers пишем **в наши пути**, их дефолты (`docs/superpowers/plans/`, `docs/superpowers/specs/`) не используем: план пункта — `docs/roadmap/<A-1>/STATUS.md`, спека — рядом в той же папке.
 - Коммиты внутри планов — в нашем формате `[A-1] описание`, а не conventional commits (`feat:`), которые предлагают скиллы.
 - Мелкая правка в пределах сессии — плана не нужно, делай.
