@@ -5,20 +5,25 @@
   roadmap_lint.py ROADMAP.md          — список нарушений, код 1 если есть
   roadmap_lint.py --ready ROADMAP.md  — пункты, которые можно брать в работу
   roadmap_lint.py --waiting ROADMAP.md — пункты, которые ждут ответа человека
-  без аргументов                      — режим PostToolUse-хука: JSON на stdin,
-                                        при новых (относительно HEAD) нарушениях
-                                        код 2 и текст в stderr
+  без аргументов                      — режим хука: JSON на stdin, при новых
+                                        (относительно HEAD) нарушениях код 2 и
+                                        текст в stderr. PostToolUse — после
+                                        Edit/Write роадмапа и после Bash, если
+                                        роадмап изменился; PreToolUse — перед
+                                        `git commit` (отказ)
 
 Первым аргументом может стоять язык (`ru` или `en`) — его передаёт разводка
 хуков того плагина, который позвал линт; остальные аргументы разбираются как
 обычно.
 """
 import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+import roadmap_watch
 from plugin_names import PLUGIN
 
 ITEM = re.compile(r"^- \*\*([A-Z]-\d+)\*\*(.*)$")
@@ -261,11 +266,20 @@ def hooked_roadmap(path):
     return None
 
 
-def from_head(project, rel):
-    """Содержимое файла в HEAD; файла нет или это не репозиторий — пустая строка."""
-    r = subprocess.run(["git", "-C", str(project), "show", f"HEAD:./{rel}"],
+def from_git(project, rel, rev="HEAD"):
+    """Содержимое файла в ревизии, `rev=""` — в индексе; файла нет или это не
+    репозиторий — пустая строка."""
+    r = subprocess.run(["git", "-C", str(project), "show", f"{rev}:./{rel}"],
                        capture_output=True, text=True, encoding="utf-8")
     return r.stdout if r.returncode == 0 else ""
+
+
+def new_errors(project, content, ledger, lang, base="HEAD"):
+    """Нарушения пары «роадмап + архив», которых не было в `base`: старые вносила не эта правка."""
+    old = set(lint(from_git(project, "ROADMAP.md", base),
+                   from_git(project, "docs/roadmap/DONE.md", base), lang))
+    errors = lint(content, ledger, lang) + orphans(ledger, project / "docs/roadmap", lang)
+    return [e for e in errors if e not in old]
 
 
 def pick_language(argv):
@@ -293,21 +307,44 @@ def main():
         errors += orphans(ledger, Path(args[0]).parent / "docs/roadmap", lang)
         print("\n".join(errors))
         return 1 if errors else 0
-    path = Path(json.load(sys.stdin).get("tool_input", {}).get("file_path", ""))
-    roadmap = hooked_roadmap(path)
+    return hook(json.load(sys.stdin), lang)
+
+
+def hook(payload, lang):
+    """Режим хука: код 2 и жалобы в stderr, если в роадмапе или архиве есть нарушения,
+    которых не было в HEAD. Вызовы оболочки сюда приходят через `roadmap_watch.py`."""
+    tool_input = payload.get("tool_input", {})
+    # Правку через оболочку видно только по состоянию файла, а не по команде: переписать
+    # роадмап может что угодно — `sed -i`, `perl -i`, скрипт. На Windows без Git Bash
+    # оболочка Claude Code — инструмент PowerShell
+    shell = payload.get("tool_name") in ("Bash", "PowerShell")
+    roadmap = (Path(os.environ.get("CLAUDE_PROJECT_DIR", ".")) / "ROADMAP.md" if shell
+               else hooked_roadmap(Path(tool_input.get("file_path", ""))))
     if roadmap is None or not roadmap.is_file():
         return 0
-    # Нарушения, которые уже были в HEAD, не показываем — их вносила не эта правка
-    ledger = read_ledger(roadmap)
+    if not shell:
+        # Правку через Edit/Write заносим в отпечаток сразу: иначе следующий Bash примет
+        # её за новую и повторит эту же жалобу
+        roadmap_watch.changed(os.environ.get("CLAUDE_PROJECT_DIR", "."))
+    project = roadmap.parent
+    commit = payload.get("hook_event_name") == "PreToolUse"
+    command = tool_input.get("command", "")
+    # `if: Bash(git *)` пропускает сюда любую git-команду
+    if commit and "commit" not in command:
+        return 0
     content = roadmap.read_text(encoding="utf-8")
     # Язык один на весь вывод: считай жалобы «до» и «после» на разных языках — ни одна
     # старая не совпадёт с новой, и правка одной строки покажет весь файл как ошибку
     lang = lang or detect_lang(content)
-    old = set(lint(from_head(roadmap.parent, "ROADMAP.md"),
-                   from_head(roadmap.parent, "docs/roadmap/DONE.md"), lang))
-    errors = [e for e in lint(content, ledger, lang) if e not in old]
-    errors += [e for e in orphans(ledger, roadmap.parent / "docs/roadmap", lang)
-               if e not in old]
+    # Правка и коммит одной командой: PreToolUse видел роадмап до правки, а сейчас она
+    # уже в HEAD — сравниваем с тем, что было до команды, по reflog
+    base = "HEAD@{1}" if not commit and "commit" in command else "HEAD"
+    errors = new_errors(project, content, read_ledger(roadmap), lang, base)
+    if commit:
+        # Закоммитят индекс, а после `git add … &&` в той же команде — рабочую копию
+        errors += [e for e in new_errors(project, from_git(project, "ROADMAP.md", ""),
+                                         from_git(project, "docs/roadmap/DONE.md", ""), lang)
+                   if e not in errors]
     if errors:
         # Имя скилла зависит от плагина, а не от языка файла: русский роадмап
         # под английским плагином должен отсылать к скиллу этого плагина
@@ -315,6 +352,8 @@ def main():
         header = msg(lang,
                      f"Роадмап нарушает формат (скилл `{skill}`), исправь:",
                      f"The roadmap violates the format (skill `{skill}`), fix:")
+        if commit:
+            header = msg(lang, "Коммит отклонён. ", "Commit refused. ") + header
         print(header + "\n" + "\n".join(f"- {e}" for e in errors), file=sys.stderr)
         return 2
     return 0

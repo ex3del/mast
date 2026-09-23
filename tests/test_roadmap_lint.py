@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).parent.parent / "hooks/roadmap_lint.py"
+WATCH = SCRIPT.parent / "roadmap_watch.py"
 sys.path.insert(0, str(SCRIPT.parent))
 from roadmap_lint import lint, orphans, ready, waiting  # noqa: E402
 
@@ -377,15 +378,30 @@ class BashHookTest(unittest.TestCase):
         subprocess.run(self.git + ["add", "."], check=True)
         subprocess.run(self.git + ["commit", "-qm", "init"], check=True)
 
+        self.data = tempfile.TemporaryDirectory()
+
     def tearDown(self):
         self.tmp.cleanup()
+        self.data.cleanup()
 
-    def run_hook(self, event, command, cwd=None):
+    def run_hook(self, event, command, cwd=None, tool="Bash", script=WATCH, data=True):
         cwd = cwd or self.tmp.name
-        payload = json.dumps({"hook_event_name": event, "tool_name": "Bash",
-                              "tool_input": {"command": command}, "cwd": cwd})
-        return subprocess.run([sys.executable, str(SCRIPT), "ru"], input=payload, capture_output=True,
-                              text=True, cwd=cwd, env={"PATH": os.environ["PATH"], "CLAUDE_PROJECT_DIR": cwd})
+        tool_input = {"command": command} if script == WATCH else {"file_path": command}
+        payload = json.dumps({"hook_event_name": event, "tool_name": tool,
+                              "tool_input": tool_input, "cwd": cwd})
+        env = {"PATH": os.environ["PATH"], "CLAUDE_PROJECT_DIR": cwd}
+        if data:
+            env["CLAUDE_PLUGIN_DATA"] = self.data.name
+        return subprocess.run([sys.executable, str(script), "ru"], input=payload, capture_output=True,
+                              text=True, cwd=cwd, env=env)
+
+    def break_roadmap(self):
+        """Сломать критерий B-2 так, чтобы время правки точно сдвинулось: между вызовами
+        инструментов проходят секунды, а грубые часы ФС в тесте могут их склеить."""
+        path = self.root / "ROADMAP.md"
+        path.write_text(OK.replace(CRIT, BAD_CRIT), encoding="utf-8")
+        t = path.stat().st_mtime_ns + 10 ** 9
+        os.utime(path, ns=(t, t))
 
     def test_правка_через_bash_ловится(self):
         commands = {
@@ -404,14 +420,78 @@ class BashHookTest(unittest.TestCase):
                 self.assertEqual(result.returncode, 2, result.stderr)
                 self.assertIn("B-2: в «Готово когда» нет числа", result.stderr)
 
+    def test_правка_и_коммит_одной_командой_ловятся(self):
+        """PreToolUse видел роадмап до правки, к PostToolUse она уже в HEAD — так
+        роадмап и переписывали в инциденте: Python-вставка и коммит одним вызовом."""
+        command = (f"sed -i.bak 's/{CRIT}/{BAD_CRIT}/' ROADMAP.md && git add ROADMAP.md"
+                   " && git -c user.name=t -c user.email=t@t commit -qm правка")
+        subprocess.run(command, shell=True, cwd=self.tmp.name, check=True)
+        result = self.run_hook("PostToolUse", command)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("B-2: в «Готово когда» нет числа", result.stderr)
+
+    def test_быстрый_путь_без_тяжёлых_импортов(self):
+        """Хук стреляет на каждый Bash: старт python3 — 12–13 мс, а `subprocess` с
+        одним `git diff` добавляют ещё ~12 мс и выводят за потолок 20 мс (замер A-12).
+        Сторож держит быстрый путь без них: сверх пустого интерпретатора — только zlib."""
+        def modules(*args):
+            env = {"PATH": os.environ["PATH"], "CLAUDE_PROJECT_DIR": self.tmp.name,
+                   "CLAUDE_PLUGIN_DATA": self.data.name}
+            payload = json.dumps({"hook_event_name": "PostToolUse", "tool_name": "Bash",
+                                  "tool_input": {"command": "ls"}})
+            r = subprocess.run([sys.executable, "-X", "importtime", *args], input=payload,
+                               capture_output=True, text=True, env=env)
+            return {line.rsplit("|", 1)[1].strip() for line in r.stderr.splitlines()
+                    if line.startswith("import time:") and "|" in line}
+
+        self.run_hook("PostToolUse", "ls")  # первый вызов записывает отпечаток
+        extra = modules(str(WATCH), "ru") - modules("-c", "pass")
+        self.assertLessEqual(extra, {"zlib"}, extra)
+
     def test_bash_без_правки_роадмапа_молчит(self):
+        for _ in range(2):
+            result = self.run_hook("PostToolUse", "ls")
+            self.assertEqual((result.returncode, result.stderr), (0, ""))
+
+    def test_жалоба_одна_на_правку(self):
+        """Файл не менялся — жалоба не повторяется на каждом Bash. Починили и сломали
+        заново тем же текстом — это новая правка, и она ловится."""
+        self.break_roadmap()
+        self.assertEqual(self.run_hook("PostToolUse", "ls").returncode, 2)
+        self.assertEqual(self.run_hook("PostToolUse", "ls").returncode, 0)
+        (self.root / "ROADMAP.md").write_text(OK, encoding="utf-8")
+        self.break_roadmap()
+        self.assertEqual(self.run_hook("PostToolUse", "ls").returncode, 2)
+
+    def test_после_edit_bash_не_повторяет_жалобу(self):
+        self.break_roadmap()
+        path = str(self.root / "ROADMAP.md")
+        self.assertEqual(self.run_hook("PostToolUse", path, tool="Edit", script=SCRIPT).returncode, 2)
         result = self.run_hook("PostToolUse", "ls")
         self.assertEqual((result.returncode, result.stderr), (0, ""))
 
-    def test_bash_вне_репозитория_молчит(self):
+    def test_без_каталога_данных_линтует_каждый_раз(self):
+        """Площадка не дала `CLAUDE_PLUGIN_DATA` — хук медленнее, но не падает и не молчит."""
+        self.break_roadmap()
+        for _ in range(2):
+            self.assertEqual(self.run_hook("PostToolUse", "ls", data=False).returncode, 2)
+
+    def test_powershell_на_windows_ловится(self):
+        self.break_roadmap()
+        result = self.run_hook("PostToolUse", "(Get-Content ROADMAP.md) | Set-Content ROADMAP.md",
+                               tool="PowerShell")
+        self.assertEqual(result.returncode, 2, result.stderr)
+
+    def test_проект_без_роадмапа_не_трогаем(self):
         with tempfile.TemporaryDirectory() as d:
-            (Path(d) / "ROADMAP.md").write_text(OK.replace(CRIT, BAD_CRIT), encoding="utf-8")
             result = self.run_hook("PostToolUse", "ls", cwd=d)
+        self.assertEqual((result.returncode, result.stderr), (0, ""))
+        self.assertEqual(list(Path(self.data.name).iterdir()), [])
+
+    def test_git_без_коммита_индекс_не_проверяет(self):
+        self.break_roadmap()
+        subprocess.run(self.git + ["add", "ROADMAP.md"], check=True)
+        result = self.run_hook("PreToolUse", "git status")
         self.assertEqual((result.returncode, result.stderr), (0, ""))
 
     def test_коммит_с_нарушением_в_индексе_отклонён(self):

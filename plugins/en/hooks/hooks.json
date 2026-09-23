@@ -39,9 +39,45 @@
             ]
           }
         ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(git *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(git *)"
+          }
+        ]
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ]
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [

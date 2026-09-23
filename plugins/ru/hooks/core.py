@@ -80,7 +80,8 @@ def project_dir(env):
 
 
 def main():
-    # Тексты лежат рядом с этим файлом, а не в каталоге плагина: код общий на оба
+    # Тексты — в каталоге плагина, уровнем выше hooks/: работает копия из
+    # plugins/<язык>/hooks/, у корневого источника текстов рядом нет
     root = Path(__file__).resolve().parent.parent
     text = render(project_dir(os.environ), root, pick_language(sys.argv[1:]),
                   wants_core_everywhere(os.environ))

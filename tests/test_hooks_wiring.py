@@ -27,6 +27,20 @@ def test_hooks_json_валиден(lang):
 
 
 @pytest.mark.parametrize("lang", LANGS)
+def test_hooks_json_без_повторных_ключей(lang):
+    """Два пункта добавили по ключу `PreToolUse`, git склеил их текстом без
+    конфликта, а JSON берёт последний — группа одного из пунктов пропала молча
+    (rebase A-12 на A-13)."""
+    def no_dups(pairs):
+        keys = [k for k, _ in pairs]
+        assert len(keys) == len(set(keys)), f"{lang}: повторный ключ в {keys}"
+        return dict(pairs)
+
+    json.loads((PLUGINS[lang] / "hooks" / "hooks.json").read_text(encoding="utf-8"),
+               object_pairs_hook=no_dups)
+
+
+@pytest.mark.parametrize("lang", LANGS)
 def test_session_start_покрывает_все_события(lang):
     events = set()
     for entry in load(lang)["hooks"]["SessionStart"]:
@@ -56,7 +70,7 @@ def test_настройка_ядро_везде_доезжает_до_хука(l
 def test_линту_передан_язык_своего_плагина(lang):
     """Иначе имя скилла в жалобе линта угадывается по языку роадмапа: русский файл
     под английским плагином отсылал бы к скиллу, которого у пользователя нет."""
-    lint = [h for h in all_hook_entries(load(lang)) if "roadmap_lint.py" in " ".join(h.get("args", []))]
+    lint = [h for h in all_hook_entries(load(lang)) if "hooks/roadmap_" in " ".join(h.get("args", []))]
     assert lint, f"{lang}: линт не подключён к PostToolUse"
     for h in lint:
         assert h["args"][-1] == lang, f"{lang}: языком передано {h['args'][-1]}"
@@ -84,24 +98,27 @@ def test_post_tool_use_ловит_роадмап_и_архив(lang):
         assert any(tool in i and "DONE.md" in i for i in ifs), ifs
 
 
-def lint_hooks(lang, event):
-    """Хуки линта события, сгруппированные по матчеру."""
-    return [(entry["matcher"], h) for entry in load(lang)["hooks"].get(event, []) for h in entry["hooks"]
-            if "roadmap_lint.py" in " ".join(h.get("args", []))]
+def shell_hooks(lang, event):
+    """Хуки линта на вызовы оболочки: Bash, а на Windows без Git Bash — PowerShell."""
+    return [h for entry in load(lang)["hooks"].get(event, []) for h in entry["hooks"]
+            if {"Bash", "PowerShell"} <= set(entry["matcher"].split("|"))
+            and "roadmap_watch.py" in " ".join(h.get("args", []))]
 
 
 @pytest.mark.parametrize("lang", LANGS)
-def test_post_tool_use_ловит_правку_через_bash(lang):
+def test_post_tool_use_ловит_правку_через_оболочку(lang):
     """Без `if`: команда, переписавшая роадмап, может быть любой — `sed -i`,
-    `perl -i`, скрипт. Что роадмап изменён, линт узнаёт по `git diff`."""
-    bash = [h for m, h in lint_hooks(lang, "PostToolUse") if "Bash" in m.split("|")]
-    assert bash and all("if" not in h for h in bash), bash
+    `perl -i`, скрипт. Что роадмап изменён, хук узнаёт по самому файлу."""
+    hooks = shell_hooks(lang, "PostToolUse")
+    assert hooks and all("if" not in h for h in hooks), hooks
 
 
 @pytest.mark.parametrize("lang", LANGS)
 def test_pre_tool_use_проверяет_коммит(lang):
-    bash = [h for m, h in lint_hooks(lang, "PreToolUse") if "Bash" in m.split("|")]
-    assert [h.get("if") for h in bash] == ["Bash(git commit *)"], bash
+    """`git *`, а не `git commit *`: шаблон длиннее имени команды площадка
+    зовёт на любой команде с `$()` или `$VAR` — это 30% вызовов Bash против 21%
+    у всех git-команд (замер A-12), и `git -C <путь> commit` он не ловит."""
+    assert [h.get("if") for h in shell_hooks(lang, "PreToolUse")] == ["Bash(git *)", "PowerShell(git *)"]
 
 
 @pytest.mark.parametrize("lang", LANGS)
