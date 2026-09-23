@@ -3,6 +3,7 @@
 **Мои пути:** hooks/**, plugins/*/**, tests/**
 **Не трогаю:** `hooks/core.py`, `hooks/roadmap_lint.py`, `hooks/roadmap_watch.py` (A-12); `hooks/mast.py`, `plugins/*/bin/mast`, разделы «Вливание» и «Снятие пункта» скилла диспетчера, шаги 4–5 `worktree-flow.md`, «Последний коммит несёт всё для архива» в скилле сессии пункта (A-14); `ROADMAP.md`, `DONE.md`, `TECH_DEBT.md` — основная копия.
 **Готово когда:** на установленном плагине в сессии `--name <x>-dispatch`: `AskUserQuestion` — отказ с причиной 1 из 1; Edit `README.md` в основной копии — отказ 1 из 1; Edit `ROADMAP.md` — проходит 1 из 1; правка `README.md` субагентом с `isolation: worktree` — проходит 1 из 1; в сессии без роли те же 4 вызова — 0 отказов; роль определена у `--bg`-сессии 1 из 1 (каким путём — в коммите); ядро ≤ 8200 символов в обоих языках.
+**Замеры, было → стало** (живьём, 2.1.281; команды — в «Журнале»): `AskUserQuestion` у `--bg`-диспетчера — модальный вопрос → отказ хука 1 из 1; Edit `README.md` у `-p`-диспетчера — прошло → отказ 1 из 1; Edit `ROADMAP.md` — прошло → прошло 1 из 1; субагент `isolation: worktree` — прошло → прошло 1 из 1; без роли — 0 отказов → 0 отказов (3 правки в `-p`, `AskUserQuestion` в `--bg`); роль у `--bg` — н/д → 1 из 1 через `session_title` в SessionStart; ядро en 8147 / ru 7485 → 8147 / 7485.
 
 ## Задачи
 
@@ -24,11 +25,21 @@
 
 - 23.09 — хук `hooks/dispatcher.py`, разводка, сторожа, фраза в скилле диспетчера, 3.3.4 (коммит «[A-13] хук роли диспетчера»). `pytest` — 140 passed. Мутации хука ловятся тестами 4 из 4: `ask` вместо `deny` (10 падений), без правила worktree (1), без `resolve()` (1), роль по префиксу вместо суффикса (2). Накладные на Edit/Write у сессии без роли — медиана 18,5 мс из 30 запусков (`python3 -c pass` — 13,2 мс).
 
+- 23.09 — живой «после» на 3.3.4 из git-маркетплейса `mast-a13` (`tools/serve_marketplace.py --name mast-a13`), плагин из `~/.claude/plugins/cache/mast-a13/mast-ru/3.3.4`, `mast-ru@ex3del` выключен `--scope local`:
+  - `claude -p --name after-p-dispatch`: Edit `README.md` — отказ хука «PreToolUse:Edit hook error: MAST: диспетчер в основной копии правит только…» 1 из 1; Edit `ROADMAP.md` — прошло 1 из 1; `Agent` с `isolation: worktree` правит `.claude/worktrees/agent-<id>/README.md` — прошло 1 из 1. Файл роли `~/.claude/plugins/data/mast-ru-mast-a13/<session_id>.role` создан.
+  - `claude --bg --name after-bg-dispatch`: файл роли создан — роль определена через `session_title` во входе SessionStart, 1 из 1; `AskUserQuestion` — отказ хука «PreToolUse:AskUserQuestion hook error: MAST: диспетчер не задаёт модальных вопросов…» 1 из 1. Edit в основной копии здесь гасит сама площадка раньше PreToolUse.
+  - Без роли: `claude -p --name after-p-plain` — 3 правки прошли 3 из 3; `claude --bg --name after-bg-plain` — `AskUserQuestion` открыл модальный вопрос (сессия `blocked`), отказа нет; файла роли у обеих нет. Отказов 0.
+  - «hook error» в тексте — штатная форма `deny` в 2.1.281: причина становится `blockingError` и печатается как «`<событие>` hook error: `<причина>`».
+  - Уборка: сессии `claude rm`, плагин и маркетплейс сняты, кэш `mast-a13` и временные проекты удалены; `serve_marketplace.py compare` — 1 отличие: `lastUpdated` автообновления чужих маркетплейсов в `known_marketplaces.json` (по CLAUDE.md не чиним).
+
 ## План живой проверки «после»
 
 Встроенный запрет `--bg`-сессии на правку основной копии снимается только настройкой проекта `"worktree": {"bgIsolation": "none"}`; её выключение отклонил классификатор режима auto — не обхожу. Поэтому: три правки — в `claude -p --name <x>-dispatch` и в `-p` без роли; `AskUserQuestion` и определение роли — в `claude --bg --name <x>-dispatch` и в `--bg` без роли.
 
 ## Проблемы
+
+- Диспетчер, запущенный `claude --bg`, не может править основную копию вообще — ни `README.md`, ни `ROADMAP.md`: Claude Code 2.1.281 сам отклоняет Edit в основной копии у фоновой сессии («This background session hasn't isolated its changes yet. Call EnterWorktree first»), раньше PreToolUse-хуков. Снимается настройкой проекта `"worktree": {"bgIsolation": "none"}` — это ослабление защиты площадки, решает человек. Сейчас `mast-dispatch` интерактивный — не задет. Вне путей пункта по смыслу (как запускать диспетчера) — в сообщение диспетчеру.
+- Роль после `/clear` и `/rename` живьём не проверена: `session_title` берётся из текущего имени сессии; если после `/clear` его нет — хук молча перестанет отказывать. Запасной путь — `MAST_ROLE=dispatcher`.
 
 ## Принятые решения
 
