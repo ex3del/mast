@@ -25,6 +25,14 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - The dispatcher doesn't forward a session's question or finding as is — it rewrites it by that rule.
 - Ask about the current state ("what do you need from me") with `/btw`: the answer comes from the dispatcher's context and stays out of its history.
 
+### Starting an item
+
+- `mast start X-N` starts an item in one command from the main copy: the item's line becomes "in progress", a commit `[X-N] taken into work · <model>`, a push if the default branch has an upstream (`--no-push` skips it), and a background session; the last line of the output is `claude attach <id>`.
+- The item's worktree is created from the local `main`, so it has the item's line even without a push; then the session's prompt says "don't push, rebase onto the local main".
+- Before the start it refuses and changes nothing: the item isn't ready to take; its "My paths" overlap an item in progress — the human's approval is `--force "reason"`, and the reason goes into the commit; `--model sonnet` without `.claude/rules/dispatch.md` or on an opus zone (the zones from that file, plus `CLAUDE.md` and `.claude/**`); advisor `fable` for `sonnet`; a prompt tail longer than 300 characters; a live session holds the item's name or its branch already exists.
+- The command builds the prompt: number, skill, path neighbors with their session names. The dispatcher adds only the tail: what moved in `main`, windows on shared resources.
+- The default model is `opus` with advisor `fable`; `--model sonnet` gets advisor `opus`.
+
 ### Merging
 
 - `mast merge X-N` merges an item in one command from the main copy; it's available in Claude Code's Bash tool, since the plugin puts it on `PATH`.
@@ -69,4 +77,5 @@ The hooks fire in every project where the plugin is enabled; each one starts `py
 - The dispatcher role after `/clear` and `/rename` hasn't been tried live; if the hook loses it, use `MAST_ROLE=dispatcher`.
 - `git commit` is refused over a new violation in the working-copy roadmap, even if the roadmap isn't being committed.
 - Dropping an item is still manual, and the lint complains about the in-between state between the `ROADMAP.md` and `DONE.md` edits.
+- `mast start` compares paths by pattern, not by file: two different masks in the same path segment (`*.py` and `test_*`) don't count as an overlap.
 - The plugin can't be distributed through organization settings on claude.ai: the platform rejects a plugin with a top-level `bin/` directory. Install it from the GitHub marketplace.

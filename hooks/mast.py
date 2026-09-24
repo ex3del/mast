@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""CLI метода поверх roadmap_lint: вливание ветки пункта одной командой и сверка сессий.
+"""CLI метода поверх roadmap_lint: запуск и вливание пункта одной командой, сверка сессий.
 
+  mast start X-N [--model sonnet] [--advisor M] [--force "причина"] [--no-push] ["хвост"]
+                               — из основной копии
   mast merge X-N [--no-push]   — из основной копии, на ветке по умолчанию
   mast status                  — из любой копии; ничего не меняет
 
@@ -10,6 +12,13 @@ DONE.md, удаление строки из ROADMAP.md и записи долг�
 уборка сессии, worktree и ветки. Вливается ровно названная ветка: для веток
 других пунктов «в работе», которые сдвинул мердж, в выводе — текст для их сессий.
 Сбой после мерджа — не отказ: вывод говорит, что сделано и что доделать.
+
+`mast start` отказывает до любых изменений: пункт не готов к взятию, «Мои пути»
+пересекаются с пунктом «в работе» без `--force`, `sonnet` на opus-зоне или с
+советником `fable`, хвост промпта длиннее предела. Потом строка «в работе», коммит,
+push и `claude --bg` с промптом из шаблона; последняя строка вывода —
+`claude attach <id>`. Worktree — всегда от локального HEAD: в нём строка пункта,
+даже если push не было.
 
 `mast status` сверяет пункты «в работе» основной копии, её worktree и сессии из
 `claude agents --json --all`: брошен, сирота, лишняя. Сессия пункта без коммита
@@ -22,8 +31,10 @@ import re
 import shutil
 import subprocess
 import sys
+import shlex
 import textwrap
 import time
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 from plugin_names import PLUGIN
@@ -46,14 +57,28 @@ SILENCE = re.compile(r"(?:порог тишины|silence threshold)\s*:\s*(\d+)
 SILENCE_DEFAULT = 30
 # Имя сессии пункта; `B-2-<слово>` движок выдаёт, когда имя `B-2` занято
 ITEM_NAME = re.compile(r"^([A-Z]-\d+)(?:-|$)")
+DISPATCH = ".claude/rules/dispatch.md"
+PATHS = re.compile(r"^[ \t]*(?:мои пути|my paths)\s*:(.*)$", re.I | re.M)
+# Строка зоны в dispatch.md: пути перед «— только opus»
+ZONE = re.compile(r"^[-*\t ]*(.+?)\s+[—–-]\s+(?:только opus|opus only)", re.I | re.M)
+# Файлы, которые агенты читают как правила, — opus в любом проекте
+ALWAYS_OPUS = ["CLAUDE.md", ".claude/**"]
+# Свободный хвост промпта старта: координация, а не контекст пункта — тот в строке
+TAIL_LIMIT = 300
+BASE_HEAD = '{"worktree":{"baseRef":"head"}}'
+# `claude --bg` красит id, даже когда stdout не терминал
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+ATTACH = re.compile(r"claude attach (\S+)")
 
 LANG = "ru"
 T = {
-    "usage": ("использование: mast merge X-N [--no-push] | mast status",
-              "usage: mast merge X-N [--no-push] | mast status"),
+    "usage": ("использование: mast start X-N [--model sonnet] [--advisor M] [--force \"причина\"] "
+              "[--no-push] [\"хвост\"] | mast merge X-N [--no-push] | mast status",
+              "usage: mast start X-N [--model sonnet] [--advisor M] [--force \"reason\"] "
+              "[--no-push] [\"tail\"] | mast merge X-N [--no-push] | mast status"),
     "refused": ("Отказ, ничего не изменено: ", "Refused, nothing changed: "),
-    "main_copy": ("mast merge запускается из основной копии, а не из worktree",
-                  "mast merge runs from the main copy, not from a worktree"),
+    "main_copy": ("mast {c} запускается из основной копии, а не из worktree",
+                  "mast {c} runs from the main copy, not from a worktree"),
     "no_roadmap": ("нет ROADMAP.md в корне репозитория", "no ROADMAP.md at the repository root"),
     "no_item": ("{i}: строки нет в ROADMAP.md", "{i}: no such line in ROADMAP.md"),
     "not_in_work": ("{i}: пункт не «в работе»", "{i}: the item is not in progress"),
@@ -111,6 +136,43 @@ T = {
                   "sessions not checked: no `claude` or its output isn't JSON — abandoned and stray not checked"),
     "waiting": ("ждёт человека — {w}", "waiting on human — {w}"),
     "clean": ("Брошенных, сирот и лишних нет", "No abandoned items, orphans or strays"),
+    "not_ready": ("{i}: не готов к взятию — статус «{s}», зависимости: {d}; очередь — roadmap_lint.py --ready",
+                  "{i}: not ready to take — status \"{s}\", dependencies: {d}; the queue is roadmap_lint.py --ready"),
+    "no_paths": ("{i}: нет «Мои пути» — пересечение с пунктами в работе не проверить",
+                 "{i}: no \"My paths\" — overlap with items in progress can't be checked"),
+    "overlap": ("«Мои пути» пересекаются с пунктами в работе: {l} — параллельно их не запускают; "
+                "решил человек — --force \"причина\"",
+                "\"My paths\" overlap items in progress: {l} — they don't run in parallel; "
+                "if the human decided otherwise — --force \"reason\""),
+    "no_dispatch": ("{m} без .claude/rules/dispatch.md: файла нет — всё идёт на opus",
+                    "{m} without .claude/rules/dispatch.md: no file — everything runs on opus"),
+    "opus_zone": ("{m} на opus-зоне: {z} — эти пути ведёт только opus",
+                  "{m} on an opus zone: {z} — these paths are opus only"),
+    "fable_sonnet": ("советник fable у {m}: его унаследуют субагенты, выйдет дороже opus — советник opus",
+                     "advisor fable for {m}: subagents inherit it, costlier than opus — use advisor opus"),
+    "tail": ("хвост промпта {n} символов при пределе {t}: в нём только координация — что сдвинулось "
+             "в main, окна на общие ресурсы; контекст разговора с человеком — в описание строки",
+             "prompt tail is {n} characters, the limit is {t}: coordination only — what moved in main, "
+             "windows on shared resources; the context of the conversation goes in the line's description"),
+    "name_taken": ("имя {i} держит живая сессия {id} — брошенный пункт? mast status",
+                   "live session {id} holds the name {i} — an abandoned item? mast status"),
+    "branch_taken": ("ветка {b} уже есть — след прошлого захода? mast status",
+                     "branch {b} already exists — left from an earlier run? mast status"),
+    "row": ("🔨 в работе · `worktree-{i}` · сессия `{i}` · с {d}",
+            "🔨 in progress · `worktree-{i}` · session `{i}` · since {d}"),
+    "taken": ("[{i}] взят в работу · {m}", "[{i}] taken into work · {m}"),
+    "started": ("{i} взят в работу · {m}: {h}", "{i} taken into work · {m}: {h}"),
+    "prompt": ("Веди пункт {i} по скиллу {p}:managing-roadmap-items: строка в ROADMAP.md. "
+               "Первым шагом — базовый замер.",
+               "Drive item {i} per skill {p}:managing-roadmap-items: its line in ROADMAP.md. "
+               "First step — the baseline measurement."),
+    "alone": ("Соседей по путям в работе нет.", "No neighbors on nearby paths in progress."),
+    "neighbors": ("Соседи по путям в работе: {l} — договаривайся напрямую.",
+                  "Neighbors on nearby paths in progress: {l} — negotiate directly."),
+    "neighbor": ("{i} (сессия `{n}`)", "{i} (session `{n}`)"),
+    "dont_push": ("Не пушь: rebase на локальный {b}.", "Don't push: rebase onto the local {b}."),
+    "start_failed": ("строка {i} помечена и закоммичена ({h}), а сессия не запустилась: {e}\nЗапусти: {c}",
+                     "the {i} line is marked and committed ({h}), but the session didn't start: {e}\nRun: {c}"),
 }
 
 
@@ -362,13 +424,17 @@ def push(branches):
     return [say("pushed", r=", ".join([git("rev-parse", "--short=7", "HEAD")] + gone))]
 
 
-def merge(item, do_push):
-    top = git("rev-parse", "--show-toplevel")
-    os.chdir(top)
+def main_copy(cmd):
+    """Переход в корень основной копии; из worktree или без роадмапа — отказ."""
+    os.chdir(git("rev-parse", "--show-toplevel"))
     if os.path.realpath(git("rev-parse", "--git-dir")) != os.path.realpath(git("rev-parse", "--git-common-dir")):
-        raise Refusal(say("main_copy"))
+        raise Refusal(say("main_copy", c=cmd))
     if not Path(ROADMAP).is_file():
         raise Refusal(say("no_roadmap"))
+
+
+def merge(item, do_push):
+    main_copy("merge")
     row = parse(read(ROADMAP))[0].get(item)
     if not row:
         raise Refusal(say("no_item", i=item))
@@ -403,6 +469,135 @@ def merge(item, do_push):
     if inbox:
         out.append(say("inbox", n=len(inbox)))
     print("\n".join(out))
+    return 0
+
+
+def braces(pattern):
+    """`db/*.{sql,md}` → `db/*.sql`, `db/*.md`."""
+    m = re.search(r"\{([^{}]*)\}", pattern)
+    if not m:
+        return [pattern]
+    return [p for alt in m.group(1).split(",") for p in braces(pattern[:m.start()] + alt + pattern[m.end():])]
+
+
+def segments(pattern):
+    """Сегменты шаблона; путь без маски и расширения — каталог, `reports` = `reports/**`."""
+    segs = pattern.strip().strip("`").strip("/").split("/")
+    return segs + ["**"] if not re.search(r"[*?\[]|.\.", segs[-1]) else segs
+
+
+def meet(a, b):
+    """Есть путь, подходящий под оба списка сегментов; `**` — любое их число."""
+    if a and a[0] == "**":
+        return meet(a[1:], b) or bool(b) and meet(a, b[1:])
+    if b and b[0] == "**":
+        return meet(b, a)
+    if not a or not b:
+        return not a and not b
+    return (fnmatchcase(a[0], b[0]) or fnmatchcase(b[0], a[0])) and meet(a[1:], b[1:])
+
+
+def overlap(a, b):
+    """Два шаблона путей задевают общий файл — по самим шаблонам, без файлов на диске:
+    пересечение с ещё не созданными файлами тоже пересечение."""
+    return any(meet(segments(x), segments(y)) for x in braces(a) for y in braces(b))
+
+
+def paths_of(row):
+    m = PATHS.search(row["body"])
+    return [p.strip() for p in m.group(1).split(",") if p.strip()] if m else []
+
+
+def zones():
+    """Пути, которые ведёт только opus: из dispatch.md проекта и правила агента."""
+    found = [z for m in ZONE.finditer(read(DISPATCH)) for z in re.split(r"[\s·,`]+", m.group(1)) if z]
+    return found + ALWAYS_OPUS
+
+
+def mark(roadmap, item):
+    """Строка пункта «в работе»: слоты где, сессия и дата — на месте статуса и прочерка."""
+    lines = roadmap.split("\n")
+    n = next(k for k, line in enumerate(lines) if (m := ITEM.match(line)) and m.group(1) == item)
+    s = STATUS.search(lines[n])
+    rest = re.sub(r"^\s*·\s*—(?=\s*(?:·|$))", "", lines[n][s.end():])
+    lines[n] = f"{lines[n][:s.start() + 1]} {say('row', i=item, d=datetime.date.today().strftime('%d.%m'))}{rest}"
+    return "\n".join(lines)
+
+
+def start(item, model, advisor, force, tail, do_push):
+    """Отказы, затем строка «в работе» коммитом, push и фоновая сессия пункта."""
+    main_copy("start")
+    roadmap, done = read(ROADMAP), read(DONE)
+    items = parse(roadmap)[0]
+    row = items.get(item)
+    if not row:
+        raise Refusal(say("no_item", i=item))
+    if item not in ready(roadmap, done):
+        raise Refusal(say("not_ready", i=item, s=row["status"], d=", ".join(row["deps"]) or "—"))
+    mine = paths_of(row)
+    if not mine:
+        raise Refusal(say("no_paths", i=item))
+    near = {}
+    for other, r in items.items():
+        hit = r["status"] == "в работе" and next((q for q in paths_of(r) if any(overlap(q, p) for p in mine)), None)
+        if hit:
+            m = SESSION.search(r["head"])
+            near[other] = (hit, m.group(1) if m else other)
+    if near and not force:
+        raise Refusal(say("overlap", l=", ".join(f"{i} (`{q}`)" for i, (q, _) in near.items())))
+    if model != "opus":
+        if not Path(DISPATCH).is_file():
+            raise Refusal(say("no_dispatch", m=model))
+        hot = [z for z in zones() if any(overlap(z, p) for p in mine)]
+        if hot:
+            raise Refusal(say("opus_zone", m=model, z=", ".join(hot)))
+        if advisor == "fable":
+            raise Refusal(say("fable_sonnet", m=model))
+    if len(tail) > TAIL_LIMIT:
+        raise Refusal(say("tail", n=len(tail), t=TAIL_LIMIT))
+    root = os.path.realpath(os.getcwd()) + os.sep
+    holder = next((a for a in agents() or [] if a.get("name") == item and alive(a)
+                   and (os.path.realpath(a.get("cwd") or "/") + os.sep).startswith(root)), None)
+    if holder:
+        raise Refusal(say("name_taken", i=item, id=holder.get("id") or f"pid {holder.get('pid')}"))
+    branch = f"worktree-{item}"
+    if ok("rev-parse", "-q", "--verify", branch):
+        raise Refusal(say("branch_taken", b=branch))
+    if git("status", "--porcelain", "--", ROADMAP):
+        raise Refusal(say("dirty", f=ROADMAP))
+    base = git("symbolic-ref", "--short", "HEAD")
+    new = mark(roadmap, item)
+    old = set(lint(roadmap, done, LANG))
+    errors = [e for e in lint(new, done, LANG) if e not in old]
+    if errors:
+        raise Refusal(say("lint", e="; ".join(errors)))
+
+    write(ROADMAP, new)
+    msg = say("taken", i=item, m=model) + (f"\n\n--force: {force}" if force else "")
+    r = run("git", "commit", "-q", "-m", msg, "--", ROADMAP)
+    if r.returncode:
+        write(ROADMAP, roadmap)
+        raise Refusal(f"git commit: {(r.stderr or r.stdout).strip()}")
+    head = git("rev-parse", "HEAD")
+    out = [say("started", i=item, m=model, h=head[:7])]
+    out += push([]) if do_push else [say("no_push", w="--no-push")]
+    pushed = run("git", "rev-parse", "-q", "--verify", "@{u}").stdout.strip() == head
+
+    prompt = [say("prompt", i=item, p=PLUGIN[LANG])]
+    prompt.append(say("neighbors", l=", ".join(say("neighbor", i=i, n=n) for i, (_, n) in near.items()))
+                  if near else say("alone"))
+    prompt += [] if pushed else [say("dont_push", b=base)]
+    prompt += [tail] if tail else []
+    cmd = ["claude", "--bg", "--worktree", item, "--name", item, "--model", model, "--advisor", advisor,
+           "--settings", BASE_HEAD, " ".join(prompt)]
+    r = run(*cmd) if shutil.which("claude") else None
+    sid = r and ATTACH.search(ANSI.sub("", r.stdout))
+    print("\n".join(out))
+    if not sid:
+        # Коммит уже сделан: не «отказ, ничего не изменено», а что сделано и как запустить
+        sys.exit(say("start_failed", i=item, h=head[:7], e=(r.stderr or r.stdout).strip() if r else "no claude",
+                     c=shlex.join(cmd)))
+    print(f"claude attach {sid.group(1)}")
     return 0
 
 
@@ -476,6 +671,25 @@ def status():
     return "\n".join(out)
 
 
+def start_args(args):
+    """(модель, советник, причина --force, хвост) из аргументов после X-N; не разобрать — None."""
+    opts, tail, it = {}, [], iter(args)
+    for a in it:
+        if a in ("--model", "--advisor", "--force"):
+            opts[a] = next(it, None)
+            if opts[a] is None:
+                return None
+        elif a.startswith("--"):
+            return None
+        else:
+            tail.append(a)
+    model = opts.get("--model", "opus")
+    if model not in ("opus", "sonnet"):
+        return None
+    advisor = opts.get("--advisor") or ("fable" if model == "opus" else "opus")
+    return model, advisor, opts.get("--force"), " ".join(tail).strip()
+
+
 def main():
     global LANG
     args = sys.argv[1:]
@@ -483,13 +697,16 @@ def main():
     do_push = "--no-push" not in args
     args = [a for a in args if a != "--no-push"]
     LANG = lang or detect_lang(read(ROADMAP))
-    if args != ["status"] and (len(args) != 2 or args[0] != "merge" or not ID.match(args[1])):
+    started = args[:1] == ["start"] and len(args) > 1 and ID.match(args[1]) and start_args(args[2:])
+    if args != ["status"] and not started and (len(args) != 2 or args[0] != "merge" or not ID.match(args[1])):
         print(say("usage"), file=sys.stderr)
         return 2
     try:
         if args == ["status"]:
             print(status())
             return 0
+        if started:
+            return start(args[1], *started, do_push)
         return merge(args[1], do_push)
     except Refusal as e:
         print(say("refused") + str(e), file=sys.stderr)

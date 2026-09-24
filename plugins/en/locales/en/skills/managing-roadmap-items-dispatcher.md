@@ -64,15 +64,11 @@ Don't give `fable` as advisor to a session running `sonnet`: subagents inherit t
 
 ## Starting an item
 
-1. **What can be taken:** `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_lint.py --ready ROADMAP.md`. Don't run two items in parallel whose `My paths` overlap.
-2. **The line** — per the format in `managing-roadmap-items.md`: session `B-2`, `My paths`. The description carries the context of your conversation with the human: why the item exists, which options were rejected and why, what constraints they set. The start prompt is gone once sent, while the session rereads the line even after a restart. Don't write the plan or pick the implementation: the item's session does that after studying the code. Commit `[B-2] taken into work · <model>` and `git push` — the model goes in the message, so it's visible at closing time who did the work. All of this **before the session starts**: from inside the worktree, edits to the main copy are blocked, and the worktree is created from `origin/main` — without a push it won't see its own line.
-3. **Start:**
-   ```bash
-   claude --bg --worktree B-2 --name B-2 --advisor fable "Drive item B-2 per skill mast:managing-roadmap-items: its line in ROADMAP.md. First step — the baseline measurement. No neighbors on nearby paths in progress"
-   ```
-   After the template — coordination facts only: neighbors on nearby paths in progress and their session names (the session negotiates with them directly), windows on shared resources, what moved in `main`. An item that went through the downgrade — same flags, but with `--model sonnet --advisor opus`.
-   The command prints an id. `--advisor fable` gives the session a stronger advisor at the key points; if consent to bill Fable hasn't been given yet, the background session simply starts without an advisor. The name might already be taken by an old live session — the engine then hands out `B-2-<word>`. That's a symptom of an abandoned item: deal with the old session (see "Abandoned items"), don't just record the suffix.
-4. **After the start:** send the human the id and `claude attach <id>`.
+```bash
+mast start B-2 [--model sonnet] [--force "reason"] [--no-push] ["tail"]
+```
+
+Before the start, the line's description gets the context of your conversation with the human: why the item exists, what was rejected, what constraints apply; the session writes the plan. The tail is only what moved in `main` and windows on shared resources. `--force` — overlapping paths the human approved. The last line of the output goes to the human.
 
 ## Merging
 
@@ -92,7 +88,7 @@ The script checks the form, not the truth: fast-forward, only `[B-4]` in the ran
 
 | Mistake | What it leads to |
 |---|---|
-| Started a session before pushing the line | a worktree from `origin/main` doesn't see its own line, the session takes the item again |
+| Started a session by hand, `claude --bg` instead of `mast start` | without a push a worktree from `origin/main` doesn't see its own line; nobody checked path overlap, the model or the prompt tail |
 | Merged a branch by hand, `git merge` instead of `mast merge` | thesis, line and debt become three edits, the lint complains about the in-between state, cleanup gets forgotten |
 | Asked the human about a duplicate or a number | the human gets pinged over mechanics, an important question drowns |
 | Opened an item for small stuff the sender could've fixed on their own | the roadmap grows faster than it closes |

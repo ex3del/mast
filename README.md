@@ -229,9 +229,9 @@ claude --name <project>-dispatch --model opus --advisor fable \
   worktree, triages findings, merges ready branches one at a time, moves closed items to
   `DONE.md`. Only the dispatcher edits `ROADMAP.md`, `DONE.md`, and `TECH_DEBT.md`.
 - **You don't start item sessions by hand** — the dispatcher launches them in the
-  background: `claude --bg --worktree A-1 --name A-1 --advisor fable "…"`, and for items
-  that passed the downgrade — `--model sonnet --advisor opus`. List them with
-  `claude agents`, step into one with `claude attach <id>`.
+  background with one command, `mast start A-1`: it refuses if the item isn't ready, its
+  paths overlap an item in progress, or `sonnet` got an opus zone. List them with
+  `claude agents`, step into one with `claude attach <id>` — `mast start` prints that line last.
 - **Questions about state** ("what do you need from me", "what did A-4 end up doing") — ask
   with `/btw`: the answer comes from the dispatcher's context and stays out of its history.
   The dispatcher asks you as plain text and marks the item's line with
@@ -299,7 +299,7 @@ same without writing anything.
 | [`hooks.json`](plugins/en/hooks/hooks.json) | the wiring: `SessionStart` → `core.py` with the plugin's language and `dispatcher.py` (the role by the session's name); `AskUserQuestion`, Edit or Write → `dispatcher.py`; an edit to `ROADMAP.md` or `DONE.md` → `roadmap_lint.py` |
 | [`hooks/core.py`](hooks/core.py) | injects the core or the one-line hint |
 | [`hooks/dispatcher.py`](hooks/dispatcher.py) | in a `<project>-dispatch` session (or with `MAST_ROLE=dispatcher`) denies `AskUserQuestion` and Edit/Write in the main copy outside `ROADMAP.md`, `docs/roadmap/**` and `TECH_DEBT.md` |
-| [`hooks/mast.py`](hooks/mast.py) | `mast merge X-N` — merges an item's branch in one command: the checks, the thesis in `DONE.md`, the line out of `ROADMAP.md`, cleanup, a "rebase" text for the branches the merge moved. `mast status` — cross-checks sessions, in-progress items and worktrees: abandoned, orphans, strays, quiet sessions, `waiting on human`, `inbox/`; changes nothing |
+| [`hooks/mast.py`](hooks/mast.py) | `mast start X-N` — starts an item in one command: refuses an unready item, overlapping paths, `sonnet` on an opus zone, `fable` for `sonnet`; the "in progress" line as a commit, a background session, `claude attach <id>`. `mast merge X-N` — merges an item's branch in one command: the checks, the thesis in `DONE.md`, the line out of `ROADMAP.md`, cleanup, a "rebase" text for the branches the merge moved. `mast status` — cross-checks sessions, in-progress items and worktrees: abandoned, orphans, strays, quiet sessions, `waiting on human`, `inbox/`; changes nothing |
 | [`bin/mast`](plugins/en/bin/mast) | the wrapper: the platform puts the plugin's `bin/` on the Bash tool's `PATH`, so `mast` is a bare command |
 | [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | catches format violations in the roadmap and the archive right after an edit; with `--ready` — the items ready to take |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | the plugin's name per language — for the links the hooks print |

@@ -58,10 +58,16 @@ def env(tmp_path):
     """Окружение без глобального конфига git и с заглушкой `claude` в PATH."""
     fake = tmp_path / "fakebin"
     fake.mkdir()
+    # `--bg` печатает id так же, как живой: с цветами, хотя stdout не терминал
     (fake / "claude").write_text(
         '#!/bin/sh\n'
         'if [ "$1" = agents ]; then cat "$FAKE_AGENTS" 2>/dev/null || echo "[]"; exit 0; fi\n'
-        'echo "$@" >> "$FAKE_LOG"\n')
+        'echo "$@" >> "$FAKE_LOG"\n'
+        'if [ "$1" = --bg ]; then\n'
+        '  if [ -n "$FAKE_BG_FAIL" ]; then echo "$FAKE_BG_FAIL" >&2; exit 1; fi\n'
+        '  printf "backgrounded · \\033[36mfakeid01\\033[39m · x\\n'
+        '\\033[2m  claude attach fakeid01  open in this terminal\\033[22m\\n"\n'
+        'fi\n', encoding="utf-8")
     (fake / "claude").chmod(0o755)
     (tmp_path / "gitconfig").write_text("")
     return {**os.environ,
