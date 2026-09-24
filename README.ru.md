@@ -279,9 +279,9 @@ Claude Code проверяется, в `CLAUDE.md` пишется только �
 
 | Файл | Что делает |
 |---|---|
-| [`hooks.json`](plugins/ru/hooks/hooks.json) | разводка: `SessionStart` → `core.py` с языком плагина и `dispatcher.py` (роль по имени сессии); `AskUserQuestion`, Edit или Write → `dispatcher.py`; правка `ROADMAP.md` или `DONE.md` → `roadmap_lint.py` |
+| [`hooks.json`](plugins/ru/hooks/hooks.json) | разводка: `SessionStart` → `core.py` с языком плагина и `dispatcher.py` (роль по имени сессии и справка сессии); `AskUserQuestion`, Edit или Write → `dispatcher.py`; правка `ROADMAP.md` или `DONE.md` → `roadmap_lint.py` |
 | [`hooks/core.py`](hooks/core.py) | вкладывает ядро или строку-подсказку |
-| [`hooks/dispatcher.py`](hooks/dispatcher.py) | в сессии `<проект>-dispatch` (или с `MAST_ROLE=dispatcher`) отклоняет `AskUserQuestion` и Edit/Write в основной копии вне `ROADMAP.md`, `docs/roadmap/**` и `TECH_DEBT.md` |
+| [`hooks/dispatcher.py`](hooks/dispatcher.py) | в сессии `<проект>-dispatch` (или с `MAST_ROLE=dispatcher`) отклоняет `AskUserQuestion` и Edit/Write в основной копии вне `ROADMAP.md`, `docs/roadmap/**` и `TECH_DEBT.md`; на старте сессии печатает справку: сессии в `.claude/worktrees/X-N` — строку её пункта из основной копии и путь к `STATUS.md`, диспетчеру — вывод `mast status` |
 | [`hooks/mast.py`](hooks/mast.py) | `mast start X-N` — запуск пункта одной командой: отказы на неготовый пункт, пересечение путей, `sonnet` на opus-зоне, `fable` у `sonnet`; строка «в работе» коммитом, фоновая сессия, `claude attach <id>`. `mast merge X-N` — вливание ветки пункта одной командой: проверки, ревью с чистым контекстом, тезис в `DONE.md`, строка из `ROADMAP.md`, уборка, текст «сделай rebase» для веток, которые сдвинул мердж. `mast status` — сверка сессий, пунктов «в работе» и worktree: брошенные, сироты, лишние, тихие сессии, `ждёт человека`, `inbox/`; ничего не меняет |
 | [`bin/mast`](plugins/ru/bin/mast) | обёртка: площадка кладёт `bin/` плагина в `PATH` Bash-инструмента, и `mast` — голая команда |
 | [`hooks/review.py`](hooks/review.py) | ревьюер для `mast merge`: `claude -p` в безопасном режиме без инструментов, на входе дифф и критерий, промпт — [`review.md`](plugins/ru/locales/ru/review.md), ответ — JSON `ok` / `refuse` / `unsure` |
