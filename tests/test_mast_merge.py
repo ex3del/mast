@@ -534,6 +534,15 @@ def test_решил_человек_не_на_вопрос_ревью_ревью_
     assert (tmp_path / "claude.log.args").exists()
 
 
+@pytest.mark.parametrize("flag", [["--force", "человек разрешил"], ["--skip-review"]])
+def test_вливать_вопреки_ревью_флагом_нельзя(p, flag):
+    """Решение человека 24.09: забытый флаг держится на памяти диспетчера, поэтому ответ
+    человека живёт слотом `решил человек` в строке пункта, а флага нет."""
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    r = p.mast("merge", "B-1", *flag)
+    assert r.returncode == 2 and "использование" in r.stderr, r.stdout + r.stderr
+
+
 def test_ждёт_человека_без_ответа_не_вливает(p, tmp_path):
     roadmap = p.read("ROADMAP.md").replace("сессия `B-1` · с 20.09", "сессия `B-1` · с 20.09 · ждёт человека: а шрифты?")
     p.commit({"ROADMAP.md": roadmap}, "[B-1] ждёт человека: шрифты")
