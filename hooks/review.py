@@ -1,9 +1,11 @@
-"""Ревью ветки с чистым контекстом: отдельный `claude -p` видит только дифф и «Готово когда».
+"""Ревью ветки с чистым контекстом: отдельный `claude -p` видит дифф, строку пункта,
+сообщение «готов» и правила проекта — но не историю пункта.
 
 `--safe-mode` выключает CLAUDE.md, плагины, хуки и MCP, но не вход по подписке
 (`--bare` читает только ANTHROPIC_API_KEY); `--tools ""` — ревьюер не ходит по
-репозиторию, и история пункта до него не доходит. Промпт — `locales/<язык>/review.md`
-плагина, ответ — JSON по схеме. Нет ответа по схеме — `NoVerdict`: без вердикта не вливают.
+репозиторию. Правила, которые сессия получила бы сама, собирает `mast.py` и кладёт во
+вход. Промпт — `locales/<язык>/review.md` плагина, ответ — JSON по схеме. Нет ответа
+по схеме — `NoVerdict`: без вердикта не вливают.
 """
 import json
 import subprocess
@@ -24,12 +26,15 @@ class NoVerdict(Exception):
     pass
 
 
-def ask(lang, diff, crit, strict):
-    """(вердикт, причины, вопрос человеку, токены) по диффу и критерию.
-    strict — файлы диффа, которые агенты читают как правила: для них планка строже."""
+def ask(lang, diff, item, ready, rules, strict):
+    """(вердикт, причины, вопрос человеку, токены) по диффу.
+    item — строка пункта целиком, ready — сообщение последнего коммита ветки,
+    rules — [(путь, текст)] правил проекта, strict — файлы диффа, которые агенты
+    читают как правила: для них планка строже."""
     prompt = (Path(__file__).resolve().parent.parent / "locales" / lang / "review.md").read_text(encoding="utf-8")
-    task = (f"<criterion>\n{crit}\n</criterion>\n<strict_files>\n{chr(10).join(strict)}\n</strict_files>\n"
-            f"<diff>\n{diff}\n</diff>\n")
+    files = "".join(f'<file path="{path}">\n{text.strip()}\n</file>\n' for path, text in rules)
+    task = (f"<item>\n{item}\n</item>\n<ready>\n{ready.strip()}\n</ready>\n<rules>\n{files}</rules>\n"
+            f"<strict_files>\n{chr(10).join(strict)}\n</strict_files>\n<diff>\n{diff}\n</diff>\n")
     cmd = ["claude", "-p", "--safe-mode", "--tools", "", "--no-session-persistence", "--model", MODEL,
            "--output-format", "json", "--json-schema", json.dumps(SCHEMA), "--system-prompt", prompt]
     try:

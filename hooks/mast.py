@@ -70,6 +70,16 @@ ZONE = re.compile(r"^[-*\t ]*(.+?)\s+[—–-]\s+(?:только opus|opus only)
 ALWAYS_OPUS = ["CLAUDE.md", ".claude/**"]
 # Правка этих файлов меняет каждую будущую сессию — планка ревью строже
 RULE_FILES = [".claude/**", "**/CLAUDE.md", "**/skills/**"]
+# Память сессии для ревьюера: проектный CLAUDE.md там, где его ищет площадка, правила
+# `.claude/rules/` и глобальный CLAUDE.md — `CLAUDE_CONFIG_DIR` переносит `~/.claude` целиком
+PROJECT_MEMORY = ["CLAUDE.md", ".claude/CLAUDE.md", ".claude/rules"]
+CLAUDE_HOME = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+FRONT = re.compile(r"---\n(.*?)\n---", re.S)
+RULE_PATHS = re.compile(r"^paths:[ \t]*(.*)((?:\n[ \t]*-.*)*)", re.M)
+# Дифф для ревьюера: без истории пункта и сгенерированного (`linguist-generated`
+# без значения или `=true`) — проверять в нём нечего
+REVIEWED = [".", ":(exclude)docs/roadmap", ":(exclude,attr:linguist-generated)",
+            ":(exclude,attr:linguist-generated=true)"]
 # Ответ человека на «не уверен» — слот вместо «ждёт человека»; вопрос и отпечаток
 # диффа — в теле коммита слота, который ставит скрипт
 DECIDED = re.compile(r"(?:—|·)\s*(?:решил человек|human decided)\s*:(.*)$", re.I)
@@ -386,16 +396,42 @@ def asked(item):
     return (q.group(1).strip(), fp.group(1)) if q and fp else None
 
 
-def verdict(item, base, tip, crit, head, do_push, roadmap, done):
+def rule_paths(text):
+    """Шаблоны `paths:` правила — списком или одним значением; поля нет — None: грузится всегда."""
+    front = FRONT.match(text)
+    m = front and RULE_PATHS.search(front.group(1))
+    if not m:
+        return None
+    items = re.findall(r"-[ \t]*(.+)", m.group(2)) or [m.group(1)]
+    return [x.strip().strip("\"'") for x in items if x.strip().strip("\"'")]
+
+
+def memory(tip, files):
+    """[(путь, текст)] — что получила бы сессия, тронувшая `files`: проектный CLAUDE.md и
+    правила из дерева `tip` без `paths:` или с задевающими `files`, глобальный CLAUDE.md."""
+    found = []
+    for f in git("ls-tree", "-r", "--name-only", tip, "--", *PROJECT_MEMORY).splitlines():
+        if f.startswith(".claude/rules/") and not f.endswith(".md"):
+            continue
+        text = git("show", f"{tip}:{f}")
+        paths = rule_paths(text) if f.startswith(".claude/rules/") else None
+        if paths is None or any(meet(segments(z), x.split("/")) for p in paths for z in braces(p) for x in files):
+            found.append((f, text))
+    glob = CLAUDE_HOME / "CLAUDE.md"
+    if glob.is_file():
+        found.append(("~/.claude/CLAUDE.md", glob.read_text(encoding="utf-8")))
+    return found
+
+
+def verdict(item, base, tip, body, head, do_push, roadmap, done):
     """Ревью с чистым контекстом. `ок` — строка вердикта; `отказ` или нет вердикта — отказ;
     `не уверен` — слот «ждёт человека» коммитом и выход. `решил человек` в ответ на вопрос
     ревью о том же диффе — вливание без ревьюера."""
     files = git("diff", "--name-only", base, tip).splitlines()
     strict = [f for f in files if any(meet(segments(z), f.split("/")) for z in RULE_FILES)]
-    # STATUS.md и находки пункта — его история: до ревьюера она не доходит.
-    # Сгенерированное (`linguist-generated` без значения или `=true`) проверять нечего
-    diff = git("diff", "--no-color", base, tip, "--", ".", ":(exclude)docs/roadmap",
-               ":(exclude,attr:linguist-generated)", ":(exclude,attr:linguist-generated=true)")
+    # STATUS.md, находки и промежуточные коммиты пункта — его история: до ревьюера не доходит.
+    # Строка пункта — задание, сообщение последнего коммита — заявления автора
+    diff = git("diff", "--no-color", base, tip, "--", *REVIEWED)
     fp = fingerprint(diff)
     decided = DECIDED.search(head)
     if decided:
@@ -406,7 +442,8 @@ def verdict(item, base, tip, crit, head, do_push, roadmap, done):
     elif WAITING.search(head):
         raise Refusal(say("no_answer", i=item))
     try:
-        v, reasons, question, tokens = ask(LANG, diff, crit, strict)
+        rules = memory(tip, git("diff", "--name-only", base, tip, "--", *REVIEWED).splitlines())
+        v, reasons, question, tokens = ask(LANG, diff, body, git("log", "-1", "--format=%B", tip), rules, strict)
     except NoVerdict as e:
         raise Refusal(say("no_verdict", e=e))
     line, why = say("review", v=say(f"v_{v}"), t=f"{tokens:,}".replace(",", " ")), "; ".join(reasons)
@@ -448,7 +485,7 @@ def close(item, tip, do_push):
     errors = [e for e in lint(new_roadmap, new_done, LANG) if e not in old]
     if errors:
         raise Refusal(say("lint", e="; ".join(errors)))
-    review = verdict(item, base, tip, crit, row["head"], do_push, roadmap, done)
+    review = verdict(item, base, tip, row["body"], row["head"], do_push, roadmap, done)
 
     git("merge", "-q", "--ff-only", tip)
     changed = [ROADMAP, DONE] + ([DEBT] if debt else [])

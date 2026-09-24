@@ -86,7 +86,9 @@ def env(tmp_path):
     (fake / "claude").chmod(0o755)
     (tmp_path / "gitconfig").write_text("")
     verdict(tmp_path)
+    # глобальный CLAUDE.md ревьюера — из каталога теста, а не того, кто гоняет тесты
     return {**os.environ, "FAKE_REVIEW": str(tmp_path / "review.json"),
+            "CLAUDE_CONFIG_DIR": str(tmp_path / "claude-home"),
             "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}",
             "GIT_CONFIG_GLOBAL": str(tmp_path / "gitconfig"), "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
@@ -422,21 +424,64 @@ def test_ревью_ок_в_выводе_и_в_коммите_закрытия(p
 
 
 @pytest.mark.parametrize("lang, head", [("ru", "# Ревью ветки перед вливанием"), ("en", "# Branch review before merging")])
-def test_ревьюер_видит_только_дифф_и_критерий(p, tmp_path, lang, head):
-    """Чистый контекст: ни истории пункта — тем и тел коммитов, STATUS.md, — ни CLAUDE.md,
-    плагинов и инструментов. Только дифф и «Готово когда»."""
+def test_ревьюер_видит_строку_и_готов_но_не_историю(p, tmp_path, lang, head):
+    """Строка пункта целиком — задание и решения человека, сообщение «готов» — заявления
+    автора. История пункта — промежуточные коммиты, STATUS.md — не доходит; плагинов и
+    инструментов нет."""
     p.branch("B-1", ({"reports/pdf.py": "print('рендер пакетами')\n"}, "[B-1] черновик: спорили с человеком"),
              ({"docs/roadmap/done/B-1/STATUS.md": "# B-1\nЖурнал: откатили weasyprint\n"}, ready("B-1")))
     assert p.mast("merge", "B-1", "--no-push", lang=lang).returncode == 0
     task = (tmp_path / "claude.log.input").read_text(encoding="utf-8")
-    assert "+print('рендер пакетами')" in task and CRIT["B-1"] in task
-    for secret in ("спорили с человеком", "Отчёт рендерится", "weasyprint", "Замер"):
+    assert "+print('рендер пакетами')" in task
+    for seen in ("- **B-1** Экспорт PDF", "Мои пути: reports/**", CRIT["B-1"],
+                 "Замер: было 8 с → стало 2 с.", "Тезис: Отчёт рендерится"):
+        assert seen in task, seen
+    for secret in ("спорили с человеком", "weasyprint"):
         assert secret not in task, secret
     args = (tmp_path / "claude.log.args").read_text(encoding="utf-8").split("\n")
     for flag in ("--safe-mode", "--no-session-persistence", "--json-schema"):
         assert flag in args, flag
     assert args[args.index("--tools") + 1] == ""
     assert args[args.index("--system-prompt") + 1] == head
+
+
+RULE = '---\npaths:\n  - "{}"\n---\n\n{}\n'
+
+
+def test_ревьюер_видит_правила_проекта(p, tmp_path):
+    """Память сессии, тронувшей файлы диффа, — из дерева ветки: проектный CLAUDE.md, правила
+    без `paths:` и с задевающими дифф, глобальный CLAUDE.md. Лишних 0: ни правила с чужими
+    `paths:` или с путями вне того, что видит ревьюер, ни скиллов, ни незакоммиченного."""
+    p.commit({"CLAUDE.md": "ПРОЕКТ\n", ".claude/CLAUDE.md": "ВТОРОЙ\n", ".claude/rules/always.md": "ВСЕГДА\n",
+              ".claude/rules/deep/reports.md": RULE.format("reports/**", "ОТЧЁТЫ"),
+              ".claude/rules/code.md": RULE.format("**/*.{sql,py}", "СКОБКИ"),
+              ".claude/rules/csv.md": RULE.format("csv/**", "ЧУЖОЕ"),
+              ".claude/rules/roadmap.md": RULE.format("docs/roadmap/**", "ИСТОРИЯ"),
+              ".claude/skills/x/SKILL.md": "СКИЛЛ\n"}, "правила")
+    (tmp_path / "claude-home").mkdir()
+    (tmp_path / "claude-home" / "CLAUDE.md").write_text("ГЛОБАЛЬНОЕ\n", encoding="utf-8")
+    p.branch("B-1", ({"reports/pdf.py": "1\n", "docs/roadmap/B-1/STATUS.md": "журнал\n"}, ready("B-1")))
+    (p.root / ".claude/rules/always.md").write_text("ГРЯЗЬ\n", encoding="utf-8")
+    assert p.mast("merge", "B-1", "--no-push").returncode == 0
+    task = (tmp_path / "claude.log.input").read_text(encoding="utf-8")
+    assert sorted(re.findall(r'<file path="([^"]+)">', task)) == sorted([
+        "CLAUDE.md", ".claude/CLAUDE.md", ".claude/rules/always.md", ".claude/rules/deep/reports.md",
+        ".claude/rules/code.md", "~/.claude/CLAUDE.md"])
+    for text in ("ПРОЕКТ", "ВТОРОЙ", "ВСЕГДА", "ОТЧЁТЫ", "СКОБКИ", "ГЛОБАЛЬНОЕ"):
+        assert text in task, text
+    for text in ("ЧУЖОЕ", "ИСТОРИЯ", "СКИЛЛ", "ГРЯЗЬ"):
+        assert text not in task, text
+
+
+def test_глобальный_claude_md_без_config_dir_из_home(p, tmp_path):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    (home / ".claude" / "CLAUDE.md").write_text("ДОМАШНЕЕ\n", encoding="utf-8")
+    p.env = {**{k: v for k, v in p.env.items() if k != "CLAUDE_CONFIG_DIR"}, "HOME": str(home)}
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    assert p.mast("merge", "B-1", "--no-push").returncode == 0
+    task = (tmp_path / "claude.log.input").read_text(encoding="utf-8")
+    assert '<file path="~/.claude/CLAUDE.md">\nДОМАШНЕЕ\n</file>' in task
 
 
 def test_сгенерированное_ревьюеру_не_идёт(p, tmp_path):
