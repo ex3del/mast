@@ -42,6 +42,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - It removes the item's session, worktree, and branch.
 - It merges only the named item; for sessions whose branches the merge moved, it prints a ready "rebase" message, plus which items were waiting on this one and which are now ready to take.
 - Before merging it calls a reviewer with a clean context: a separate `claude -p` with no CLAUDE.md, plugins, tools or item history sees only the diff and the "Done when" criterion. `ok` — it merges; `refused` — it changes nothing and prints the reasons for the item's session; no verdict — it doesn't merge. Edits to `.claude/`, `CLAUDE.md` and skills get a stricter review.
+- Files marked `linguist-generated` in `.gitattributes` (lock files, build output) are not sent to the reviewer: there is nothing to check in them, and they eat a lot of tokens.
 - The reviewer is unsure — the script gives the item `waiting on human: <the reviewer's question>` in a separate commit. You answered "merge" — the dispatcher replaces the slot with `human decided: <answer>`, and `mast merge` merges without a new review while the diff is the same; the question and the answer stay in the closing commit.
 
 ### Session check
@@ -73,7 +74,7 @@ The hooks fire in every project where the plugin is enabled; each one starts `py
 - an agent's shell command takes 14 ms longer (has the roadmap changed?), a git command 28 ms (plus the pre-commit check); 17 ms on average across all commands;
 - Edit/Write takes 18.5 ms longer (the dispatcher role hook).
 
-The review in `mast merge` is one `opus` call per merge: 4–11 thousand tokens and about 30 s when measured; the token count is in the output and in the closing commit.
+The review in `mast merge` is one `opus` call per merge: 4–11 thousand tokens and about 30 s when measured, 94 thousand tokens and 3 min live on a large branch (about 1000 diff lines); the token count is in the output and in the closing commit.
 
 ### Known limitations
 

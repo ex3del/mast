@@ -393,8 +393,10 @@ def verdict(item, base, tip, crit, head, do_push, roadmap, done):
     ревью о том же диффе — вливание без ревьюера."""
     files = git("diff", "--name-only", base, tip).splitlines()
     strict = [f for f in files if any(meet(segments(z), f.split("/")) for z in RULE_FILES)]
-    # STATUS.md и находки пункта — его история: до ревьюера она не доходит
-    diff = git("diff", "--no-color", base, tip, "--", ".", ":(exclude)docs/roadmap")
+    # STATUS.md и находки пункта — его история: до ревьюера она не доходит.
+    # Сгенерированное (`linguist-generated` без значения или `=true`) проверять нечего
+    diff = git("diff", "--no-color", base, tip, "--", ".", ":(exclude)docs/roadmap",
+               ":(exclude,attr:linguist-generated)", ":(exclude,attr:linguist-generated=true)")
     fp = fingerprint(diff)
     decided = DECIDED.search(head)
     if decided:

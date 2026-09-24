@@ -439,6 +439,18 @@ def test_ревьюер_видит_только_дифф_и_критерий(p, 
     assert args[args.index("--system-prompt") + 1] == head
 
 
+def test_сгенерированное_ревьюеру_не_идёт(p, tmp_path):
+    """Пометка GitHub `linguist-generated` — lock-файлы, сборка: проверять в них нечего,
+    а токенов они съедают много. Пометка бывает и без значения, и `=true`."""
+    p.commit({".gitattributes": "*.lock linguist-generated\ndist/* linguist-generated=true\n"}, "пометки")
+    p.branch("B-1", ({"reports/pdf.py": "РУКАМИ\n", "deps.lock": "ЛОК\n", "dist/app.js": "СБОРКА\n"}, ready("B-1")))
+    assert p.mast("merge", "B-1", "--no-push").returncode == 0
+    task = (tmp_path / "claude.log.input").read_text(encoding="utf-8")
+    assert "+РУКАМИ" in task
+    for gen in ("ЛОК", "СБОРКА", "deps.lock", "dist/app.js"):
+        assert gen not in task, gen
+
+
 def test_ревью_отказ_ничего_не_меняет(p, tmp_path):
     verdict(tmp_path, "refuse", ["csv/report.py: пустой отчёт — 404, а критерий требует 200"])
     p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
