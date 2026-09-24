@@ -11,6 +11,13 @@ PreToolUse у диспетчера: `AskUserQuestion` — отказ (модал
 файлов роадмапа — отказ. Отказ жёсткий, а не `ask`: `ask` тоже модальный, в `--bg`
 отвечать некому. Запись через Bash хук не видит осознанно — список команд обходится.
 
+PreToolUse у любой сессии — защиты, которые держались прозой (A-21): файлы роадмапа в
+worktree, Write в `docs/superpowers/` в проекте с `ROADMAP.md`; в Bash — коммит этих
+файлов из worktree и `git merge` ветки пункта (`shell_refusal`, зовёт `roadmap_watch.py`).
+Здесь, а не отдельным хуком: каждый хук — старт python3, ~10 мс, а Edit/Write уже ~19 мс
+при потолке 20. Место в пути определяется по сегментам `.claude/worktrees/<имя>/`, а не
+по `CLAUDE_PROJECT_DIR`: чему он равен у сессии в worktree, зависит от способа старта.
+
 SessionStart печатает справку, ≤ 1500 символов: ядро одно на всех, а роль и пункт после
 `/compact` модель не вспоминает сама. Диспетчеру — вывод `mast status`, сессии в
 `.claude/worktrees/X-N` — строка её пункта из `ROADMAP.md` основной копии (в копии
@@ -19,6 +26,7 @@ worktree критерий мог устареть) и путь к `STATUS.md`. �
 """
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -30,6 +38,16 @@ OWN_FILES = {("ROADMAP.md",), ("TECH_DEBT.md",)}
 OWN_DIR = ("docs", "roadmap")
 # Worktree — уже не основная копия: там правит субагент с `isolation: worktree`
 WORKTREES = (".claude", "worktrees")
+# Файлы роадмапа от корня копии: в worktree их не правит никто
+LEDGER = {("ROADMAP.md",), ("TECH_DEBT.md",), ("docs", "roadmap", "DONE.md")}
+SUPERPOWERS = ("docs", "superpowers")
+# Шаблоны — строками: `re` компилирует их при первом вызове, а не на каждом Edit/Write (0,2 мс)
+ID = r"[A-Z]-\d+"
+# `git <подкоманда>`: глобальные опции (`-C <путь>`, `-c k=v`, `--no-pager`) пропускаются
+GIT = r"(?<![\w-])git(?:\s+(?:-[Cc]\s+\S+|--?[\w.-]+(?:=\S+)?))*\s+{}(?=\s|$)([^;&|\n)]*)"
+HEREDOC = r"(?ms)<<-?\s*(['\"]?)(\w+)\1([^\n]*)\n.*?^[ \t]*\2[ \t]*$"
+QUOTED = r"'[^']*'|\"(?:\\.|[^\"\\])*\""
+ITEM_BRANCH = r"(?:^|[\s/])worktree-([A-Z]-\d+)(?![\w-])"
 
 ASK = {
     "ru": "MAST: диспетчер не задаёт модальных вопросов — `AskUserQuestion` держит вливания "
@@ -50,6 +68,46 @@ EDIT = {
           "and `TECH_DEBT.md`, and `{path}` isn't one of them. A small fix — via an `Agent` "
           "subagent with `isolation: \"worktree\"`, you merge its branch yourself; work with "
           "its own criterion — a roadmap item, skill `{p}:managing-roadmap-items`.",
+}
+LEDGER_EDIT = {
+    "ru": "MAST: `{rel}` правит только основная копия, а эта правка — в worktree `{w}`: в ветке "
+          "она даст конфликт при rebase, и `mast merge` ветку не вольёт. Строку пункта, долг, "
+          "находку — сообщением диспетчеру (`SendMessage` сессии `<проект>-dispatch`), тезис и "
+          "долг для архива — в тело последнего коммита; скилл `{p}:managing-roadmap-items`.",
+    "en": "MAST: only the main copy edits `{rel}`, and this edit is in worktree `{w}`: on the "
+          "branch it conflicts at rebase, and `mast merge` won't merge the branch. The item "
+          "line, debt, a finding — as a message to the dispatcher (`SendMessage` to the "
+          "`<project>-dispatch` session), the thesis and debt for the archive — in the body of "
+          "the last commit; skill `{p}:managing-roadmap-items`.",
+}
+LEDGER_COMMIT = {
+    "ru": "MAST: коммит из worktree `{w}` несёт {f} — их правит только основная копия, и "
+          "`mast merge` такую ветку не вольёт. Верни файлы: `git restore --staged --worktree "
+          "-- {c}`; запись для них — сообщением диспетчеру или в тело последнего коммита.",
+    "en": "MAST: the commit from worktree `{w}` carries {f} — only the main copy edits them, "
+          "and `mast merge` won't merge such a branch. Restore them: `git restore --staged "
+          "--worktree -- {c}`; their entries go in a message to the dispatcher or in the body "
+          "of the last commit.",
+}
+PLANS = {
+    "ru": "MAST: в проекте с `ROADMAP.md` планы и спеки superpowers не пишутся в "
+          "`docs/superpowers/`: план пункта — `docs/roadmap/{i}/STATUS.md`, спека — рядом, в "
+          "`docs/roadmap/{i}/`. Запиши туда.",
+    "en": "MAST: in a project with `ROADMAP.md` superpowers plans and specs don't go to "
+          "`docs/superpowers/`: the item plan is `docs/roadmap/{i}/STATUS.md`, a spec sits "
+          "next to it in `docs/roadmap/{i}/`. Write it there.",
+}
+MERGE = {
+    "ru": "MAST: ветку пункта вливает `mast merge {i}` из основной копии — он проверяет ветку, "
+          "вливает fast-forward и одним коммитом переносит тезис в `DONE.md`, убирает строку и "
+          "заносит долг, потом убирает worktree; `git merge` оставил бы роадмап наполовину. "
+          "Если `mast merge` откажет с «часть работы уже в main» — вливает человек в своём "
+          "терминале.",
+    "en": "MAST: an item branch is merged by `mast merge {i}` from the main copy — it checks "
+          "the branch, fast-forwards, moves the thesis to `DONE.md`, drops the line and records "
+          "debt in one commit, then removes the worktree; `git merge` would leave the roadmap "
+          "half-done. If `mast merge` refuses with \"part of the work is already in main\", the "
+          "human merges in their own terminal.",
 }
 
 
@@ -89,6 +147,61 @@ def remember(payload):
 
 def is_dispatcher(payload):
     return os.environ.get("MAST_ROLE") == "dispatcher" or role_file(payload["session_id"]).exists()
+
+
+def worktree(parts):
+    """(корень worktree, его имя, путь внутри) по сегментам `.claude/worktrees/<имя>/` или None."""
+    for i in range(len(parts) - 2):
+        if parts[i:i + 2] == WORKTREES:
+            return Path(*parts[:i + 3]), parts[i + 2], parts[i + 3:]
+    return None
+
+
+def guard(payload, lang):
+    """Защиты Edit/Write для любой сессии: причина отказа или None."""
+    file_path = payload["tool_input"].get("file_path")
+    if not file_path:
+        return None
+    # normpath, а не resolve: хватает сегментов пути, а хук стреляет на каждую правку
+    parts = Path(os.path.normpath(os.path.join(payload["cwd"], file_path))).parts
+    wt = worktree(parts)
+    if wt and wt[2] in LEDGER:
+        return LEDGER_EDIT[lang].format(rel=Path(*wt[2]).as_posix(), w=wt[1], p=PLUGIN[lang])
+    if payload["tool_name"] != "Write":
+        return None
+    for i in range(len(parts) - 1):
+        if parts[i:i + 2] == SUPERPOWERS and Path(*parts[:i], "ROADMAP.md").is_file():
+            return PLANS[lang].format(i=wt[1] if wt and re.fullmatch(ID, wt[1]) else "<X-N>")
+    return None
+
+
+def git_calls(command, sub):
+    """Аргументы каждого `git <sub>` в команде оболочки. Тела heredoc и строки в кавычках
+    вырезаны: сообщение коммита, где упомянут `git merge`, — не вливание."""
+    command = re.sub(QUOTED, "''", re.sub(HEREDOC, r"\3", command))
+    return [m.group(1) for m in re.finditer(GIT.format(sub), command)]
+
+
+def shell_refusal(payload, lang):
+    """Защиты Bash для любой сессии: `git merge` ветки пункта, коммит файлов роадмапа из
+    worktree. Причина отказа или None."""
+    command = payload["tool_input"].get("command", "")
+    for args in git_calls(command, "merge"):
+        m = re.search(ITEM_BRANCH, args)
+        if m:
+            return MERGE[lang].format(i=m.group(1))
+    wt = worktree(Path(payload["cwd"]).parts)
+    if not wt or not git_calls(command, "commit"):
+        return None
+    import subprocess
+    # Не только индекс: `git add … && git commit` одной командой, а хук видит состояние до неё
+    out = subprocess.run(["git", "-C", str(wt[0]), "status", "--porcelain", "--",
+                          *(Path(*f).as_posix() for f in LEDGER)],
+                         capture_output=True, text=True, encoding="utf-8").stdout
+    files = sorted({line[3:] for line in out.splitlines()})
+    if not files:
+        return None
+    return LEDGER_COMMIT[lang].format(w=wt[1], f=", ".join(f"`{f}`" for f in files), c=" ".join(files))
 
 
 def refusal(payload, lang):
@@ -157,8 +270,8 @@ def main():
         if text:
             # Байтами: вывод — UTF-8 при любой кодировке окружения
             sys.stdout.buffer.write(text.encode("utf-8") + b"\n")
-    elif is_dispatcher(payload):
-        reason = refusal(payload, lang)
+    else:
+        reason = guard(payload, lang) or is_dispatcher(payload) and refusal(payload, lang)
         if reason:
             print(json.dumps({"hookSpecificOutput": {
                 "hookEventName": "PreToolUse",

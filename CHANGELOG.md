@@ -67,6 +67,14 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - New slot at the end of an item's line — `· waiting on human: <question>`: a slot without a question is an error, and `roadmap_lint.py --waiting ROADMAP.md` lists such items.
 - No more false "item number taken, already in DONE.md" complaint when closing an item: `mast merge` writes the archive and the roadmap in one commit.
 
+### Session guards
+
+- A hook denies edits to `ROADMAP.md`, `docs/roadmap/DONE.md`, and `TECH_DEBT.md` in an item's worktree: only the main copy edits them, and an edit on the branch used to surface as a rebase conflict or a `mast merge` refusal. The reason says where to write instead: the line, debt, a finding — to the dispatcher; the thesis and debt for the archive — in the last commit.
+- A `git commit` from a worktree that carries these files is refused, with the command to restore them.
+- In a project with `ROADMAP.md` superpowers plans and specs don't go to `docs/superpowers/`: the hook denies the write and names the item's path — `docs/roadmap/<X-N>/STATUS.md`, with the spec next to it.
+- A hook denies `git merge` of an item branch (`worktree-X-N`) and points to `mast merge X-N`; the dispatcher's subagent branches (`worktree-agent-*`) still merge with `git merge --ff-only`. If `mast merge` refused with "part of the work is already in main", you merge in your own terminal.
+- The guards apply to every session, not only the dispatcher. On the history of two projects — 28,460 edits and commands — there were 0 false denials.
+
 ### For contributors
 
 - Method texts live only in `plugins/<lang>/locales/<lang>/`; the root `locales/` is gone, so there's no second copy.
@@ -79,7 +87,8 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 The hooks fire in every project where the plugin is enabled; each one starts `python3`. Medians on the developer's machine:
 
 - an agent's shell command takes 14 ms longer (has the roadmap changed?), a git command 28 ms (plus the pre-commit check); 17 ms on average across all commands;
-- Edit/Write takes 18.5 ms longer (the dispatcher role hook).
+- a commit from a worktree takes 8 ms more (does it carry roadmap files?);
+- Edit/Write takes 19 ms longer (the dispatcher role hook and the session guards).
 
 The review in `mast merge` is one `opus` call per merge: 5–14 thousand tokens and about 40 s when measured, 94 thousand tokens and 3 min live on a large branch (about 1000 diff lines); the token count is in the output and in the closing commit.
 
@@ -88,6 +97,7 @@ The review in `mast merge` is one `opus` call per merge: 5–14 thousand tokens 
 - The lint hooks haven't been tried live on Windows without Git Bash (PowerShell), only in tests.
 - The dispatcher role after `/rename` hasn't been tried live (it survives `/clear` and `/compact`); if the hook loses it, use `MAST_ROLE=dispatcher`.
 - `git commit` is refused over a new violation in the working-copy roadmap, even if the roadmap isn't being committed.
+- The guard against `git merge` of an item branch reads the command text: a merge done another way (`git pull`, a script) gets past it.
 - Dropping an item is still manual, and the lint complains about the in-between state between the `ROADMAP.md` and `DONE.md` edits.
 - `mast start` compares paths by pattern, not by file: two different masks in the same path segment (`*.py` and `test_*`) don't count as an overlap.
 - The plugin can't be distributed through organization settings on claude.ai: the platform rejects a plugin with a top-level `bin/` directory. Install it from the GitHub marketplace.

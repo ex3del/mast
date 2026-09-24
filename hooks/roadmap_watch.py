@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Быстрый вход Bash-хуков линта роадмапа: PostToolUse на каждый вызов Bash и
-PreToolUse перед git-командами.
+PreToolUse перед git-командами — там же защиты сессий на коммит и `git merge`.
 
 Хук стреляет на каждый Bash в любом проекте, поэтому здесь только то, что укладывается
 в старт интерпретатора: ни git, ни `json`, `re`, `subprocess`. `import subprocess` и один
@@ -53,8 +53,9 @@ def main():
     # Кавычка внутри строкового значения JSON экранирована, поэтому `"PreToolUse"`
     # целиком встречается только как значение `hook_event_name`
     if b'"PreToolUse"' in raw:
-        # `if: Bash(git *)` пропускает сюда любую git-команду, а проверять надо коммит
-        if b"commit" not in raw:
+        # `if: Bash(git *)` пропускает сюда любую git-команду, а проверять надо коммит и вливание.
+        # `merge ` с пробелом: `merge-base` и `--merges` медленный путь удорожил бы на 8 мс
+        if b"commit" not in raw and b"merge " not in raw:
             return 0
     else:
         project = os.environ.get("CLAUDE_PROJECT_DIR", ".")
@@ -64,7 +65,15 @@ def main():
     import json
     import roadmap_lint
     lang, _ = roadmap_lint.pick_language(sys.argv[1:])
-    return roadmap_lint.hook(json.loads(raw), lang)
+    payload = json.loads(raw)
+    if payload["hook_event_name"] == "PreToolUse":
+        # Защиты сессий — в dispatcher.py рядом с защитами Edit/Write
+        from dispatcher import shell_refusal
+        reason = shell_refusal(payload, lang or "en")
+        if reason:
+            print(reason, file=sys.stderr)
+            return 2
+    return roadmap_lint.hook(payload, lang)
 
 
 if __name__ == "__main__":
