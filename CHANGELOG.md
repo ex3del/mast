@@ -53,6 +53,12 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - An item session with no commit for longer than a threshold gets flagged, but nothing is blocked. The threshold is the line `Silence threshold: 30 min` in `.claude/rules/dispatch.md`, 30 minutes without it; it counts from the item's last commit or the session's restart, whichever is later.
 - The same output lists the items waiting on your answer and the number of files in `docs/roadmap/inbox/`.
 
+### Brief after `/compact`
+
+- After `/compact` an item session in `.claude/worktrees/X-N` gets its item's line from the main copy's `ROADMAP.md` in context — the header, "My paths" and "Done when" verbatim — and the path to `STATUS.md`. Before, after the context was compacted, the model recalled the item and its criterion on its own.
+- The `<project>-dispatch` dispatcher gets its role with pointers to the skills and the output of `mast status` after `/compact`.
+- The brief comes on any session start and is at most 1500 characters; a session with no role and outside an item's worktree doesn't get it.
+
 ### Roadmap lint
 
 - It catches edits to `ROADMAP.md` and `DONE.md` made from the shell — `sed`, `perl`, a Python script — not just through Edit/Write; the complaint arrives after the command, once per edit.

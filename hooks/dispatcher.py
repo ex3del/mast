@@ -9,6 +9,12 @@ PreToolUse у диспетчера: `AskUserQuestion` — отказ (модал
 в `reinhold-dispatch` 16 из 17 ожиданий дольше 5 мин); Edit/Write в основной копии вне
 файлов роадмапа — отказ. Отказ жёсткий, а не `ask`: `ask` тоже модальный, в `--bg`
 отвечать некому. Запись через Bash хук не видит осознанно — список команд обходится.
+
+SessionStart печатает справку, ≤ 1500 символов: ядро одно на всех, а роль и пункт после
+`/compact` модель не вспоминает сама. Диспетчеру — вывод `mast status`, сессии в
+`.claude/worktrees/X-N` — строка её пункта из `ROADMAP.md` основной копии (в копии
+worktree критерий мог устареть) и путь к `STATUS.md`. Остальным — ничего. Справка — на
+любом старте, не только после `compact`: `session_title` приходит и на `clear`.
 """
 import json
 import os
@@ -46,6 +52,26 @@ EDIT = {
 }
 
 
+# Справка на старте сессии; потолок — чтобы сверка с десятками вопросов не съела контекст
+LIMIT = 1500
+ROLE = {
+    "ru": "MAST: эта сессия — диспетчер роадмапа, роль — скиллы `{p}:worktree-flow` и "
+          "`{p}:managing-roadmap-items`. `mast status` на старте сессии:\n{s}",
+    "en": "MAST: this session is the roadmap dispatcher, the role is in skills `{p}:worktree-flow` "
+          "and `{p}:managing-roadmap-items`. `mast status` at session start:\n{s}",
+}
+ITEM = {
+    "ru": "MAST: эта сессия ведёт пункт {i} по скиллу `{p}:managing-roadmap-items`. Его строка — "
+          "из `{r}` основной копии, копия в worktree могла отстать:\n{l}\n{plan}",
+    "en": "MAST: this session drives item {i} per skill `{p}:managing-roadmap-items`. Its line is "
+          "from the main copy's `{r}`, the worktree's copy may lag behind:\n{l}\n{plan}",
+}
+PLAN = {"ru": "План и журнал — `{s}`.", "en": "Plan and log — `{s}`."}
+NO_PLAN = {"ru": "`{s}` не заведён — ход работы в `git log --grep='\\[{i}\\]'`.",
+           "en": "`{s}` isn't created — the work so far is in `git log --grep='\\[{i}\\]'`."}
+CUT = {"ru": "\n… обрезано до {n} символов", "en": "\n… cut to {n} characters"}
+
+
 def role_file(session_id):
     return Path(os.environ["CLAUDE_PLUGIN_DATA"]) / f"{session_id}.role"
 
@@ -80,11 +106,56 @@ def refusal(payload, lang):
     return EDIT[lang].format(path=Path(*rel).as_posix(), p=PLUGIN[lang])
 
 
+def item_lines(body):
+    """Шапка, «Мои пути» и «Готово когда» с продолжением — дословно: описание пункта
+    длинное и после `/compact` не нужно, а критерий пересказом не заменяется."""
+    from mast import PATHS
+    from roadmap_lint import CRIT_HEADER, FIELD
+    lines, crit = body.splitlines(), False
+    keep = lines[:1]
+    for line in lines[1:]:
+        crit = bool(CRIT_HEADER.match(line)) or crit and not FIELD.match(line)
+        if crit or PATHS.match(line):
+            keep.append(line)
+    return "\n".join(keep)
+
+
+def brief(payload, lang):
+    """Справка сессии или пустая строка. Импорт ленивый: хук стреляет на каждый
+    Edit/Write, а `mast` с линтом нужны только на старте."""
+    import mast
+    from roadmap_lint import parse
+    p, cwd = PLUGIN[lang], Path(payload["cwd"]).resolve()
+    if is_dispatcher(payload):
+        mast.LANG = lang
+        os.chdir(cwd)
+        try:
+            text = ROLE[lang].format(p=p, s=mast.status())
+        except mast.Refusal:
+            return ""  # не git или нет ROADMAP.md — сверять нечего
+    else:
+        if cwd.parts[-3:-1] != WORKTREES or not mast.ID.match(cwd.name):
+            return ""
+        item, roadmap = cwd.name, cwd.parents[2] / "ROADMAP.md"
+        row = parse(mast.read(roadmap))[0].get(item)
+        if not row:
+            return ""
+        plan = f"docs/roadmap/{item}/STATUS.md"
+        text = ITEM[lang].format(i=item, p=p, r=roadmap, l=item_lines(row["body"]),
+                                 plan=(PLAN if (cwd / plan).is_file() else NO_PLAN)[lang].format(s=plan, i=item))
+    cut = CUT[lang].format(n=LIMIT)
+    return text if len(text) <= LIMIT else text[:LIMIT - len(cut)] + cut
+
+
 def main():
     lang = pick_language(sys.argv[1:])
     payload = json.load(sys.stdin)
     if payload["hook_event_name"] == "SessionStart":
         remember(payload)
+        text = brief(payload, lang)
+        if text:
+            # Байтами: вывод — UTF-8 при любой кодировке окружения
+            sys.stdout.buffer.write(text.encode("utf-8") + b"\n")
     elif is_dispatcher(payload):
         reason = refusal(payload, lang)
         if reason:
