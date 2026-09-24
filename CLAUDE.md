@@ -12,6 +12,7 @@ Method for Agents, Sessions and Tasks — плагин Claude Code, которы
 | [docs/roadmap/done/A-1/SPEC.md](docs/roadmap/done/A-1/SPEC.md) | зачем плагин так устроен, ограничения площадки, состав ядра |
 | [docs/roadmap/DONE.md](docs/roadmap/DONE.md) | что уже закрыто |
 | [TECH_DEBT.md](TECH_DEBT.md) | что оставлено криво и при каком условии чиним |
+| [CHANGELOG.ru.md](CHANGELOG.ru.md) | что меняется для пользователя; закрытый пункт дописывает свои строки в раздел готовящегося релиза |
 
 ## Стек
 
