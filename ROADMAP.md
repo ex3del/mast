@@ -10,7 +10,7 @@
   Мои пути: plugins/*/.codex-plugin/**, .agents/**, hooks/**, plugins/*/locales/*/**, tools/sync_plugins.py, tests/**, README.md, README.ru.md, CONTRIBUTING.md, CONTRIBUTING.ru.md
   Готово когда: в песочнице на Codex CLI ≥ 0.156, плагины `mast` и `mast-ru` поставлены через `codex plugin marketplace add ex3del/mast`: маркер ядра в контексте — 2 из 2; линт после правки `ROADMAP.md` через `apply_patch` вернул ошибку на критерии без числа — 2 из 2; 4 скилла видны в `/skills` — 8 из 8; сторож: каждая Claude-специфичная команда из скиллов (`claude --bg`, `claude agents`, `ListAgents`, `SendMessage`, `--advisor`) есть в `codex-tools.md` — 0 непокрытых; набор тестов Claude-плагинов зелёный.
 
-- **A-17** Справка после `/compact`: роль сессии и строка её пункта — запланирован · —
+- **A-17** Справка после `/compact`: роль сессии и строка её пункта — 🔨 в работе · `worktree-A-17` · сессия `A-17` · с 24.09
   Зависит от: A-16
   После сжатия контекста хук `SessionStart` (`compact`) возвращает только ядро; в каком пункте сессия, её критерий и где план — модель вспоминает сама. Соблюдение правил падает на 5,6% шансов с каждой следующей функцией ([arXiv 2605.10039](https://arxiv.org/abs/2605.10039)). Как `gt prime` в Gas Town: хук добавляет к ядру справку — сессии в `.claude/worktrees/X-N` её строку из `ROADMAP.md` основной копии и путь к `STATUS.md`, диспетчеру — вывод `mast status`.
   Мои пути: hooks/**, plugins/*/**, tests/**
