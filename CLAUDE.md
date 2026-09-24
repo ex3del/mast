@@ -60,6 +60,11 @@ shallow-клон) и печатает команды `claude plugin …`: доб
 сверяет `settings.json`, `known_marketplaces.json`, `installed_plugins.json`;
 автообновление чужих плагинов — не своё, не чинить.
 
+Пробная сессия во временном проекте (`mast start` или `claude --bg --worktree`) доставляет
+зависимость `superpowers` с `--scope local` для пути своего worktree; `compare` это ловит,
+снимать — `claude plugin uninstall superpowers@claude-plugins-official --scope local` из того
+пути (worktree уже удалён — создать каталог заново).
+
 Хуки — живой сессией. `claude --bg` доверяет только точному корню git (родитель не считается) —
 временный проект кладётся в доверенный путь, например `/private/tmp/mast-check-new`. Правку
 файлов в основной копии фоновой сессии площадка отклоняет сама, раньше PreToolUse, поэтому
