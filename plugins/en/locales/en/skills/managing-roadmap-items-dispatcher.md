@@ -2,25 +2,11 @@
 
 You are the main-copy session `<project>-dispatch`. The only one who edits `ROADMAP.md`, `DONE.md`, and `TECH_DEBT.md`, and merges items' branches. Invariants, the line format, and the archive are in `managing-roadmap-items.md`, read before this file; an item session's path is in `managing-roadmap-items-item.md` next to it — open it via the links from here. Here is everything the main copy does.
 
-**State isn't in your context.** After a restart, rebuild it from `ROADMAP.md`, `claude agents`, `git worktree list`, `ls docs/roadmap/inbox/`. Don't take the marks in `ROADMAP.md` on faith — the first thing is checking for abandoned items.
+**State isn't in your context.** After a restart, rebuild it from `ROADMAP.md` and `mast status` — it cross-checks `claude agents`, `git worktree list`, and `docs/roadmap/inbox/`. Don't take the marks in `ROADMAP.md` on faith — the first thing is checking for abandoned items.
 
 ## Abandoned items
 
-After every restart, and before starting any new session, cross-check three sources:
-
-```bash
-claude agents --json --all | jq -r '.[] | select(.state=="working" or .state=="blocked" or .status!=null) | .name'  # alive; no jq — the same by eye in `claude agents --all`
-grep -n 'in progress' ROADMAP.md   # who's listed as in progress
-git worktree list                  # what's on disk
-```
-
-| Mismatch | What it means |
-|---|---|
-| an item is "in progress", its session isn't among the alive ones | abandoned: the session crashed or finished without closing the item (its `state` is `done`, `failed`, or `stopped`) |
-| a worktree exists, no item is "in progress" for it | orphaned: the item was closed or dropped and the worktree stayed |
-| a live session named after an item that isn't "in progress" | stray: it will hold the name, and a new session for that item gets a suffix |
-
-Don't delete anything yourself: a worktree may hold uncommitted changes. Send the human one message listing the mismatches, with an option for each: resume (`claude attach <id>` or `claude respawn <id>`), close, drop.
+After every restart and before starting new sessions — `mast status`. Don't delete anything yourself: a worktree may hold uncommitted changes. Abandoned items, orphans and strays go to the human in one message, with an option for each: resume, close, drop.
 
 ## When to ask the human
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""CLI метода поверх roadmap_lint: вливание ветки пункта одной командой.
+"""CLI метода поверх roadmap_lint: вливание ветки пункта одной командой и сверка сессий.
 
   mast merge X-N [--no-push]   — из основной копии, на ветке по умолчанию
+  mast status                  — из любой копии; ничего не меняет
 
 Первым аргументом обёртка `bin/mast` передаёт язык своего плагина (`ru`/`en`).
 Всё проверяется до мерджа, отказ ничего не меняет. Потом ff-мердж, тезис в
@@ -9,6 +10,10 @@ DONE.md, удаление строки из ROADMAP.md и записи долг�
 уборка сессии, worktree и ветки. Вливается ровно названная ветка: для веток
 других пунктов «в работе», которые сдвинул мердж, в выводе — текст для их сессий.
 Сбой после мерджа — не отказ: вывод говорит, что сделано и что доделать.
+
+`mast status` сверяет пункты «в работе» основной копии, её worktree и сессии из
+`claude agents --json --all`: брошен, сирота, лишняя. Сессия пункта без коммита
+дольше порога — пометка, а не отказ: ложная тревога дороже медленного обнаружения.
 """
 import datetime
 import json
@@ -18,10 +23,11 @@ import shutil
 import subprocess
 import sys
 import textwrap
+import time
 from pathlib import Path
 
 from plugin_names import PLUGIN
-from roadmap_lint import ITEM, STATUS, criterion, detect_lang, lint, parse, ready
+from roadmap_lint import ITEM, STATUS, criterion, detect_lang, lint, parse, ready, waiting
 
 ROADMAP, DONE, DEBT = "ROADMAP.md", "docs/roadmap/DONE.md", "TECH_DEBT.md"
 ID = re.compile(r"^[A-Z]-\d+$")
@@ -34,10 +40,17 @@ PREFIX = re.compile(r"(?:\[[A-Z]-\d+\]\s*)+")
 # Коммиты пункта в main, которые делает диспетчер по скиллу (завёл, взял, поменял
 # критерий, перенёс находку с её тестом) или сессия находкой, — не часть работы пункта
 BOOKKEEPING = re.compile(r"завед|взят|критерий изменён|находк|opened|taken into work|criterion changed|finding", re.I)
+# Слот сессии в строке пункта и порог тишины в `.claude/rules/dispatch.md` — на обоих языках
+SESSION = re.compile(r"(?:сессия|session)\s+`([^`]+)`")
+SILENCE = re.compile(r"(?:порог тишины|silence threshold)\s*:\s*(\d+)", re.I)
+SILENCE_DEFAULT = 30
+# Имя сессии пункта; `B-2-<слово>` движок выдаёт, когда имя `B-2` занято
+ITEM_NAME = re.compile(r"^([A-Z]-\d+)(?:-|$)")
 
 LANG = "ru"
 T = {
-    "usage": ("использование: mast merge X-N [--no-push]", "usage: mast merge X-N [--no-push]"),
+    "usage": ("использование: mast merge X-N [--no-push] | mast status",
+              "usage: mast merge X-N [--no-push] | mast status"),
     "refused": ("Отказ, ничего не изменено: ", "Refused, nothing changed: "),
     "main_copy": ("mast merge запускается из основной копии, а не из worktree",
                   "mast merge runs from the main copy, not from a worktree"),
@@ -79,6 +92,25 @@ T = {
                "Waited on {i}: {l} — tell their live sessions: \"{i} is in main, rebase\""),
     "ready": ("Готовы к взятию: {l}", "Ready to take: {l}"),
     "inbox": ("В docs/roadmap/inbox/ файлов: {n} — разбери", "Files in docs/roadmap/inbox/: {n} — triage them"),
+    "live": ("{i} в работе: сессия `{n}` {s}", "{i} in progress: session `{n}` {s}"),
+    "attach": (" · `claude attach {id}`", " · `claude attach {id}`"),
+    "abandoned": ("{i} брошен: в работе, а живой сессии `{n}` нет", "{i} abandoned: in progress, but no live session `{n}`"),
+    "respawn": ("; последняя {id} — `claude respawn {id}`, затем `claude attach {id}`",
+                "; the last one is {id} — `claude respawn {id}`, then `claude attach {id}`"),
+    "orphan": ("сирота: worktree `.claude/worktrees/{i}`, а пункта {i} «в работе» нет — не удаляй сам, "
+               "там могут быть незакоммиченные правки",
+               "orphan: worktree `.claude/worktrees/{i}`, but item {i} is not in progress — don't delete it "
+               "yourself, it may hold uncommitted changes"),
+    "stray": ("лишняя: живая сессия `{n}` ({id}) не ведёт ни один пункт «в работе» — держит имя, "
+              "новая сессия пункта получит суффикс",
+              "stray: live session `{n}` ({id}) runs no in-progress item — it holds the name, "
+              "a new session for the item gets a suffix"),
+    "quiet": ("{i} тихо: без коммита {m} мин при пороге {t} — пометка, а не приговор: спроси сессию",
+              "{i} quiet: no commit for {m} min, threshold {t} — a flag, not a verdict: ask the session"),
+    "no_agents": ("сессии не сверены: нет `claude` или его вывод не JSON — брошенные и лишние не проверены",
+                  "sessions not checked: no `claude` or its output isn't JSON — abandoned and stray not checked"),
+    "waiting": ("ждёт человека — {w}", "waiting on human — {w}"),
+    "clean": ("Брошенных, сирот и лишних нет", "No abandoned items, orphans or strays"),
 }
 
 
@@ -267,16 +299,20 @@ def worktree_path(item):
     return Path.cwd() / ".claude" / "worktrees" / item
 
 
-def session(path):
-    """id фоновой сессии, чей cwd — worktree пункта; нет `claude` — None."""
+def agents():
+    """Сессии из `claude agents --json --all`; нет `claude` или вывод не JSON — None."""
     if not shutil.which("claude"):
         return None
     try:
-        agents = json.loads(run("claude", "agents", "--json", "--all").stdout)
+        return json.loads(run("claude", "agents", "--json", "--all").stdout)
     except ValueError:
         return None
+
+
+def session(path):
+    """id фоновой сессии, чей cwd — worktree пункта; нет `claude` — None."""
     real = os.path.realpath(path)
-    return next((a["id"] for a in agents
+    return next((a["id"] for a in agents() or []
                  if a.get("id") and os.path.realpath(a.get("cwd") or "/") == real), None)
 
 
@@ -370,6 +406,76 @@ def merge(item, do_push):
     return 0
 
 
+def alive(a):
+    """Процесс сессии жив. `claude stop` оставляет `state: done`, но убирает `pid` и
+    `status`; `done` с живым процессом — ход кончен, сессия ждёт промпта."""
+    return a.get("state") in ("working", "blocked") or a.get("status") is not None
+
+
+def silence_threshold():
+    m = SILENCE.search(read(".claude/rules/dispatch.md"))
+    return int(m.group(1)) if m else SILENCE_DEFAULT
+
+
+def quiet_minutes(item, started_ms):
+    """Минуты с последнего коммита `[X-N]` или старта сессии — что позже: после
+    перезапуска старый коммит ветки тишиной не считается."""
+    branch = f"worktree-{item}"
+    ref = branch if ok("rev-parse", "-q", "--verify", branch) else "HEAD"
+    last = run("git", "log", "-1", "--format=%ct", "-F", f"--grep=[{item}]", ref).stdout.strip()
+    return int((time.time() - max(int(last or 0), started_ms / 1000)) // 60)
+
+
+def status():
+    """Текст сверки. Корень — основная копия: из worktree пункта сверяется то же самое."""
+    tree = git("worktree", "list", "--porcelain").splitlines()
+    root = os.path.realpath(tree[0][len("worktree "):])
+    os.chdir(root)
+    if not Path(ROADMAP).is_file():
+        raise Refusal(say("no_roadmap"))
+    in_work = {i: r for i, r in parse(read(ROADMAP))[0].items() if r["status"] == "в работе"}
+    trees = os.path.join(root, ".claude", "worktrees")
+    # Worktree субагентов (`agent-…`) лежат там же, но пунктами не являются
+    item_trees = {Path(p).name for p in (os.path.realpath(l[9:]) for l in tree if l.startswith("worktree "))
+                  if os.path.dirname(p) == trees and ID.match(Path(p).name)}
+    listed = agents()
+    # Сессии других проектов на машине сверку не касаются
+    mine = [a for a in listed or [] if (os.path.realpath(a.get("cwd") or "/") + os.sep).startswith(root + os.sep)]
+    threshold, out, bad, taken = silence_threshold(), [], [], set()
+    for item, row in in_work.items():
+        if listed is None:
+            break
+        m = SESSION.search(row["head"])
+        name, wt = m.group(1) if m else item, os.path.join(trees, item)
+        # Живая раньше мёртвой, по имени раньше, чем по cwd, свежая раньше старой
+        own = sorted((a for a in mine if a.get("name") == name or os.path.realpath(a.get("cwd") or "/") == wt),
+                     key=lambda a: (not alive(a), a.get("name") != name, -a.get("startedAt", 0)))
+        if not own or not alive(own[0]):
+            dead = own[0].get("id") if own else None
+            bad.append(say("abandoned", i=item, n=name) + (say("respawn", id=dead) if dead else ""))
+            continue
+        a = own[0]
+        taken.add(a.get("sessionId"))
+        state = "/".join(filter(None, (a.get("state"), a.get("status"))))
+        out.append(say("live", i=item, n=a.get("name"), s=state) + (say("attach", id=a["id"]) if a.get("id") else ""))
+        quiet = quiet_minutes(item, a.get("startedAt", 0))
+        if quiet > threshold:
+            out.append(say("quiet", i=item, m=quiet, t=threshold))
+    bad += [say("orphan", i=i) for i in sorted(item_trees - set(in_work))]
+    bad += [say("stray", n=a["name"], id=a.get("id") or f"pid {a.get('pid')}") for a in mine
+            if alive(a) and ITEM_NAME.match(a.get("name") or "") and a.get("sessionId") not in taken]
+    out += bad
+    if listed is None:
+        out.append(say("no_agents"))
+    elif not bad:
+        out.append(say("clean"))
+    out += [say("waiting", w=w) for w in waiting(read(ROADMAP))]
+    inbox = [p for p in Path("docs/roadmap/inbox").glob("*") if p.is_file()]
+    if inbox:
+        out.append(say("inbox", n=len(inbox)))
+    return "\n".join(out)
+
+
 def main():
     global LANG
     args = sys.argv[1:]
@@ -377,10 +483,13 @@ def main():
     do_push = "--no-push" not in args
     args = [a for a in args if a != "--no-push"]
     LANG = lang or detect_lang(read(ROADMAP))
-    if len(args) != 2 or args[0] != "merge" or not ID.match(args[1]):
+    if args != ["status"] and (len(args) != 2 or args[0] != "merge" or not ID.match(args[1])):
         print(say("usage"), file=sys.stderr)
         return 2
     try:
+        if args == ["status"]:
+            print(status())
+            return 0
         return merge(args[1], do_push)
     except Refusal as e:
         print(say("refused") + str(e), file=sys.stderr)

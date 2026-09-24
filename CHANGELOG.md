@@ -34,6 +34,14 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - It removes the item's session, worktree, and branch.
 - It merges only the named item; for sessions whose branches the merge moved, it prints a ready "rebase" message, plus which items were waiting on this one and which are now ready to take.
 
+### Session check
+
+- `mast status` checks everything in one command, from the main copy or from an item's worktree; it changes nothing. It cross-checks in-progress items, worktrees, and this project's sessions from `claude agents`, and names the mismatches: an abandoned item (no live session — with a `claude respawn <id>` command), an orphaned worktree, a stray session named after an item. Other projects' sessions on the machine stay out of the check.
+- For every live item session — a ready `claude attach <id>` command.
+- A session that finished its turn and waits for a prompt no longer counts as abandoned: an abandoned one is a session whose process has ended.
+- An item session with no commit for longer than a threshold gets flagged, but nothing is blocked. The threshold is the line `Silence threshold: 30 min` in `.claude/rules/dispatch.md`, 30 minutes without it; it counts from the item's last commit or the session's restart, whichever is later.
+- The same output lists the items waiting on your answer and the number of files in `docs/roadmap/inbox/`.
+
 ### Roadmap lint
 
 - It catches edits to `ROADMAP.md` and `DONE.md` made from the shell — `sed`, `perl`, a Python script — not just through Edit/Write; the complaint arrives after the command, once per edit.
