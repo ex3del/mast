@@ -81,7 +81,7 @@ The hooks fire in every project where the plugin is enabled; each one starts `py
 - an agent's shell command takes 14 ms longer (has the roadmap changed?), a git command 28 ms (plus the pre-commit check); 17 ms on average across all commands;
 - Edit/Write takes 18.5 ms longer (the dispatcher role hook).
 
-The review in `mast merge` is one `opus` call per merge: 4–11 thousand tokens and about 30 s when measured, 94 thousand tokens and 3 min live on a large branch (about 1000 diff lines); the token count is in the output and in the closing commit.
+The review in `mast merge` is one `opus` call per merge: 5–14 thousand tokens and about 40 s when measured, 94 thousand tokens and 3 min live on a large branch (about 1000 diff lines); the token count is in the output and in the closing commit.
 
 ### Known limitations
 
