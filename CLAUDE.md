@@ -74,6 +74,10 @@ shallow-клон) и печатает команды `claude plugin …`: доб
 `claude -p --allowedTools <правило> "<промпт>"` принимает промпт за второе правило, и сессия
 стартует без задачи — промпт подаётся через stdin: `echo "<промпт>" | claude -p --allowedTools …`.
 
+`/compact` и `/clear` подаются неинтерактивно: `echo "/compact" | claude -p --resume <id>`. Что
+хук `SessionStart` положил в контекст — запись `attachment` `hook_success` с `hookName`
+`SessionStart:<source>` в транскрипте, после `compact_boundary`.
+
 Детали прогона — в телах коммитов `8b8f307` и `1a20e4c`.
 
 ## Инварианты проекта
