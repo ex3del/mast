@@ -47,6 +47,17 @@ DONE = """# Закрытые пункты
 DEBT = "# Технический долг\n\n- **Старый долг.** Грозит ничем. **Чиним** никогда.\n"
 
 
+REVIEW = {"type": "result", "is_error": False, "usage": {
+    "input_tokens": 10, "cache_creation_input_tokens": 1000, "cache_read_input_tokens": 0, "output_tokens": 200}}
+
+
+def verdict(tmp_path, v="ok", reasons=("дифф выполняет критерий",), question=""):
+    """Ответ заглушки на `claude -p` — так же, как живой `--output-format json --json-schema`."""
+    (tmp_path / "review.json").write_text(json.dumps(
+        {**REVIEW, "structured_output": {"verdict": v, "reasons": list(reasons), "question": question}},
+        ensure_ascii=False), encoding="utf-8")
+
+
 def ready(item, thesis="Отчёт рендерится 8 с → 2 с.", debt=None):
     """Последний коммит готовой ветки — в той форме, что велит скилл сессии пункта."""
     msg = f"[{item}] готов\n\nГотово когда: {CRIT[item]}\nЗамер: было 8 с → стало 2 с.\n\nТезис: {thesis}\n"
@@ -62,6 +73,10 @@ def env(tmp_path):
     (fake / "claude").write_text(
         '#!/bin/sh\n'
         'if [ "$1" = agents ]; then cat "$FAKE_AGENTS" 2>/dev/null || echo "[]"; exit 0; fi\n'
+        # ревьюер: аргументы по строке и вход — в файлы рядом с журналом, ответ — из файла
+        'if [ "$1" = -p ]; then\n'
+        '  printf "%s\\n" "$@" > "$FAKE_LOG.args"; cat > "$FAKE_LOG.input"; cat "$FAKE_REVIEW"; exit 0\n'
+        'fi\n'
         'echo "$@" >> "$FAKE_LOG"\n'
         'if [ "$1" = --bg ]; then\n'
         '  if [ -n "$FAKE_BG_FAIL" ]; then echo "$FAKE_BG_FAIL" >&2; exit 1; fi\n'
@@ -70,7 +85,8 @@ def env(tmp_path):
         'fi\n', encoding="utf-8")
     (fake / "claude").chmod(0o755)
     (tmp_path / "gitconfig").write_text("")
-    return {**os.environ,
+    verdict(tmp_path)
+    return {**os.environ, "FAKE_REVIEW": str(tmp_path / "review.json"),
             "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}",
             "GIT_CONFIG_GLOBAL": str(tmp_path / "gitconfig"), "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
@@ -142,6 +158,7 @@ def refused(p, item, needle):
     assert r.returncode == 1, r.stdout + r.stderr
     assert needle in r.stdout + r.stderr, r.stdout + r.stderr
     assert p.state() == before, "отказ обязан ничего не менять"
+    return r
 
 
 # --- четыре отказа из критерия и соседние ---
@@ -262,6 +279,7 @@ def test_claude_rm_удалил_ветку_сам(p, tmp_path):
     (tmp_path / "fakebin" / "claude").write_text(
         '#!/bin/sh\n'
         'if [ "$1" = agents ]; then cat "$FAKE_AGENTS"; exit 0; fi\n'
+        'if [ "$1" = -p ]; then cat > /dev/null; cat "$FAKE_REVIEW"; exit 0; fi\n'
         'git worktree remove --force .claude/worktrees/B-1 && git branch -D worktree-B-1\n')
     p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
     (tmp_path / "agents.json").write_text(json.dumps([{"id": "abcd1234", "cwd": str(p.worktree("B-1"))}]))
@@ -390,3 +408,145 @@ def test_английский_плагин(p):
     p.commit({"other.txt": "x\n"}, "moved on")
     r = p.mast("merge", "B-1", lang="en")
     assert r.returncode == 1 and "not a fast-forward" in r.stdout + r.stderr
+
+
+# --- ревью с чистым контекстом ---
+
+def test_ревью_ок_в_выводе_и_в_коммите_закрытия(p):
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    r = p.mast("merge", "B-1", "--no-push")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "ревью: ок · 1 210 токенов" in r.stdout
+    assert p.git("log", "-1", "--format=%b") == "ревью: ок · 1 210 токенов"
+
+
+@pytest.mark.parametrize("lang, head", [("ru", "# Ревью ветки перед вливанием"), ("en", "# Branch review before merging")])
+def test_ревьюер_видит_только_дифф_и_критерий(p, tmp_path, lang, head):
+    """Чистый контекст: ни истории пункта — тем и тел коммитов, STATUS.md, — ни CLAUDE.md,
+    плагинов и инструментов. Только дифф и «Готово когда»."""
+    p.branch("B-1", ({"reports/pdf.py": "print('рендер пакетами')\n"}, "[B-1] черновик: спорили с человеком"),
+             ({"docs/roadmap/done/B-1/STATUS.md": "# B-1\nЖурнал: откатили weasyprint\n"}, ready("B-1")))
+    assert p.mast("merge", "B-1", "--no-push", lang=lang).returncode == 0
+    task = (tmp_path / "claude.log.input").read_text(encoding="utf-8")
+    assert "+print('рендер пакетами')" in task and CRIT["B-1"] in task
+    for secret in ("спорили с человеком", "Отчёт рендерится", "weasyprint", "Замер"):
+        assert secret not in task, secret
+    args = (tmp_path / "claude.log.args").read_text(encoding="utf-8").split("\n")
+    for flag in ("--safe-mode", "--no-session-persistence", "--json-schema"):
+        assert flag in args, flag
+    assert args[args.index("--tools") + 1] == ""
+    assert args[args.index("--system-prompt") + 1] == head
+
+
+def test_ревью_отказ_ничего_не_меняет(p, tmp_path):
+    verdict(tmp_path, "refuse", ["csv/report.py: пустой отчёт — 404, а критерий требует 200"])
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    r = refused(p, "B-1", "ревью: отказ · 1 210 токенов — csv/report.py: пустой отчёт — 404")
+    assert "SendMessage" in r.stderr
+
+
+def test_ревью_не_уверен_ставит_слот_и_не_вливает(p, tmp_path):
+    verdict(tmp_path, "unsure", ["правило на весь reports/"], "Правило про\nпакетный рендер — на весь reports/?")
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    head = p.head()
+    r = p.mast("merge", "B-1", "--no-push")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "ничего не изменено" not in r.stderr and "Правило про пакетный рендер" in r.stderr, r.stderr
+    # один коммит слота поверх прежнего HEAD, ветка не влита
+    assert p.git("log", "-1", "--format=%s") == "[B-1] ждёт человека: ревью не уверено"
+    assert p.git("rev-parse", "HEAD~1") == head and p.git("show", "--name-only", "--format=", "HEAD") == "ROADMAP.md"
+    row = next(l for l in p.read("ROADMAP.md").splitlines() if l.startswith("- **B-1**"))
+    assert row.endswith(" · с 20.09 · ждёт человека: ревью не уверено — Правило про пакетный рендер — на весь reports/?")
+    waiting = subprocess.run([sys.executable, str(ROOT / "hooks/roadmap_lint.py"), "--waiting", "ROADMAP.md"],
+                             cwd=p.root, capture_output=True, text=True).stdout
+    assert waiting.startswith("B-1: ревью не уверено"), waiting
+    # второй «не уверен» после rebase — слот заменяется, а не копится
+    p.git("rebase", "-q", "main", cwd=p.worktree("B-1"))
+    assert p.mast("merge", "B-1", "--no-push").returncode == 1
+    assert p.read("ROADMAP.md").count("ждёт человека") == 1
+
+
+@pytest.mark.parametrize("answer", [
+    "не JSON", "",
+    json.dumps({**REVIEW, "is_error": True, "result": "API Error: 529"}),
+    json.dumps({**REVIEW, "result": "текст без схемы"}),
+    json.dumps({**REVIEW, "structured_output": {"verdict": "может быть", "reasons": [], "question": ""}})])
+def test_без_вердикта_не_вливает(p, tmp_path, answer):
+    (tmp_path / "review.json").write_text(answer, encoding="utf-8")
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    refused(p, "B-1", "нет вердикта ревью")
+
+
+def test_нет_claude_не_вливает(p):
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    p.env = {**p.env, "PATH": "/usr/bin:/bin"}
+    refused(p, "B-1", "нет вердикта ревью")
+
+
+def answer(p, text, subject="[B-1] решил человек"):
+    """Диспетчер записывает ответ человека: `решил человек` вместо `ждёт человека`."""
+    roadmap = re.sub(r" · ждёт человека:.*", "", p.read("ROADMAP.md"))
+    roadmap = roadmap.replace("сессия `B-1` · с 20.09", f"сессия `B-1` · с 20.09 · решил человек: {text}")
+    p.commit({"ROADMAP.md": roadmap}, subject)
+
+
+def unsure_then_answer(p, tmp_path):
+    """«Не уверен» → слот коммитом → «вливай» → rebase сессии; дальше ревьюер отказал бы."""
+    verdict(tmp_path, "unsure", ["правило на весь reports/"], "Правило на весь reports/ — так задумано?")
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    assert p.mast("merge", "B-1", "--no-push").returncode == 1
+    answer(p, "вливай, так задумано")
+    p.git("rebase", "-q", "main", cwd=p.worktree("B-1"))
+    verdict(tmp_path, "refuse", ["ревьюер позван снова"])
+    (tmp_path / "claude.log.args").unlink()
+
+
+def test_решил_человек_вливает_без_ревьюера(p, tmp_path):
+    unsure_then_answer(p, tmp_path)
+    r = p.mast("merge", "B-1", "--no-push")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not (tmp_path / "claude.log.args").exists(), "ревьюера звать не должны"
+    assert p.git("log", "-1", "--format=%b") == (
+        "вопрос ревью: Правило на весь reports/ — так задумано?\nрешил человек: вливай, так задумано")
+    assert "**B-1**" not in p.read("ROADMAP.md")
+
+
+def test_дифф_изменился_после_вопроса_ревью_заново(p, tmp_path):
+    """Человек одобрил один дифф, сессия дописала коммит — вольётся другой. Ответ устарел:
+    ревью заново, и новое «не уверен» заменяет и ответ, и старый вопрос."""
+    unsure_then_answer(p, tmp_path)
+    p.commit({"reports/pdf.py": "2\n"}, ready("B-1"), cwd=p.worktree("B-1"))
+    verdict(tmp_path, "unsure", ["новая правка"], "А эта правка?")
+    assert p.mast("merge", "B-1", "--no-push").returncode == 1
+    assert (tmp_path / "claude.log.args").exists(), "ревьюера обязаны позвать"
+    row = next(l for l in p.read("ROADMAP.md").splitlines() if l.startswith("- **B-1**"))
+    assert row.endswith("· с 20.09 · ждёт человека: ревью не уверено — А эта правка?"), row
+
+
+def test_решил_человек_не_на_вопрос_ревью_ревью_заново(p, tmp_path):
+    """`ждёт человека` бывает и не от ревью: «какую библиотеку взять?» — ответ на него
+    не одобряет дифф."""
+    verdict(tmp_path, "refuse", ["reports/pdf.py: рендер построчный"])
+    answer(p, "берём reportlab", "[B-1] ждёт человека: какую библиотеку взять")
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    refused(p, "B-1", "ревью: отказ")
+    assert (tmp_path / "claude.log.args").exists()
+
+
+def test_ждёт_человека_без_ответа_не_вливает(p, tmp_path):
+    roadmap = p.read("ROADMAP.md").replace("сессия `B-1` · с 20.09", "сессия `B-1` · с 20.09 · ждёт человека: а шрифты?")
+    p.commit({"ROADMAP.md": roadmap}, "[B-1] ждёт человека: шрифты")
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    refused(p, "B-1", "ответ не записан")
+    assert not (tmp_path / "claude.log.args").exists(), "без ответа платить за ревью незачем"
+
+
+def test_строгая_планка_для_правил_агента(p, tmp_path):
+    """Правила агента — `.claude/`, любой CLAUDE.md, скиллы; файл без расширения — не каталог."""
+    files = {".claude/rules/reports.md": "x\n", "sub/CLAUDE.md": "x\n", "plugins/ru/skills/y/SKILL.md": "x\n",
+             "bin/mast": "x\n", "reports/pdf.py": "1\n"}
+    p.branch("B-1", (files, ready("B-1")))
+    assert p.mast("merge", "B-1", "--no-push").returncode == 0
+    task = (tmp_path / "claude.log.input").read_text(encoding="utf-8")
+    strict = re.search(r"<strict_files>\n(.*?)</strict_files>", task, re.S).group(1).split()
+    assert sorted(strict) == [".claude/rules/reports.md", "plugins/ru/skills/y/SKILL.md", "sub/CLAUDE.md"]

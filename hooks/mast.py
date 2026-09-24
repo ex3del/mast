@@ -7,7 +7,11 @@
   mast status                  — из любой копии; ничего не меняет
 
 Первым аргументом обёртка `bin/mast` передаёт язык своего плагина (`ru`/`en`).
-Всё проверяется до мерджа, отказ ничего не меняет. Потом ff-мердж, тезис в
+Всё проверяется до мерджа, отказ ничего не меняет. Последняя проверка — ревью
+с чистым контекстом (`review.py`): `отказ` — отказ с причинами для сессии,
+`не уверен` — слот «ждёт человека» коммитом, без вердикта — отказ. Ответ человека
+`решил человек` вливает без ревьюера, только пока дифф тот же, о котором спрашивали:
+отпечаток диффа — в теле коммита слота. Потом ff-мердж, тезис в
 DONE.md, удаление строки из ROADMAP.md и записи долга — одним коммитом, push,
 уборка сессии, worktree и ветки. Вливается ровно названная ветка: для веток
 других пунктов «в работе», которые сдвинул мердж, в выводе — текст для их сессий.
@@ -38,7 +42,8 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 
 from plugin_names import PLUGIN
-from roadmap_lint import ITEM, STATUS, criterion, detect_lang, lint, parse, ready, waiting
+from review import NoVerdict, ask
+from roadmap_lint import ITEM, STATUS, WAITING, criterion, detect_lang, lint, parse, ready, waiting
 
 ROADMAP, DONE, DEBT = "ROADMAP.md", "docs/roadmap/DONE.md", "TECH_DEBT.md"
 ID = re.compile(r"^[A-Z]-\d+$")
@@ -63,6 +68,13 @@ PATHS = re.compile(r"^[ \t]*(?:мои пути|my paths)\s*:(.*)$", re.I | re.M)
 ZONE = re.compile(r"^[-*\t ]*(.+?)\s+[—–-]\s+(?:только opus|opus only)", re.I | re.M)
 # Файлы, которые агенты читают как правила, — opus в любом проекте
 ALWAYS_OPUS = ["CLAUDE.md", ".claude/**"]
+# Правка этих файлов меняет каждую будущую сессию — планка ревью строже
+RULE_FILES = [".claude/**", "**/CLAUDE.md", "**/skills/**"]
+# Ответ человека на «не уверен» — слот вместо «ждёт человека»; вопрос и отпечаток
+# диффа — в теле коммита слота, который ставит скрипт
+DECIDED = re.compile(r"(?:—|·)\s*(?:решил человек|human decided)\s*:(.*)$", re.I)
+ASKED = re.compile(r"^(?:вопрос ревью|review question):\s*(.*)$", re.M)
+PRINT = re.compile(r"^(?:отпечаток диффа|diff fingerprint):\s*(\S+)$", re.M)
 # Свободный хвост промпта старта: координация, а не контекст пункта — тот в строке
 TAIL_LIMIT = 300
 BASE_HEAD = '{"worktree":{"baseRef":"head"}}'
@@ -100,6 +112,31 @@ T = {
     "earlier": ("часть работы {i} уже в main: {c} — нестандартный случай, вливай руками с человеком",
                 "part of {i} is already in main: {c} — a non-standard case, merge by hand with the human"),
     "lint": ("после вливания линт нашёл бы: {e}", "after the merge the lint would report: {e}"),
+    "v_ok": ("ок", "ok"),
+    "v_refuse": ("отказ", "refused"),
+    "v_unsure": ("не уверен", "unsure"),
+    "review": ("ревью: {v} · {t} токенов", "review: {v} · {t} tokens"),
+    "no_verdict": ("нет вердикта ревью — без него не вливаю: {e}", "no review verdict — not merging without one: {e}"),
+    "review_refused": ("{r} — {w}\nВерни сессии {i} через SendMessage: «Ревью отказало: {w}. Исправь, сделай "
+                       "rebase, прогони весь набор тестов и напиши, что готов»",
+                       "{r} — {w}\nSend the {i} session via SendMessage: \"The review refused: {w}. Fix it, "
+                       "rebase, run the whole test suite and report ready.\""),
+    "slot": ("ждёт человека: ревью не уверено — {q}", "waiting on human: review unsure — {q}"),
+    "slot_commit": ("[{i}] ждёт человека: ревью не уверено", "[{i}] waiting on human: review unsure"),
+    "slot_body": ("{r} — {w}\nвопрос ревью: {q}\nотпечаток диффа: {p}", "{r} — {w}\nreview question: {q}\ndiff fingerprint: {p}"),
+    "unsure": ("{r} — {w}\n{i} не влит: слот «ждёт человека» закоммичен ({h}). Спроси человека: «{q}» "
+               "«Вливай» — замени слот на `решил человек: <ответ>`, закоммить и отправь сессии {i} через "
+               "SendMessage: «сделай rebase на свежий main и прогони весь набор тестов»; «не вливай» или "
+               "«поправь» — сними слот и отдай ответ сессии",
+               "{r} — {w}\n{i} not merged: the \"waiting on human\" slot is committed ({h}). Ask the human: \"{q}\" "
+               "\"Merge\" — replace the slot with `human decided: <answer>`, commit and send the {i} session via "
+               "SendMessage: \"rebase onto a fresh main and run the whole test suite\"; \"don't merge\" or "
+               "\"fix it\" — drop the slot and pass the answer to the session"),
+    "no_answer": ("{i} ждёт человека, а ответ не записан — «вливай» пишется слотом `решил человек: <ответ>` "
+                  "вместо `ждёт человека`",
+                  "{i} is waiting on human and no answer is recorded — \"merge\" goes in as the slot "
+                  "`human decided: <answer>` in place of `waiting on human`"),
+    "decided": ("вопрос ревью: {q}\nрешил человек: {a}", "review question: {q}\nhuman decided: {a}"),
     "commit_failed": ("мердж сделан, файлы записаны, но коммит не прошёл: {e}\nЗакоммить: git commit -m \"{m}\" -- {f}",
                       "merged and files written, but the commit failed: {e}\nCommit: git commit -m \"{m}\" -- {f}"),
     "closed": ("[{i}] закрыт", "[{i}] closed"),
@@ -326,12 +363,80 @@ def drop_row(roadmap, item):
     return "\n".join(lines[:start] + lines[end:])
 
 
-def close(item, tip):
-    """Отказы, затем ff-мердж и одна правка трёх файлов одним коммитом. Возвращает диапазон."""
+def ask_human(roadmap, item, question):
+    """Слот «ждёт человека» последним в шапке строки пункта; прежний слот и устаревший ответ уходят."""
+    lines = roadmap.split("\n")
+    n = next(k for k, line in enumerate(lines) if (m := ITEM.match(line)) and m.group(1) == item)
+    lines[n] = f"{DECIDED.sub('', WAITING.sub('', lines[n])).rstrip()} · {say('slot', q=question)}"
+    return "\n".join(lines)
+
+
+def fingerprint(diff):
+    """Отпечаток диффа: rebase его не меняет, любая правка кода — меняет."""
+    r = subprocess.run(["git", "patch-id", "--stable"], input=diff + "\n", capture_output=True, text=True,
+                       encoding="utf-8")
+    return (r.stdout.split() or [""])[0]
+
+
+def asked(item):
+    """(вопрос, отпечаток) из последнего коммита слота ревью этого пункта; нет — None."""
+    body = git("log", "-1", "--format=%B", "-E", "--all-match", f"--grep=^\\[{item}\\] ",
+               "--grep=^(отпечаток диффа|diff fingerprint): ", "HEAD")
+    q, fp = ASKED.search(body), PRINT.search(body)
+    return (q.group(1).strip(), fp.group(1)) if q and fp else None
+
+
+def verdict(item, base, tip, crit, head, do_push, roadmap, done):
+    """Ревью с чистым контекстом. `ок` — строка вердикта; `отказ` или нет вердикта — отказ;
+    `не уверен` — слот «ждёт человека» коммитом и выход. `решил человек` в ответ на вопрос
+    ревью о том же диффе — вливание без ревьюера."""
+    files = git("diff", "--name-only", base, tip).splitlines()
+    strict = [f for f in files if any(meet(segments(z), f.split("/")) for z in RULE_FILES)]
+    # STATUS.md и находки пункта — его история: до ревьюера она не доходит
+    diff = git("diff", "--no-color", base, tip, "--", ".", ":(exclude)docs/roadmap")
+    fp = fingerprint(diff)
+    decided = DECIDED.search(head)
+    if decided:
+        was = asked(item)
+        # Дифф изменился после вопроса или вопрос был не от ревью — ответ не про этот дифф
+        if was and was[1] == fp:
+            return say("decided", q=was[0], a=decided.group(1).strip())
+    elif WAITING.search(head):
+        raise Refusal(say("no_answer", i=item))
+    try:
+        v, reasons, question, tokens = ask(LANG, diff, crit, strict)
+    except NoVerdict as e:
+        raise Refusal(say("no_verdict", e=e))
+    line, why = say("review", v=say(f"v_{v}"), t=f"{tokens:,}".replace(",", " ")), "; ".join(reasons)
+    if v == "ok":
+        return line
+    if v == "refuse":
+        raise Refusal(say("review_refused", r=line, w=why, i=item))
+    question = " ".join((question or why).split())
+    new = ask_human(roadmap, item, question)
+    old = set(lint(roadmap, done, LANG))
+    errors = [e for e in lint(new, done, LANG) if e not in old]
+    if errors:
+        raise Refusal(say("lint", e="; ".join(errors)))
+    write(ROADMAP, new)
+    r = run("git", "commit", "-q", "-m", say("slot_commit", i=item),
+            "-m", say("slot_body", r=line, w=why, q=question, p=fp), "--", ROADMAP)
+    if r.returncode:
+        write(ROADMAP, roadmap)
+        raise Refusal(f"git commit: {(r.stderr or r.stdout).strip()}")
+    notes = push([]) if do_push else [say("no_push", w="--no-push")]
+    sys.exit("\n".join([say("unsure", r=line, w=why, i=item, h=git("rev-parse", "--short=7", "HEAD"),
+                            q=question)] + notes))
+
+
+def close(item, tip, do_push):
+    """Отказы и ревью, затем ff-мердж и одна правка трёх файлов одним коммитом.
+    Возвращает диапазон и строку вердикта ревью."""
     base = git("rev-parse", "HEAD")
     roadmap, done, debt_text = read(ROADMAP), read(DONE), read(DEBT)
     row = parse(roadmap)[0][item]
-    thesis, debt = check(item, base, tip, criterion(row["body"]))
+    crit = criterion(row["body"])
+    thesis, debt = check(item, base, tip, crit)
     earlier = earlier_work(item)
     if earlier:
         raise Refusal(say("earlier", i=item, c="; ".join(earlier)))
@@ -341,6 +446,7 @@ def close(item, tip):
     errors = [e for e in lint(new_roadmap, new_done, LANG) if e not in old]
     if errors:
         raise Refusal(say("lint", e="; ".join(errors)))
+    review = verdict(item, base, tip, crit, row["head"], do_push, roadmap, done)
 
     git("merge", "-q", "--ff-only", tip)
     changed = [ROADMAP, DONE] + ([DEBT] if debt else [])
@@ -348,13 +454,13 @@ def close(item, tip):
     write(DONE, new_done)
     if debt:
         write(DEBT, (debt_text.rstrip("\n") + "\n\n" if debt_text else "") + debt + "\n")
-    msg = say("closed", i=item)
+    msg = say("closed", i=item) + f"\n\n{review}"
     r = run("git", "add", "--", *changed)
     r = r if r.returncode else run("git", "commit", "-q", "-m", msg, "--", *changed)
     if r.returncode:
         # Мердж уже сделан: не «отказ, ничего не изменено», а выход с тем, что доделать
         sys.exit(say("commit_failed", e=(r.stderr or r.stdout).strip(), m=msg, f=" ".join(changed)))
-    return f"{base[:7]}..{tip[:7]}"
+    return f"{base[:7]}..{tip[:7]}", review
 
 
 def worktree_path(item):
@@ -451,7 +557,8 @@ def merge(item, do_push):
         raise Refusal(say("not_ff", b=branch))
 
     old_head = git("rev-parse", "HEAD")
-    out = [say("merged", i=item, r=close(item, tip))]
+    span, review = close(item, tip, do_push)
+    out = [say("merged", i=item, r=span), review]
     # Коммит закрытия сделан: «отказ, ничего не изменено» отсюда — ложь, сбой идёт строкой вывода
     try:
         out += push([branch]) if do_push else [say("no_push", w="--no-push")]
