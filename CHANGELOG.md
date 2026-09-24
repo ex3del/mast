@@ -73,7 +73,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - A `git commit` from a worktree that carries these files is refused, with the command to restore them.
 - In a project with `ROADMAP.md` superpowers plans and specs don't go to `docs/superpowers/`: the hook denies the write and names the item's path — `docs/roadmap/<X-N>/STATUS.md`, with the spec next to it.
 - A hook denies `git merge` of an item branch (`worktree-X-N`) and points to `mast merge X-N`; the dispatcher's subagent branches (`worktree-agent-*`) still merge with `git merge --ff-only`. If `mast merge` refused with "part of the work is already in main", you merge in your own terminal.
-- The guards apply to every session, not only the dispatcher. On the history of two projects — 28,460 edits and commands — there were 0 false denials.
+- The guards apply to every session, not only the dispatcher. On the history of two projects — 28,539 edits and commands — there were 0 false denials.
 
 ### For contributors
 
