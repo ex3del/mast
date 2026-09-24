@@ -140,7 +140,8 @@ def test_ревью_на_фикстуре(tmp_path, live, case, run):
     tip = p.git("rev-parse", f"worktree-{item}")
     r = p.mast("merge", item, "--no-push")
     out = r.stdout + r.stderr
-    verdict = re.search(r"^ревью: .*$", out, re.M)
+    # отказ печатается после «Отказ, ничего не изменено: » — строка вердикта не с начала
+    verdict = re.search(r"ревью: .*$", out, re.M)
     print(f"\n[{case} #{run}] код {r.returncode} · {verdict.group(0) if verdict else 'вердикта нет'}")
     # «не уверен» коммитит слот в main — влита ли ветка, видно только по её вершине
     assert (p.git("merge-base", "HEAD", tip) == tip) == merged, out
