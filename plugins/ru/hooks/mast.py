@@ -2,8 +2,8 @@
 # Сгенерировано tools/sync_plugins.py из hooks/mast.py — правь там, здесь затрётся
 """CLI метода поверх roadmap_lint: запуск и вливание пункта одной командой, сверка сессий.
 
-  mast start X-N [--model sonnet] [--advisor M] [--force "причина"] [--no-push] ["хвост"]
-                               — из основной копии
+  mast start X-N [--model opus|sonnet] [--advisor M] [--force "причина"] [--no-push] ["хвост"]
+                               — из основной копии; по умолчанию opus с советником fable
   mast merge X-N [--no-push]   — из основной копии, на ветке по умолчанию
   mast status                  — из любой копии; ничего не меняет
 
@@ -73,9 +73,9 @@ ATTACH = re.compile(r"claude attach (\S+)")
 
 LANG = "ru"
 T = {
-    "usage": ("использование: mast start X-N [--model sonnet] [--advisor M] [--force \"причина\"] "
+    "usage": ("использование: mast start X-N [--model opus|sonnet] [--advisor M] [--force \"причина\"] "
               "[--no-push] [\"хвост\"] | mast merge X-N [--no-push] | mast status",
-              "usage: mast start X-N [--model sonnet] [--advisor M] [--force \"reason\"] "
+              "usage: mast start X-N [--model opus|sonnet] [--advisor M] [--force \"reason\"] "
               "[--no-push] [\"tail\"] | mast merge X-N [--no-push] | mast status"),
     "refused": ("Отказ, ничего не изменено: ", "Refused, nothing changed: "),
     "main_copy": ("mast {c} запускается из основной копии, а не из worktree",

@@ -27,11 +27,11 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 
 ### Starting an item
 
+- By default an item runs on `opus` with advisor `fable`; `--model sonnet` (with advisor `opus`) is the exception for an item that passed the downgrade.
 - `mast start X-N` starts an item in one command from the main copy: the item's line becomes "in progress", a commit `[X-N] taken into work · <model>`, a push if the default branch has an upstream (`--no-push` skips it), and a background session; the last line of the output is `claude attach <id>`.
 - The item's worktree is created from the local `main`, so it has the item's line even without a push; then the session's prompt says "don't push, rebase onto the local main".
 - Before the start it refuses and changes nothing: the item isn't ready to take; its "My paths" overlap an item in progress — the human's approval is `--force "reason"`, and the reason goes into the commit; `--model sonnet` without `.claude/rules/dispatch.md` or on an opus zone (the zones from that file, plus `CLAUDE.md` and `.claude/**`); advisor `fable` for `sonnet`; a prompt tail longer than 300 characters; a live session holds the item's name or its branch already exists.
 - The command builds the prompt: number, skill, path neighbors with their session names. The dispatcher adds only the tail: what moved in `main`, windows on shared resources.
-- The default model is `opus` with advisor `fable`; `--model sonnet` gets advisor `opus`.
 
 ### Merging
 

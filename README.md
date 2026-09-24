@@ -229,8 +229,9 @@ claude --name <project>-dispatch --model opus --advisor fable \
   worktree, triages findings, merges ready branches one at a time, moves closed items to
   `DONE.md`. Only the dispatcher edits `ROADMAP.md`, `DONE.md`, and `TECH_DEBT.md`.
 - **You don't start item sessions by hand** — the dispatcher launches them in the
-  background with one command, `mast start A-1`: it refuses if the item isn't ready, its
-  paths overlap an item in progress, or `sonnet` got an opus zone. List them with
+  background with one command, `mast start A-1`, by default on `opus` with advisor `fable`.
+  It refuses if the item isn't ready, its paths overlap an item in progress, or `sonnet`
+  got an opus zone. List them with
   `claude agents`, step into one with `claude attach <id>` — `mast start` prints that line last.
 - **Questions about state** ("what do you need from me", "what did A-4 end up doing") — ask
   with `/btw`: the answer comes from the dispatcher's context and stays out of its history.

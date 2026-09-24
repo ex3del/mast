@@ -65,10 +65,10 @@ Don't give `fable` as advisor to a session running `sonnet`: subagents inherit t
 ## Starting an item
 
 ```bash
-mast start B-2 [--model sonnet] [--force "reason"] [--no-push] ["tail"]
+mast start B-2 [--force "reason"] [--no-push] ["tail"]
 ```
 
-Before the start, the line's description gets the context of your conversation with the human: why the item exists, what was rejected, what constraints apply; the session writes the plan. The tail is only what moved in `main` and windows on shared resources. `--force` — overlapping paths the human approved. The last line of the output goes to the human.
+The model is `opus` with advisor `fable`; `--model sonnet` — only after a downgrade ("Which model an item gets"). Before the start, the line gets why the item exists, what was rejected, the constraints; the session writes the plan. The tail — what moved in `main`, windows on shared resources. `--force` — by the human's decision. The last line of the output goes to the human.
 
 ## Merging
 
