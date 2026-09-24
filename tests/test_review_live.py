@@ -3,15 +3,22 @@
 Запуск: `MAST_LIVE=1 python3 -m pytest tests/test_review_live.py -v -s` — без переменной
 пропускается: прогон стоит токенов и минут. В выводе — вердикт и цена каждого ревью.
 
-Код у плохой и чистой правки один и тот же, разница — только в правиле агента:
-так замер ловит именно ревью правил, а не придирки к коду.
+Код у плохой и чистой правки один и тот же, разница — только в правиле агента или в
+том, что знает ревьюер: так замер ловит именно ревью правил, а не придирки к коду.
+
+`mast` зовётся не обёрткой, а `BOOT`: глобальный `CLAUDE.md` фикстуры подставляется в
+`mast.CLAUDE_HOME`. Подменить `HOME` или `CLAUDE_CONFIG_DIR` нельзя — живой `claude -p`
+теряет вход по подписке; а без подмены в замер попал бы глобальный `CLAUDE.md` того,
+кто его запускает.
 """
 import os
 import re
+import subprocess
+import sys
 
 import pytest
 
-from test_mast_merge import Project, ready
+from test_mast_merge import ROADMAP, ROOT, Project, ready
 
 pytestmark = pytest.mark.skipif(not os.environ.get("MAST_LIVE"), reason="живой замер: MAST_LIVE=1")
 
@@ -113,12 +120,72 @@ def test_пустой_отчёт_404():
 ''',
 }
 
-# фикстура → (пункт, файлы ветки, влита ли)
+# Правила проекта, которые PDF нарушает, — не стиль: у каждого есть цена нарушения
+RULE_BATCH = '''---
+paths:
+  - "reports/**"
+---
+
+# Отчёты
+
+- Пакет рендера — не больше 50 строк: шрифт держит в памяти весь пакет, на 100 строках — 1,2 ГБ,
+  и воркер экспорта падает по OOM (замер 12.08).
+'''
+
+# paths: не задевают дифф — ревьюеру не передаётся
+RULE_CSV = '''---
+paths:
+  - "csv/**"
+---
+
+# CSV
+
+- Разделитель — `;`: отчёты открывают в Excel с русской локалью.
+'''
+
+PROJECT_MD = '''# Отчёты
+
+Экспорт отчётов в PDF и CSV. Python 3, pytest.
+
+## Инварианты
+
+- Пороги и размеры — пакет, таймаут, лимит строк — живут в `settings.py`, а не в модулях:
+  на проде их меняют правкой одного файла, без релиза.
+'''
+
+GLOBAL_MD = '''# Мои правила
+
+- Тест производительности — с меткой `@pytest.mark.slow`: мой pre-commit гоняет
+  `pytest -m "not slow"`, без метки каждый коммит ждёт замеров.
+'''
+
+# Правило шире темы — без решения человека повод спросить его
+WIDE_RULE = GOOD_RULE.replace('"reports/**"', '"**"')
+DECIDED_ROADMAP = ROADMAP.replace(
+    "  Мои пути: reports/**\n",
+    "  Мои пути: reports/**\n"
+    "  Решение человека 20.09: правило о пакетном рендере — на весь проект, `paths: \"**\"`, а не\n"
+    "  `reports/**`: `render_rows` зовут и `csv/`, и будущий `xlsx/`.\n", 1)
+
+# фикстура → (пункт, файлы ветки, файлы main до ветки, глобальный CLAUDE.md, допустимые вердикты)
+NOT_OK = {"отказ", "не уверен"}
 CASES = {
-    "плохая правка rules": ("B-1", {**PDF, ".claude/rules/reports.md": BAD_RULE}, False),
-    "чистая правка": ("B-1", {**PDF, ".claude/rules/reports.md": GOOD_RULE}, True),
-    "код нарушает критерий": ("B-2", CSV_404, False),
+    "плохая правка rules": ("B-1", {**PDF, ".claude/rules/reports.md": BAD_RULE}, {}, "", NOT_OK),
+    "чистая правка": ("B-1", {**PDF, ".claude/rules/reports.md": GOOD_RULE}, {}, "", {"ок"}),
+    "код нарушает критерий": ("B-2", CSV_404, {}, "", {"отказ"}),
+    "нарушает правило rules": ("B-1", PDF, {".claude/rules/reports.md": RULE_BATCH,
+                                            ".claude/rules/csv.md": RULE_CSV}, "", NOT_OK),
+    "нарушает CLAUDE.md проекта": ("B-1", PDF, {"CLAUDE.md": PROJECT_MD}, "", NOT_OK),
+    "нарушает глобальный CLAUDE.md": ("B-1", PDF, {}, GLOBAL_MD, NOT_OK),
+    "решение человека в строке": ("B-1", {**PDF, ".claude/rules/reports.md": WIDE_RULE},
+                                  {"ROADMAP.md": DECIDED_ROADMAP}, "", {"ок", "отказ"}),
+    "замер без теста": ("B-1", {"reports/pdf.py": PDF["reports/pdf.py"]}, {}, "", NOT_OK),
 }
+
+
+# Как `bin/mast` плагина, но с глобальным каталогом фикстуры в `mast.CLAUDE_HOME`
+BOOT = ("import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); import mast; "
+        "mast.CLAUDE_HOME = Path(sys.argv[2]); sys.argv = ['mast', 'ru', *sys.argv[3:]]; sys.exit(mast.main())")
 
 
 @pytest.fixture
@@ -133,17 +200,18 @@ def live(tmp_path):
 @pytest.mark.parametrize("run", [1, 2, 3])
 @pytest.mark.parametrize("case", list(CASES))
 def test_ревью_на_фикстуре(tmp_path, live, case, run):
-    item, files, merged = CASES[case]
+    item, files, base, global_md, allowed = CASES[case]
     p = Project(tmp_path, live)
-    p.commit(BASE, "код до пункта")
+    p.commit({**BASE, **base}, "код до пункта")
+    home = tmp_path / "home"
+    home.mkdir()
+    if global_md:
+        (home / "CLAUDE.md").write_text(global_md, encoding="utf-8")
     p.branch(item, (files, ready(item)))
-    tip = p.git("rev-parse", f"worktree-{item}")
-    r = p.mast("merge", item, "--no-push")
+    r = subprocess.run([sys.executable, "-c", BOOT, str(ROOT / "plugins" / "ru" / "hooks"), str(home),
+                        "merge", item, "--no-push"], cwd=p.root, env=live, capture_output=True, text=True)
     out = r.stdout + r.stderr
     # отказ печатается после «Отказ, ничего не изменено: » — строка вердикта не с начала
-    verdict = re.search(r"ревью: .*$", out, re.M)
+    verdict = re.search(r"ревью: (ок|отказ|не уверен) .*$", out, re.M)
     print(f"\n[{case} #{run}] код {r.returncode} · {verdict.group(0) if verdict else 'вердикта нет'}")
-    # «не уверен» коммитит слот в main — влита ли ветка, видно только по её вершине
-    assert (p.git("merge-base", "HEAD", tip) == tip) == merged, out
-    if case == "код нарушает критерий":
-        assert "ревью: отказ" in out, out
+    assert verdict and verdict.group(1) in allowed, out
