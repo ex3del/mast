@@ -85,7 +85,7 @@ The review in `mast merge` is one `opus` call per merge: 4–11 thousand tokens 
 ### Known limitations
 
 - The lint hooks haven't been tried live on Windows without Git Bash (PowerShell), only in tests.
-- The dispatcher role after `/clear` and `/rename` hasn't been tried live; if the hook loses it, use `MAST_ROLE=dispatcher`.
+- The dispatcher role after `/rename` hasn't been tried live (it survives `/clear` and `/compact`); if the hook loses it, use `MAST_ROLE=dispatcher`.
 - `git commit` is refused over a new violation in the working-copy roadmap, even if the roadmap isn't being committed.
 - Dropping an item is still manual, and the lint complains about the in-between state between the `ROADMAP.md` and `DONE.md` edits.
 - `mast start` compares paths by pattern, not by file: two different masks in the same path segment (`*.py` and `test_*`) don't count as an overlap.
