@@ -68,6 +68,7 @@ one more paragraph of instructions, and every fact has exactly one owner.
 6. **Agents message each other.** Findings and "done" go to the dispatcher as messages
    instead of getting lost in someone's context.
 7. **Merge and archive.** The dispatcher merges a ready branch with one command, `mast merge`:
+   before the merge a reviewer with a clean context reads the diff, and you do when it's unsure;
    the closed item moves to the archive with its "before → after" measurements, and the sessions
    whose branches the merge has moved get a ready "rebase" text. Only the named branch is merged.
 8. **Memory lives in documents.** Decisions, debts, and rules are written down next to the
@@ -300,8 +301,9 @@ same without writing anything.
 | [`hooks.json`](plugins/en/hooks/hooks.json) | the wiring: `SessionStart` → `core.py` with the plugin's language and `dispatcher.py` (the role by the session's name); `AskUserQuestion`, Edit or Write → `dispatcher.py`; an edit to `ROADMAP.md` or `DONE.md` → `roadmap_lint.py` |
 | [`hooks/core.py`](hooks/core.py) | injects the core or the one-line hint |
 | [`hooks/dispatcher.py`](hooks/dispatcher.py) | in a `<project>-dispatch` session (or with `MAST_ROLE=dispatcher`) denies `AskUserQuestion` and Edit/Write in the main copy outside `ROADMAP.md`, `docs/roadmap/**` and `TECH_DEBT.md` |
-| [`hooks/mast.py`](hooks/mast.py) | `mast start X-N` — starts an item in one command: refuses an unready item, overlapping paths, `sonnet` on an opus zone, `fable` for `sonnet`; the "in progress" line as a commit, a background session, `claude attach <id>`. `mast merge X-N` — merges an item's branch in one command: the checks, the thesis in `DONE.md`, the line out of `ROADMAP.md`, cleanup, a "rebase" text for the branches the merge moved. `mast status` — cross-checks sessions, in-progress items and worktrees: abandoned, orphans, strays, quiet sessions, `waiting on human`, `inbox/`; changes nothing |
+| [`hooks/mast.py`](hooks/mast.py) | `mast start X-N` — starts an item in one command: refuses an unready item, overlapping paths, `sonnet` on an opus zone, `fable` for `sonnet`; the "in progress" line as a commit, a background session, `claude attach <id>`. `mast merge X-N` — merges an item's branch in one command: the checks, a clean-context review, the thesis in `DONE.md`, the line out of `ROADMAP.md`, cleanup, a "rebase" text for the branches the merge moved. `mast status` — cross-checks sessions, in-progress items and worktrees: abandoned, orphans, strays, quiet sessions, `waiting on human`, `inbox/`; changes nothing |
 | [`bin/mast`](plugins/en/bin/mast) | the wrapper: the platform puts the plugin's `bin/` on the Bash tool's `PATH`, so `mast` is a bare command |
+| [`hooks/review.py`](hooks/review.py) | the reviewer for `mast merge`: `claude -p` in safe mode with no tools, the diff and the criterion as input, the prompt in [`review.md`](plugins/en/locales/en/review.md), a JSON answer `ok` / `refuse` / `unsure` |
 | [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | catches format violations in the roadmap and the archive right after an edit; with `--ready` — the items ready to take |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | the plugin's name per language — for the links the hooks print |
 | [`.mcp.json`](plugins/en/.mcp.json) | the Context7 MCP server |

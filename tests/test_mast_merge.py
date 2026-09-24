@@ -394,8 +394,9 @@ def test_скилл_учит_форме_которую_разбирает_mast_m
 
 def test_раздел_вливание_короткий():
     """Механику делает `mast merge`, раздел — только как его звать и что он проверяет.
-    Было 3514 (ru) и 3916 (en); английский той же мысли длиннее примерно на десятую."""
-    for lang, head, limit in (("ru", "## Вливание", 900), ("en", "## Merging", 1000)):
+    Было 3514 (ru) и 3916 (en); английский той же мысли длиннее примерно на десятую.
+    A-15 добавил ревью и ответ человека на «не уверен»: 803 → 1046 (ru), 903 → 1213 (en)."""
+    for lang, head, limit in (("ru", "## Вливание", 1100), ("en", "## Merging", 1250)):
         text = (ROOT / f"plugins/{lang}/locales/{lang}/skills/managing-roadmap-items-dispatcher.md").read_text(encoding="utf-8")
         found = re.search(rf"^{head}\n.*?(?=^## )", text, re.S | re.M)
         assert found, f"{lang}: нет раздела «{head}» — переименовали, поправь сторожа"
