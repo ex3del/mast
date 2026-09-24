@@ -18,11 +18,6 @@ The advisor: `opus` gets `fable`, `sonnet` gets `opus`. Don't give `fable` as ad
 session running `sonnet`: subagents inherit the session's advisor, Fable multiplies across
 them and ends up costing more than `opus` would have.
 
-Tests before merging — the whole-suite command. `mast merge` runs it on ready branches the
-merge has moved, before merging them next; no line — such branches go back to their sessions:
-
-Tests: `<the whole test suite command>`
-
 The paths in `paths:` are those same sensitive zones: the rule then arrives in the context by
 itself once an agent reaches them. The dispatcher reads this file by name, before starting a
 session.

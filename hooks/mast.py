@@ -6,9 +6,9 @@
 Первым аргументом обёртка `bin/mast` передаёт язык своего плагина (`ru`/`en`).
 Всё проверяется до мерджа, отказ ничего не меняет. Потом ff-мердж, тезис в
 DONE.md, удаление строки из ROADMAP.md и записи долга — одним коммитом, push,
-уборка сессии, worktree и ветки. Следом — готовые ветки, которые этот мердж
-сдвинул: rebase и тесты во временной копии; чисто — вливаются тем же путём,
-иначе в выводе текст для их сессии.
+уборка сессии, worktree и ветки. Вливается ровно названная ветка: для веток
+других пунктов «в работе», которые сдвинул мердж, в выводе — текст для их сессий.
+Сбой после мерджа — не отказ: вывод говорит, что сделано и что доделать.
 """
 import datetime
 import json
@@ -17,7 +17,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import textwrap
 from pathlib import Path
 
@@ -25,14 +24,12 @@ from plugin_names import PLUGIN
 from roadmap_lint import ITEM, STATUS, criterion, detect_lang, lint, parse, ready
 
 ROADMAP, DONE, DEBT = "ROADMAP.md", "docs/roadmap/DONE.md", "TECH_DEBT.md"
-DISPATCH = ".claude/rules/dispatch.md"
 ID = re.compile(r"^[A-Z]-\d+$")
 # Блоки тела последнего коммита. Разбор терпит старую форму: «Готово когда
 # (дословно из origin/main):», «Черновик тезиса для DONE.md:» с шапкой строки
 CRIT_LINE = re.compile(r"^\s*(?:готово когда|done when)[^:\n]*:", re.I | re.M)
 THESIS = re.compile(r"^\s*(?:черновик\s+)?(?:тезис|(?:draft\s+)?thesis)[^:\n]*:(.*)$", re.I)
 DEBT_HEAD = re.compile(r"^\s*[^:\n]*TECH_DEBT\.md`?\s*:\s*$")
-TESTS = re.compile(r"^\s*(?:тесты|tests)\s*:\s*`([^`]+)`", re.I | re.M)
 PREFIX = re.compile(r"(?:\[[A-Z]-\d+\]\s*)+")
 # Коммиты пункта в main, которые делает диспетчер по скиллу (завёл, взял, поменял
 # критерий, перенёс находку с её тестом) или сессия находкой, — не часть работы пункта
@@ -69,15 +66,10 @@ T = {
                       "merged and files written, but the commit failed: {e}\nCommit: git commit -m \"{m}\" -- {f}"),
     "closed": ("[{i}] закрыт", "[{i}] closed"),
     "merged": ("{i} влит: `{r}`", "{i} merged: `{r}`"),
-    "rebased": ("{i} переребейзен, тесты зелёные, влит: `{r}`", "{i} rebased, tests green, merged: `{r}`"),
-    "conflict": ("конфликт при rebase в {f}", "rebase conflict in {f}"),
-    "no_tests": ("команда тестов не объявлена — строка «Тесты: `<команда>`» в {f}",
-                 "no test command declared — a line \"Tests: `<command>`\" in {f}"),
-    "red": ("тесты `{c}` красные:\n{o}", "tests `{c}` are red:\n{o}"),
-    "back": ("{i} не влит — {w}\n  Отправь сессии {i} через SendMessage: «{b} не влилась следом за {m}: {w}. "
-             "Сделай git rebase на свежий main, прогони весь набор тестов и снова напиши, что готов.»",
-             "{i} not merged — {w}\n  Send the {i} session via SendMessage: \"{b} did not merge after {m}: {w}. "
-             "Rebase onto a fresh main, run the whole test suite and report ready again.\""),
+    "rebase": ("{i}: ветку сдвинул мердж {m} — отправь сессии {i} через SendMessage: «{m} в main. "
+               "Сделай git rebase на свежий main и прогони весь набор тестов, прежде чем писать, что готов.»",
+               "{i}: the merge of {m} moved its branch — send the {i} session via SendMessage: \"{m} is in main. "
+               "Rebase onto a fresh main and run the whole test suite before reporting ready.\""),
     "pushed": ("push: {r}", "push: {r}"),
     "no_push": ("push пропущен: {w}", "push skipped: {w}"),
     "no_upstream": ("у ветки нет upstream", "the branch has no upstream"),
@@ -147,7 +139,8 @@ def blocks(body):
                 if nxt.strip() and not nxt.startswith((" ", "\t", "- ")):
                     break
                 debt.append(nxt)
-    return thesis or None, textwrap.dedent("\n".join(debt)).strip()
+    # Записи в TECH_DEBT.md разделены пустой строкой, а сессия пишет их в коммит подряд
+    return thesis or None, re.sub(r"\s*\n(?=- )", "\n\n", textwrap.dedent("\n".join(debt)).strip())
 
 
 def check(item, base, tip, crit):
@@ -167,7 +160,7 @@ def check(item, base, tip, crit):
         raise Refusal(say("no_crit", b=b))
     if norm(crit or "") not in norm(body):
         raise Refusal(say("not_verbatim", b=b, c=crit))
-    # Форма замера, не его правдивость: очередь вливает ветки, которых диспетчер не смотрел
+    # Форма замера, не его правдивость: цифры смотрит диспетчер
     if "→" not in body and "->" not in body:
         raise Refusal(say("no_measure", b=b))
     thesis, debt = blocks(body)
@@ -265,7 +258,8 @@ def close(item, tip):
     r = run("git", "add", "--", *changed)
     r = r if r.returncode else run("git", "commit", "-q", "-m", msg, "--", *changed)
     if r.returncode:
-        raise Refusal(say("commit_failed", e=(r.stderr or r.stdout).strip(), m=msg, f=" ".join(changed)))
+        # Мердж уже сделан: не «отказ, ничего не изменено», а выход с тем, что доделать
+        sys.exit(say("commit_failed", e=(r.stderr or r.stdout).strip(), m=msg, f=" ".join(changed)))
     return f"{base[:7]}..{tip[:7]}"
 
 
@@ -286,7 +280,7 @@ def session(path):
                  if a.get("id") and os.path.realpath(a.get("cwd") or "/") == real), None)
 
 
-def cleanup(item, tip, rebased):
+def cleanup(item, tip):
     """Сессия, worktree и ветка пункта. Сбой уборки не отменяет вливание — он в вывод."""
     path, branch, notes = worktree_path(item), f"worktree-{item}", []
     sid = session(path)
@@ -300,56 +294,22 @@ def cleanup(item, tip, rebased):
         r = run("git", "worktree", "remove", str(path))
         if r.returncode:
             notes.append(r.stderr.strip())
-    if git("rev-parse", branch) != tip:
+    # `claude rm` удаляет сессию вместе с её worktree и веткой — ветки может уже не быть
+    now = run("git", "rev-parse", "-q", "--verify", branch).stdout.strip()
+    if now and now != tip:
         notes.append(f"{branch} сдвинулась после проверки — не удаляю" if LANG == "ru"
                      else f"{branch} moved after the check — not deleting")
-    else:
-        # Переребейзенная копия влита, а сама ветка — нет: -d её не удалит
-        r = run("git", "branch", "-D" if rebased else "-d", branch)
+    elif now:
+        r = run("git", "branch", "-d", branch)
         if r.returncode:
             notes.append(r.stderr.strip())
     return notes
 
 
-def tests_command():
-    m = TESTS.search(read(DISPATCH))
-    return m and m.group(1)
-
-
-def rebase_and_test(item, tip):
-    """Rebase ветки на HEAD во временной копии, не трогая worktree её сессии, и тесты.
-    Возвращает (вершина после rebase, None) или (None, почему не вышло)."""
-    cmd = tests_command()
-    if not cmd:
-        return None, say("no_tests", f=DISPATCH)
-    tmp = tempfile.mkdtemp(prefix="mast-")
-    copy = os.path.join(tmp, item)
-    try:
-        git("worktree", "add", "-q", "--detach", copy, tip)
-        if run("git", "-C", copy, "rebase", "-q", git("rev-parse", "HEAD")).returncode:
-            files = git("-C", copy, "diff", "--name-only", "--diff-filter=U").split()
-            run("git", "-C", copy, "rebase", "--abort")
-            return None, say("conflict", f=", ".join(files))
-        t = run("sh", "-c", cmd, cwd=copy)
-        if t.returncode:
-            tail = "\n".join((t.stdout + t.stderr).strip().splitlines()[-15:])
-            return None, say("red", c=cmd, o=textwrap.indent(tail, "    "))
-        return git("-C", copy, "rev-parse", "HEAD"), None
-    finally:
-        run("git", "worktree", "remove", "--force", copy)
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def queue(old_head, merged):
-    """Готовые ветки пунктов «в работе», которые сдвинул этот мердж: их база — old_head."""
-    for item, row in parse(read(ROADMAP))[0].items():
-        branch = f"worktree-{item}"
-        if row["status"] != "в работе" or item in merged or not ok("rev-parse", "-q", "--verify", branch):
-            continue
-        tip = git("rev-parse", branch)
-        body = git("log", "-1", "--format=%B", tip)
-        if ok("merge-base", "--is-ancestor", old_head, tip) and CRIT_LINE.search(body) and blocks(body)[0]:
-            yield item, tip
+def moved(old_head, item):
+    """Текст для сессий пунктов «в работе», чьи ветки сдвинул этот мердж: их база — old_head."""
+    return [say("rebase", i=other, m=item) for other, row in parse(read(ROADMAP))[0].items()
+            if row["status"] == "в работе" and ok("merge-base", "--is-ancestor", old_head, f"worktree-{other}")]
 
 
 def push(branches):
@@ -389,26 +349,17 @@ def merge(item, do_push):
         raise Refusal(say("not_ff", b=branch))
 
     old_head = git("rev-parse", "HEAD")
-    out, merged = [say("merged", i=item, r=close(item, tip))], {item: (tip, False)}
-    for other, other_tip in list(queue(old_head, merged)):
-        new_tip, why = rebase_and_test(other, other_tip)
-        if new_tip:
-            try:
-                out.append(say("rebased", i=other, r=close(other, new_tip)))
-                merged[other] = (other_tip, True)
-                continue
-            except Refusal as e:
-                why = str(e)
-        out.append(say("back", i=other, b=f"worktree-{other}", m=", ".join(merged), w=why))
-
-    out += push([f"worktree-{i}" for i in merged]) if do_push else [say("no_push", w="--no-push")]
-    for i, (i_tip, rebased) in merged.items():
-        out += [say("cleanup", i=i, w=n) for n in cleanup(i, i_tip, rebased)]
-    roadmap = parse(read(ROADMAP))[0]
-    for i in merged:
-        waited = [j for j, r in roadmap.items() if i in r["deps"]]
-        if waited:
-            out.append(say("waited", i=i, l=", ".join(waited)))
+    out = [say("merged", i=item, r=close(item, tip))]
+    # Коммит закрытия сделан: «отказ, ничего не изменено» отсюда — ложь, сбой идёт строкой вывода
+    try:
+        out += push([branch]) if do_push else [say("no_push", w="--no-push")]
+        out += [say("cleanup", i=item, w=n) for n in cleanup(item, tip)]
+        out += moved(old_head, item)
+    except Refusal as e:
+        out.append(str(e))
+    waited = [j for j, r in parse(read(ROADMAP))[0].items() if item in r["deps"]]
+    if waited:
+        out.append(say("waited", i=item, l=", ".join(waited)))
     free = ready(read(ROADMAP), read(DONE))
     if free:
         out.append(say("ready", l=", ".join(free)))

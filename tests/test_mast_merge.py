@@ -1,4 +1,4 @@
-"""`mast merge X-N` на git-фикстуре: вливание одной командой и rebase очереди готовых веток.
+"""`mast merge X-N` на git-фикстуре: вливание ровно названной ветки одной командой.
 
 Команда запускается через обёртку `plugins/<язык>/bin/mast` — так же, как её зовёт
 диспетчер из Bash. Вместо живого `claude` в PATH лежит заглушка: она отдаёт список
@@ -45,8 +45,6 @@ DONE = """# Закрытые пункты
   Отчётов 0 → 1.
 """
 DEBT = "# Технический долг\n\n- **Старый долг.** Грозит ничем. **Чиним** никогда.\n"
-# Тесты «падают», если в дереве есть файл FAIL
-DISPATCH = "# Модели и чувствительные зоны\n\nТесты: `test ! -e FAIL`\n"
 
 
 def ready(item, thesis="Отчёт рендерится 8 с → 2 с.", debt=None):
@@ -75,14 +73,11 @@ def env(tmp_path):
 
 
 class Project:
-    def __init__(self, tmp_path, env, dispatch=DISPATCH):
+    def __init__(self, tmp_path, env):
         self.root, self.env, self.tmp = tmp_path / "p", env, tmp_path
         self.root.mkdir()
-        files = {"ROADMAP.md": ROADMAP, "docs/roadmap/DONE.md": DONE, "TECH_DEBT.md": DEBT,
-                 ".gitignore": ".claude/worktrees/\n", "reports/a.txt": "a\n"}
-        if dispatch:
-            files[".claude/rules/dispatch.md"] = dispatch
-        self.write(self.root, files)
+        self.write(self.root, {"ROADMAP.md": ROADMAP, "docs/roadmap/DONE.md": DONE, "TECH_DEBT.md": DEBT,
+                               ".gitignore": ".claude/worktrees/\n", "reports/a.txt": "a\n"})
         self.git("init", "-q", "-b", "main")
         self.git("add", ".")
         self.git("commit", "-qm", "init")
@@ -222,7 +217,8 @@ def test_учётные_коммиты_диспетчера_не_второй_з
 def test_вливание_одной_командой(p, tmp_path):
     p.branch("B-1", ({"reports/pdf.py": "1\n"}, "[B-1] рендер"),
              ({"reports/pdf.py": "2\n"},
-              ready("B-1", debt="- **Шрифты вшиты.** Грозит ростом образа.\n  **Чиним,** когда образ > 1 ГБ.")))
+              ready("B-1", debt="- **Шрифты вшиты.** Грозит ростом образа.\n  **Чиним,** когда образ > 1 ГБ.\n"
+                                "- **Кэш без TTL.** Грозит старыми данными.\n  **Чиним,** когда пожалуются.")))
     (tmp_path / "agents.json").write_text(json.dumps([
         {"id": "abcd1234", "kind": "background", "name": "B-1", "cwd": str(p.worktree("B-1"))},
         {"id": "ffff0000", "kind": "background", "name": "B-1", "cwd": "/elsewhere"}]))
@@ -238,8 +234,10 @@ def test_вливание_одной_командой(p, tmp_path):
         "  Отчёт рендерится 8 с → 2 с.\n\n")
     assert "**B-1**" not in p.read("ROADMAP.md")
     assert "**B-2**" in p.read("ROADMAP.md") and "\n\n\n" not in p.read("ROADMAP.md")
+    # записи в файле разделены пустой строкой — и перед первой новой, и между ними
     assert p.read("TECH_DEBT.md") == DEBT + (
-        "\n- **Шрифты вшиты.** Грозит ростом образа.\n  **Чиним,** когда образ > 1 ГБ.\n")
+        "\n- **Шрифты вшиты.** Грозит ростом образа.\n  **Чиним,** когда образ > 1 ГБ.\n"
+        "\n- **Кэш без TTL.** Грозит старыми данными.\n  **Чиним,** когда пожалуются.\n")
     # одна правка трёх файлов — один коммит поверх вершины ветки
     assert p.git("log", "-1", "--format=%s") == "[B-1] закрыт"
     assert p.git("rev-parse", "--short=7", "HEAD~1") == tip
@@ -250,6 +248,35 @@ def test_вливание_одной_командой(p, tmp_path):
     assert (tmp_path / "claude.log").read_text().split("\n")[0] == "rm abcd1234"
     assert not p.worktree("B-1").exists()
     assert p.git("branch", "--list", "worktree-B-1") == ""
+
+
+def test_claude_rm_удалил_ветку_сам(p, tmp_path):
+    """Живой `claude rm` убирает сессию вместе с её worktree и веткой. После коммита
+    закрытия «Отказ, ничего не изменено» — ложь: диспетчер начнёт вливать заново."""
+    (tmp_path / "fakebin" / "claude").write_text(
+        '#!/bin/sh\n'
+        'if [ "$1" = agents ]; then cat "$FAKE_AGENTS"; exit 0; fi\n'
+        'git worktree remove --force .claude/worktrees/B-1 && git branch -D worktree-B-1\n')
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    (tmp_path / "agents.json").write_text(json.dumps([{"id": "abcd1234", "cwd": str(p.worktree("B-1"))}]))
+    tip = p.git("rev-parse", "worktree-B-1")
+
+    r = p.mast("merge", "B-1", "--no-push")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "ничего не изменено" not in r.stdout + r.stderr
+    assert p.git("log", "-1", "--format=%s") == "[B-1] закрыт" and p.git("rev-parse", "HEAD~1") == tip
+    assert not p.worktree("B-1").exists() and p.git("branch", "--list", "worktree-B-1") == ""
+
+
+def test_коммит_закрытия_не_прошёл_не_отказ(p):
+    """Мердж уже сделан — «ничего не изменено» здесь ложь; вывод говорит, что доделать."""
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    hook = p.root / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o755)
+    r = p.mast("merge", "B-1", "--no-push")
+    assert r.returncode == 1
+    assert "ничего не изменено" not in r.stderr and "git commit" in r.stderr, r.stderr
 
 
 def test_после_вливания_линт_без_жалоб(p):
@@ -288,62 +315,21 @@ def test_старая_форма_последнего_коммита_прини�
     assert p.read("TECH_DEBT.md") == DEBT
 
 
-# --- очередь готовых веток ---
+# --- только названная ветка ---
 
-def test_вторая_готовая_ветка_переребейзена_и_влита(p, tmp_path):
+@pytest.mark.parametrize("last", [ready("B-2"), "[B-2] в процессе"])
+def test_вливается_только_названная_ветка(p, last):
+    """Решение человека: `mast merge B-1` вливает ровно B-1. Ветку B-2, которую сдвинул
+    мердж, — готовую или нет — скрипт не трогает, а печатает текст для её сессии."""
     p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
-    p.branch("B-2", ({"csv/x.py": "1\n"}, "[B-2] выгрузка"), ({"csv/x.py": "2\n"}, ready("B-2")))
-    r = p.mast("merge", "B-1")
-    assert r.returncode == 0, r.stdout + r.stderr
-    subjects = p.git("log", "--format=%s", "-6").splitlines()
-    assert subjects[:5] == ["[B-2] закрыт", "[B-2] готов", "[B-2] выгрузка", "[B-1] закрыт", "[B-1] готов"]
-    assert "**B-2**" not in p.read("ROADMAP.md")
-    assert p.read("csv/x.py") == "2\n"
-    done = p.read("docs/roadmap/DONE.md")
-    assert done.index("- **B-2**") < done.index("- **B-1**") < done.index("- **B-0**")
-    # сессии B-2 ничего не пишем: в выводе нет текста для неё
-    assert "SendMessage" not in r.stdout
-    assert not p.worktree("B-2").exists() and p.git("branch", "--list", "worktree-B-2") == ""
-
-
-def test_ветка_с_конфликтом_возвращена_сессии(p):
-    p.branch("B-1", ({"reports/a.txt": "из B-1\n"}, ready("B-1")))
-    p.branch("B-2", ({"reports/a.txt": "из B-2\n", "csv/x.py": "1\n"}, ready("B-2")))
+    p.branch("B-2", ({"csv/x.py": "1\n"}, last))
     tip = p.git("rev-parse", "worktree-B-2")
     r = p.mast("merge", "B-1")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "B-2" in r.stdout and "reports/a.txt" in r.stdout and "SendMessage" in r.stdout
-    assert "**B-2**" in p.read("ROADMAP.md")
-    # ветка и worktree сессии не тронуты, временная копия убрана
+    assert p.git("log", "--format=%s").splitlines() == ["[B-1] закрыт", "[B-1] готов", "init"]
+    assert "**B-2**" in p.read("ROADMAP.md") and not (p.root / "csv").exists()
     assert p.git("rev-parse", "worktree-B-2") == tip and p.worktree("B-2").exists()
-    assert len(p.git("worktree", "list").splitlines()) == 2
-
-
-def test_красные_тесты_возвращают_ветку(p):
-    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
-    p.branch("B-2", ({"csv/x.py": "1\n", "FAIL": "1\n"}, ready("B-2")))
-    r = p.mast("merge", "B-1")
-    assert r.returncode == 0
-    assert "test ! -e FAIL" in r.stdout and "SendMessage" in r.stdout
-    assert "**B-2**" in p.read("ROADMAP.md") and not (p.root / "FAIL").exists()
-
-
-def test_без_команды_тестов_ветка_возвращена(tmp_path, env):
-    p = Project(tmp_path, env, dispatch=None)
-    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
-    p.branch("B-2", ({"csv/x.py": "1\n"}, ready("B-2")))
-    r = p.mast("merge", "B-1")
-    assert r.returncode == 0
-    assert ".claude/rules/dispatch.md" in r.stdout and "**B-2**" in p.read("ROADMAP.md")
-
-
-def test_неготовая_ветка_не_трогается(p):
-    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
-    p.branch("B-2", ({"csv/x.py": "1\n"}, "[B-2] в процессе"))
-    tip = p.git("rev-parse", "worktree-B-2")
-    r = p.mast("merge", "B-1")
-    assert r.returncode == 0 and "B-2" not in r.stdout
-    assert p.git("rev-parse", "worktree-B-2") == tip
+    assert "B-2: ветку сдвинул мердж B-1" in r.stdout and "SendMessage" in r.stdout
 
 
 # --- push и язык ---
@@ -367,13 +353,6 @@ def test_no_push_ничего_не_отправляет(p, tmp_path):
     p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
     assert p.mast("merge", "B-1", "--no-push").returncode == 0
     assert p.git("ls-remote", "origin") == before
-
-
-def test_шаблон_dispatch_объявляет_команду_тестов():
-    """Строку `Тесты:` шаблона читает `mast merge` — разъедутся, и очередь молча встанет."""
-    for lang in ("ru", "en"):
-        text = (ROOT / f"plugins/{lang}/locales/{lang}/templates/dispatch.rule.template.md").read_text(encoding="utf-8")
-        assert mast.TESTS.search(text), f"{lang}: в шаблоне нет строки с командой тестов"
 
 
 def test_скилл_учит_форме_которую_разбирает_mast_merge():

@@ -15,7 +15,7 @@
 
 ## Roadmap dispatcher
 
-When items run in parallel, one main-copy session becomes the **dispatcher**, `--name <project>-dispatch` (the name includes the project: `ListAgents` shows sessions for every project on the machine).
+When items run in parallel, one main-copy session becomes the **dispatcher**, `--name <project>-dispatch` (the name includes the project: `ListAgents` shows sessions for every project on the machine). The dispatcher is always an interactive session in a terminal, not `claude --bg`: the platform doesn't let a background session edit the main copy, not even `ROADMAP.md`.
 
 - Only the main copy — the dispatcher or a human — edits `ROADMAP.md`, `docs/roadmap/DONE.md`, and `TECH_DEBT.md`. Item sessions send the dispatcher findings and "done" via `SendMessage`, and negotiate with a neighbor on paths directly; no dispatcher — the finding goes as a file in `docs/roadmap/inbox/`. Only the main copy assigns an item's number.
 - The dispatcher triages findings, assigns numbers and dependencies, starts sessions on items ready to take (model per the rule below), merges branches one at a time, moves closed items into `DONE.md`, clears blockers, and writes back to waiting sessions. Order — skill `mast:managing-roadmap-items`.

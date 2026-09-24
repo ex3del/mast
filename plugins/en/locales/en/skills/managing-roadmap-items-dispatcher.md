@@ -96,7 +96,7 @@ The item's session says "ready" — you merge from the main copy with one comman
 mast merge B-4            # push not allowed — add --no-push
 ```
 
-The script checks the form, not the truth: fast-forward, only `[B-4]` in the range, the branch left `ROADMAP.md`, `DONE.md` and `TECH_DEBT.md` alone, the last commit has "Done when" verbatim, "before → after" and a thesis. A refusal changes nothing: the reason goes to the item's session, "part of the work is already in main" — merge by hand with the human. Passed — a commit `[B-4] closed` with the thesis, the line and the debt, push, cleanup of the session, worktree and branch. Ready branches this merge moved are merged next after a rebase and the tests from the `Tests:` line in `.claude/rules/dispatch.md`; if that fails, the output has a text for their session. The rest of the output — whom to tell "rebase", what is ready to take, `inbox/`.
+The script checks the form, not the truth: fast-forward, only `[B-4]` in the range, the branch left `ROADMAP.md`, `DONE.md` and `TECH_DEBT.md` alone, the last commit has "Done when" verbatim, "before → after" and a thesis. A refusal changes nothing: the reason goes to the item's session, "part of the work is already in main" — merge by hand with the human. Passed — a commit `[B-4] closed` with the thesis, the line and the debt, push, cleanup of the session, worktree and branch. Only the named branch is merged: branches of other items in progress that the merge moved stay untouched — the output has a ready "rebase" text for their sessions. The rest of the output — who was waiting on the item, what is ready to take, `inbox/`.
 
 ## Dropping an item
 

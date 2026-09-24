@@ -68,8 +68,8 @@ one more paragraph of instructions, and every fact has exactly one owner.
 6. **Agents message each other.** Findings and "done" go to the dispatcher as messages
    instead of getting lost in someone's context.
 7. **Merge and archive.** The dispatcher merges a ready branch with one command, `mast merge`:
-   the closed item moves to the archive with its "before → after" measurements, and other ready
-   branches the merge has moved are rebased, tested and merged next, without their sessions.
+   the closed item moves to the archive with its "before → after" measurements, and the sessions
+   whose branches the merge has moved get a ready "rebase" text. Only the named branch is merged.
 8. **Memory lives in documents.** Decisions, debts, and rules are written down next to the
    code, so the next session reads them instead of guessing.
 
@@ -299,7 +299,7 @@ same without writing anything.
 | [`hooks.json`](plugins/en/hooks/hooks.json) | the wiring: `SessionStart` → `core.py` with the plugin's language and `dispatcher.py` (the role by the session's name); `AskUserQuestion`, Edit or Write → `dispatcher.py`; an edit to `ROADMAP.md` or `DONE.md` → `roadmap_lint.py` |
 | [`hooks/core.py`](hooks/core.py) | injects the core or the one-line hint |
 | [`hooks/dispatcher.py`](hooks/dispatcher.py) | in a `<project>-dispatch` session (or with `MAST_ROLE=dispatcher`) denies `AskUserQuestion` and Edit/Write in the main copy outside `ROADMAP.md`, `docs/roadmap/**` and `TECH_DEBT.md` |
-| [`hooks/mast.py`](hooks/mast.py) | `mast merge X-N` — merges an item's branch in one command: the checks, the thesis in `DONE.md`, the line out of `ROADMAP.md`, cleanup, then the ready branches the merge moved |
+| [`hooks/mast.py`](hooks/mast.py) | `mast merge X-N` — merges an item's branch in one command: the checks, the thesis in `DONE.md`, the line out of `ROADMAP.md`, cleanup, a "rebase" text for the branches the merge moved |
 | [`bin/mast`](plugins/en/bin/mast) | the wrapper: the platform puts the plugin's `bin/` on the Bash tool's `PATH`, so `mast` is a bare command |
 | [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | catches format violations in the roadmap and the archive right after an edit; with `--ready` — the items ready to take |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | the plugin's name per language — for the links the hooks print |
