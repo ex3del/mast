@@ -61,8 +61,6 @@ BRIEF = re.compile(r"^\s*(?:справка|brief)[^:\n]*:(.*)$", re.I)
 BRIEF_LIMIT = 800
 # Срок кэша Claude Code от последнего сообщения: столько живёт сессия закрытого пункта
 HOUR = 3600
-# Пинг «влит» — одно чтение кэша и ответ в слово
-PING_TIMEOUT = 120
 PREFIX = re.compile(r"(?:\[[A-Z]-\d+\]\s*)+")
 # Коммиты пункта в main, которые делает диспетчер по скиллу (завёл, взял, поменял
 # критерий, перенёс находку с её тестом) или сессия находкой, — не часть работы пункта
@@ -431,42 +429,23 @@ def resume(a):
     return f"claude --resume {a['sessionId']} --fork-session"
 
 
-def last_message(a, item):
-    """Последнее обращение к кэшу сессии пункта — от него живёт её час: запись транскрипта
-    или пинг «влит» при закрытии (форк без записи на диск — время коммита закрытия)."""
+def last_message(a):
+    """Время последней записи транскрипта сессии — от него живёт её кэш; сессии или
+    транскрипта нет — 0. Пинга «влит» нет: на установленном плагине форк попал в кэш на 59%."""
     sid = a and a.get("sessionId")
     found = (CLAUDE_HOME / "projects").glob(f"*/{sid}.jsonl") if sid else []
-    closed = run("git", "log", "-1", "--format=%ct", "-F", f"--grep={say('closed', i=item)}", "HEAD").stdout
-    return max([f.stat().st_mtime for f in found] + [int(closed.strip() or 0)])
-
-
-def ping(a, item):
-    """Пинг «влит» форком сессии: её саму `--resume` не поднимает, а форк без записи на диск
-    читает тот же кэш и продлевает его час. Строка вывода с долей кэша."""
-    cmd = ["claude", "-p", "--resume", a["sessionId"], "--fork-session", "--no-session-persistence",
-           "--output-format", "json"]
-    try:
-        r = subprocess.run(cmd, input=say("ping", i=item), capture_output=True, text=True, encoding="utf-8",
-                           timeout=PING_TIMEOUT)
-    except (OSError, subprocess.TimeoutExpired) as e:
-        return say("ping_failed", e=e)
-    try:
-        u = json.loads(r.stdout)["usage"]
-        read = u["cache_read_input_tokens"]
-        return say("pinged", p=round(100 * read / (read + u["input_tokens"] + u["cache_creation_input_tokens"])))
-    except (ValueError, KeyError, ZeroDivisionError):
-        return say("ping_failed", e=(r.stderr or r.stdout).strip()[:300])
+    return max((f.stat().st_mtime for f in found), default=0)
 
 
 def clock(ts):
     return time.strftime("%H:%M", time.localtime(ts))
 
 
-def ask_line(a, item):
+def ask_line(a):
     """Чем спросить сессию влитого пункта: в горячий час — `claude attach`, потом — форк."""
     if not a or not a.get("sessionId"):
         return say("no_session")
-    until = last_message(a, item) + HOUR
+    until = last_message(a) + HOUR
     if alive(a) and a.get("id") and until > time.time():
         return say("ask_hot", id=a["id"], t=clock(until), c=resume(a))
     return say("resume", c=resume(a))
@@ -497,7 +476,7 @@ def sweep(merged=None):
     notes, listed = [], agents()
     # Без списка сессий час не проверить — не убираем вслепую
     for item, a in closed_trees(listed) if listed is not None else []:
-        if item != merged and last_message(a, item) + HOUR < time.time():
+        if item != merged and last_message(a) + HOUR < time.time():
             notes += [say("swept", i=item)] + [say("cleanup", i=item, w=n) for n in cleanup(item, a)]
     return notes
 
@@ -579,8 +558,7 @@ def merge(item, do_push):
     old_head = git("rev-parse", "HEAD")
     a = session(worktree_path(item), agents())
     span, review, told = close(item, tip, do_push, a)
-    pinged = [ping(a, item)] if a and a.get("sessionId") and alive(a) else []
-    out = [say("merged", i=item, r=span), review] + told + pinged + [ask_line(a, item)]
+    out = [say("merged", i=item, r=span), review] + told + [ask_line(a)]
     # Коммит закрытия сделан: «отказ, ничего не изменено» отсюда — ложь, сбой идёт строкой вывода
     try:
         out += push([branch]) if do_push else [say("no_push", w="--no-push")]
@@ -808,7 +786,7 @@ def status():
 
 def closed_line(item, a):
     """Строка сверки закрытого пункта: до какого часа сессия отвечает из кэша, потом — чем спросить."""
-    until = last_message(a, item) + HOUR
+    until = last_message(a) + HOUR
     if a and alive(a) and a.get("id") and until > time.time():
         return say("hot", i=item, t=clock(until), id=a["id"])
     line = say("cold" if a and alive(a) else "gone", i=item)

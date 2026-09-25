@@ -89,13 +89,10 @@ def session(p, tmp_path, item="B-1", age=0):
 
 
 def merged_ago(p, tmp_path, age):
-    """B-1 влит age минут назад: коммит закрытия — время пинга «влит» — и последнее
-    сообщение его сессии тогда же."""
+    """B-1 влит, последнее сообщение его сессии — age минут назад."""
     p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
     session(p, tmp_path)
-    env, p.env = p.env, {**p.env, "GIT_COMMITTER_DATE": f"@{int(time.time() - age * 60)} +0000"}
     r = p.mast("merge", "B-1", "--no-push")
-    p.env = env
     assert r.returncode == 0, r.stdout + r.stderr
     session(p, tmp_path, age=age)
 
@@ -376,11 +373,6 @@ def test_справка_файлы_и_команда_вопроса(p, tmp_path)
     for text in (r.stdout, body):
         assert BRIEF in text and stat in text and resume in text, text
     assert "claude attach abcd1234" in r.stdout
-    # пинг «влит» — форком без записи на диск: сама `--bg` сессия `--resume` не принимает
-    assert "пинг «влит»: кэш сессии" in r.stdout
-    args = (tmp_path / "claude.log.args").read_text(encoding="utf-8")
-    assert f"--resume\n{SID}\n--fork-session\n--no-session-persistence\n" in args, args
-    assert "B-1 влит" in (tmp_path / "claude.log.input").read_text(encoding="utf-8")
     # справка — в коммите, а не в архиве: тезис в DONE.md без неё
     assert "проверить глазами" not in p.read("docs/roadmap/DONE.md")
 

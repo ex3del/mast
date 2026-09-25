@@ -1,7 +1,7 @@
 """Живой замер горячего часа: настоящая `--bg` сессия пункта, `mast merge` с настоящим
 ревьюером, вопрос через `claude attach` в пределах часа и командой из `mast status` после часа.
 
-Обычный `pytest` файл пропускает: платно (`sonnet` у сессии, `opus` у ревьюера) и больше часа.
+Обычный `pytest` файл пропускает: платно (`sonnet` у сессии, `opus` у ревьюера).
 
   MAST_LIVE=1 MAST_BIN=<bin/mast установленного плагина> python3 -m pytest tests/test_hot_hour_live.py -v -s
 
@@ -9,7 +9,9 @@
 (`--scope local` в каталоге проекта); без него — `plugins/ru/bin/mast` этого дерева.
 Каталог проекта — `MAST_LIVE_DIR` (по умолчанию `/private/tmp/mast-check-new`): `claude --bg`
 доверяет только точному корню git, поэтому каталог — доверенный путь, и репозитория в нём ещё нет.
-`MAST_LIVE_WAIT` — минут до вопроса «после часа», по умолчанию 61.
+`MAST_LIVE_HOUR=wait` — ждать час по-настоящему (больше часа прогона); по умолчанию час
+сымитирован: последнее сообщение сессии сдвигается на 61 мин назад — решение человека
+25.09, команда вопроса от кэша не зависит.
 """
 import json
 import os
@@ -27,7 +29,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 MAST = os.environ.get("MAST_BIN") or str(ROOT / "plugins" / "ru" / "bin" / "mast")
 DIR = Path(os.environ.get("MAST_LIVE_DIR", "/private/tmp/mast-check-new"))
-WAIT = float(os.environ.get("MAST_LIVE_WAIT", "61"))
+WAIT = os.environ.get("MAST_LIVE_HOUR") == "wait"
 WORD = "СИРЕНЬ-42"
 CRIT = "файл probe/done.txt есть — 1 из 1."
 ROADMAP = f"""# Роадмап
@@ -66,10 +68,13 @@ def agent(name):
                  if a.get("name") == name and os.path.realpath(a.get("cwd", "")).startswith(str(DIR.resolve()))), None)
 
 
+def transcript(sid):
+    return next((Path.home() / ".claude" / "projects").glob(f"*/{sid}.jsonl"))
+
+
 def usage(sid):
     """usage последнего ответа сессии из её транскрипта."""
-    path = next((Path.home() / ".claude" / "projects").glob(f"*/{sid}.jsonl"))
-    entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    entries = [json.loads(line) for line in transcript(sid).read_text(encoding="utf-8").splitlines() if line.strip()]
     return [e["message"]["usage"] for e in entries if e.get("type") == "assistant"][-1]
 
 
@@ -122,9 +127,13 @@ def project():
     sh("git", "add", ".")
     sh("git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init")
     yield DIR
+    # Удалённого у пробы нет: `claude rm` просит подтвердить потерю коммитов — проба их не хранит
     for a in json.loads(sh("claude", "agents", "--json", "--all")):
         if a.get("id") and os.path.realpath(a.get("cwd", "")).startswith(str(DIR.resolve())):
-            sh("claude", "rm", a["id"], check=False)
+            r = subprocess.run(["claude", "rm", a["id"]], capture_output=True, text=True)
+            token = re.search(r"--discard-unpushed (\S+)", r.stdout + r.stderr)
+            if r.returncode and token:
+                sh("claude", "rm", a["id"], "--discard-unpushed", token.group(1), check=False)
 
 
 def test_горячий_час_и_вопрос_после(project):
@@ -169,7 +178,11 @@ def test_горячий_час_и_вопрос_после(project):
 
     # После часа: команда ровно из `mast status`. Форк показывает историю с ответом выше,
     # поэтому вопрос другой — строчными буквами
-    time.sleep(WAIT * 60)
+    if WAIT:
+        time.sleep(61 * 60)
+    else:
+        when = time.time() - 61 * 60
+        os.utime(transcript(agent("X-1")["sessionId"]), (when, when))
     status = sh(MAST, "status")
     print(status)
     cmd = re.search(r"^X-1 закрыт, час прошёл — вопрос: `([^`]+)`", status, re.M).group(1)
