@@ -410,6 +410,28 @@ def test_уборка_закрытого_следующей_командой(p, 
     assert (p.git("branch", "--list", "worktree-B-1") == "") == swept
 
 
+@pytest.mark.parametrize("dirty", [False, True])
+def test_уборка_без_push(p, tmp_path, dirty):
+    """Пока main не запушен, `claude rm` отказывает: коммитов ветки нет на удалённом — и просит
+    подтверждение. Ветка влита, worktree чистый — потери нет, подтверждение даёт уборка;
+    в worktree незакоммиченное — нет."""
+    merged_ago(p, tmp_path, 61)
+    (tmp_path / "fakebin" / "claude").write_text(
+        '#!/bin/sh\n'
+        'if [ "$1" = agents ]; then cat "$FAKE_AGENTS"; exit 0; fi\n'
+        'if [ "$1" = -p ]; then cat > /dev/null; cat "$FAKE_REVIEW"; exit 0; fi\n'
+        'echo "$@" >> "$FAKE_LOG"\n'
+        'if [ "$3" = --discard-unpushed ]; then exit 0; fi\n'
+        'echo "2 unpushed commits. discard: claude rm $2 --discard-unpushed abc@123" >&2; exit 1\n')
+    if dirty:
+        (p.worktree("B-1") / "черновик.txt").write_text("не закоммичено\n", encoding="utf-8")
+    p.branch("B-2", ({"csv/x.py": "1\n"}, ready("B-2")))
+    r = p.mast("merge", "B-2", "--no-push")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert ("rm abcd1234 --discard-unpushed abc@123" in calls(tmp_path)) != dirty, calls(tmp_path)
+    assert p.worktree("B-1").exists() == dirty
+
+
 def test_без_списка_сессий_не_убирает(p, tmp_path):
     """`claude agents` не ответил JSON — час сессии не проверить, уборки вслепую нет."""
     merged_ago(p, tmp_path, 61)

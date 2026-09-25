@@ -508,6 +508,12 @@ def cleanup(item, a):
     path, branch, notes = worktree_path(item), f"worktree-{item}", []
     if a and a.get("id"):
         r = run("claude", "rm", a["id"])
+        # Пока main не запушен, коммитов влитой ветки нет на удалённом, и `claude rm` просит
+        # подтвердить их потерю. Потери нет, если ветка уже в HEAD, а worktree чистый
+        token = re.search(r"--discard-unpushed (\S+)", r.stdout + r.stderr)
+        if (r.returncode and token and ok("merge-base", "--is-ancestor", branch, "HEAD")
+                and not run("git", "-C", str(path), "status", "--porcelain").stdout.strip()):
+            r = run("claude", "rm", a["id"], "--discard-unpushed", token.group(1))
         if r.returncode:
             notes.append(f"claude rm {a['id']}: {(r.stderr or r.stdout).strip()}")
     listed = [os.path.realpath(line[9:]) for line in git("worktree", "list", "--porcelain").splitlines()

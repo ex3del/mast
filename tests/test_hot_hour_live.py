@@ -103,6 +103,8 @@ def drive(cmd, question, expect, leave, timeout=120):
     os.write(fd, leave)
     time.sleep(3)
     os.kill(pid, signal.SIGKILL)
+    # Убитый процесс не выйдет, пока его вывод в терминал некому читать
+    os.close(fd)
     os.waitpid(pid, 0)
     return re.sub(r"\x1b\[[0-9;?<>]*[A-Za-z]", "", screen.decode("utf-8", "replace"))
 

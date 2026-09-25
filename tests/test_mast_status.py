@@ -147,7 +147,9 @@ def test_сессия_без_коммита_дольше_порога_помеч
              agent("B-2", p.worktree("B-2"), "bbbb2222"))
     out = p.status()
     quiet = [l for l in out.splitlines() if "без коммита" in l]
-    assert len(quiet) == 1 and quiet[0].startswith("B-1") and "45 мин" in quiet[0], out
+    assert len(quiet) == 1 and quiet[0].startswith("B-1"), out
+    # возраст — от NOW при импорте модуля: долгий прогон набора добавляет минуты
+    assert 45 <= int(re.search(r"(\d+) мин", quiet[0]).group(1)) < 50, out
 
 
 def test_свежий_старт_со_старым_коммитом_не_помечен(p):
