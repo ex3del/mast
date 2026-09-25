@@ -12,7 +12,10 @@
 Печатает по сессиям ходы, вливания и сжатия, прирост контекста между вливаниями и для
 каждого порога — симуляцию: после вливания с контекстом выше порога человек делает
 `/clear`, контекст падает до стартового. Считается, сколько было бы перезапусков, сколько
-автосжатий они опередили бы и сколько входных токенов сэкономили бы.
+автосжатий они опередили бы и какая доля входных токенов осталась бы.
+
+Порог — наименьшее автосжатие минус наибольший прирост контекста между вливаниями: выше него
+следующее вливание может не успеть до автосжатия. Строка `← хук` — порог из `hooks/restart.py`.
 """
 import json
 import re
@@ -20,15 +23,11 @@ import statistics
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+from restart import RESTART_DEFAULT, usage_context  # noqa: E402 — формула контекста та же, что у хука
+
 MERGE = re.compile(r"(?<![\w-])mast\s+merge\s+[A-Z]-\d+|git\b[^;&|\n]*\smerge\b[^;&|\n]*worktree-[A-Z]-\d+")
-THRESHOLDS = range(100_000, 650_001, 50_000)
-
-
-def context(usage):
-    """С советником `usage` — сумма итераций: две итерации основной модели и одна советника,
-    контекст вышел бы вдвое больше. Контекст — последняя итерация основной модели."""
-    usage = ([i for i in usage.get("iterations") or [] if i.get("type") == "message"] or [usage])[-1]
-    return sum(usage.get(k, 0) for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+THRESHOLDS = range(100_000, 650_001, 100_000)
 
 
 def read(path, seen):
@@ -47,7 +46,7 @@ def read(path, seen):
             m = r["message"]
             if m["id"] not in ctx and m["id"] not in seen and m.get("usage"):
                 seen.add(m["id"])
-                ctx[m["id"]] = context(m["usage"])
+                ctx[m["id"]] = usage_context(m["usage"])
                 events.append(("turn", ctx[m["id"]]))
             for b in m.get("content") or []:
                 if b.get("type") == "tool_use" and b.get("name") == "Bash" and m["id"] in ctx \
@@ -110,12 +109,14 @@ def main():
     print(f"автосжатия: {len(autos)}, preTokens {min(autos) / 1000:.0f}–{max(autos) / 1000:.0f} тыс.")
     print(f"прирост между вливаниями ({len(growth)}): медиана {statistics.median(growth) / 1000:.0f} тыс., "
           f"p90 {q[-1] / 1000:.0f} тыс., максимум {max(growth) / 1000:.0f} тыс.")
+    print(f"порог = автосжатие {min(autos) / 1000:.0f} − наибольший прирост {max(growth) / 1000:.0f} = "
+          f"{(min(autos) - max(growth)) / 1000:.0f} тыс.; в хуке — {RESTART_DEFAULT} тыс.")
     total = sum(simulate(ev, 10 ** 12, base)[2] for _, _, ev in sessions)
     print("\nпорог, тыс. | перезапусков | автосжатий опережено | входных токенов")
-    for limit in THRESHOLDS:
+    for limit in sorted({*THRESHOLDS, RESTART_DEFAULT * 1000}):
         r = [simulate(ev, limit, base) for _, _, ev in sessions]
         print(f"{limit // 1000:>11} | {sum(x[0] for x in r):>12} | {sum(x[1] for x in r):>11} из {len(autos):<7} | "
-              f"{sum(x[2] for x in r) / total:.0%}")
+              f"{sum(x[2] for x in r) / total:.0%}" + ("  ← хук" if limit == RESTART_DEFAULT * 1000 else ""))
     return 0
 
 

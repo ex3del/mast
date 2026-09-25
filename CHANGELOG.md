@@ -63,6 +63,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - After `/compact` an item session in `.claude/worktrees/X-N` gets its item's line from the main copy's `ROADMAP.md` in context — the header, "My paths" and "Done when" verbatim — and the path to `STATUS.md`. Before, after the context was compacted, the model recalled the item and its criterion on its own.
 - The `<project>-dispatch` dispatcher gets its role with pointers to the skills and the output of `mast status` after `/compact`.
 - The brief comes on any session start and is at most 1500 characters; a session with no role and outside an item's worktree doesn't get it.
+- After `mast merge` a dispatcher whose context exceeds 500k tokens gets a hint: restart with `/clear`. A restart loses nothing — the brief brings back the role and `mast status` — while a long context is reread on every turn, and auto-compaction retells the conversation mid-work. The hint blocks nothing. The threshold is the line `Restart threshold: <k tokens>` in `.claude/rules/dispatch.md`: 500k is measured on a 1M-token window; for a model with a smaller window, set it below that model's auto-compaction.
 
 ### Roadmap lint
 

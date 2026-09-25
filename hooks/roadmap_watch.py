@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Быстрый вход Bash-хуков линта роадмапа: PostToolUse на каждый вызов Bash и
-PreToolUse перед git-командами — там же защиты сессий на коммит и `git merge`.
+PreToolUse перед git-командами — там же защиты сессий на коммит и `git merge`, а после
+`mast merge` — подсказка перезапуска диспетчеру.
 
 Хук стреляет на каждый Bash в любом проекте, поэтому здесь только то, что укладывается
 в старт интерпретатора: ни git, ни `json`, `re`, `subprocess`. `import subprocess` и один
@@ -73,7 +74,14 @@ def main():
         if reason:
             print(reason, file=sys.stderr)
             return 2
-    return roadmap_lint.hook(payload, lang)
+    code = roadmap_lint.hook(payload, lang)
+    if code == 0:
+        # Вливание всегда меняет роадмап, поэтому `mast merge` быстрый путь не пропускает
+        import restart
+        hint = restart.hint(payload, lang or "en")
+        if hint:
+            print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": hint}}))
+    return code
 
 
 if __name__ == "__main__":

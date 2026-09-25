@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Накладные хука Bash парно (A-24): прежний `roadmap_watch.py` и текущий вперемешку.
+"""Накладные хуков парно (A-24): прежние и текущие вперемешку.
 
-  python3 tools/hook_overhead.py [ревизия прежнего хука, по умолчанию HEAD] [N, по умолчанию 60]
+  python3 tools/hook_overhead.py [ревизия прежних хуков, по умолчанию HEAD] [N, по умолчанию 60]
 
-Прежний — `hooks/` из ревизии во временном каталоге, текущий — `hooks/` рабочего дерева.
-Вход — PostToolUse обычного Bash (`ls`) в проекте с `ROADMAP.md`, отпечаток роадмапа уже
-записан: так хук отрабатывает на каждом Bash диспетчера. python3 из PATH, как у площадки.
+Прежние — `hooks/` из ревизии во временном каталоге, текущие — `hooks/` рабочего дерева,
+порядок в паре случайный. Два входа, как на каждом вызове инструмента в проекте с
+`ROADMAP.md`: PostToolUse обычного Bash (`ls`) в `roadmap_watch.py` — отпечаток роадмапа уже
+записан, — и PreToolUse Edit обычного файла в `dispatcher.py` у сессии без роли. python3 из
+PATH, как у площадки.
 Абсолютное время зависит от машины, сравнивается разница медиан (правило `.claude/rules/hooks.md`).
 """
 import json
 import os
+import random
 import shutil
 import statistics
 import subprocess
@@ -38,25 +41,32 @@ def main():
         project.mkdir()
         (project / "ROADMAP.md").write_text("# ROADMAP\n", encoding="utf-8")
         env = {**os.environ, "CLAUDE_PROJECT_DIR": str(project), "CLAUDE_PLUGIN_DATA": str(tmp / "data")}
-        payload = json.dumps({
-            "session_id": "s", "transcript_path": str(tmp / "s.jsonl"), "cwd": str(project),
-            "hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"},
-            "tool_response": {"stdout": "ROADMAP.md", "stderr": "", "interrupted": False},
-        }).encode()
-        hooks = {"прежний": old / "roadmap_watch.py", "текущий": ROOT / "hooks" / "roadmap_watch.py"}
-        times = {k: [] for k in hooks}
+        env.pop("MAST_ROLE", None)
+        common = {"session_id": "s", "transcript_path": str(tmp / "s.jsonl"), "cwd": str(project)}
+        cases = {
+            "roadmap_watch.py, Bash": {**common, "hook_event_name": "PostToolUse", "tool_name": "Bash",
+                                       "tool_input": {"command": "ls"},
+                                       "tool_response": {"stdout": "ROADMAP.md", "stderr": "", "interrupted": False}},
+            "dispatcher.py, Edit": {**common, "hook_event_name": "PreToolUse", "tool_name": "Edit",
+                                    "tool_input": {"file_path": str(project / "x.py"), "old_string": "x"}},
+        }
+        times = {(c, v): [] for c in cases for v in ("прежний", "текущий")}
         for i in range(n + 10):
-            for name, hook in hooks.items():
-                t = time.perf_counter()
-                r = subprocess.run([python, str(hook), "ru"], input=payload, capture_output=True, env=env)
-                ms = (time.perf_counter() - t) * 1000
-                assert r.returncode == 0 and not r.stdout and not r.stderr, (name, r)
-                if i >= 10:  # первые 10 — прогрев
-                    times[name].append(ms)
-    med = {k: statistics.median(v) for k, v in times.items()}
-    for k, v in med.items():
-        print(f"{k} ({rev if k == 'прежний' else 'рабочее дерево'}): медиана {v:.2f} мс, N={n}")
-    print(f"разница: {med['текущий'] - med['прежний']:+.2f} мс")
+            for case, payload in cases.items():
+                script = case.split(",")[0]
+                pair = [("прежний", old / script), ("текущий", ROOT / "hooks" / script)]
+                random.shuffle(pair)  # первый в паре стабильно медленнее на ~0,2 мс
+                for version, hook in pair:
+                    t = time.perf_counter()
+                    r = subprocess.run([python, str(hook), "ru"], input=json.dumps(payload).encode(),
+                                       capture_output=True, env=env)
+                    ms = (time.perf_counter() - t) * 1000
+                    assert r.returncode == 0 and not r.stdout and not r.stderr, (case, version, r)
+                    if i >= 10:  # первые 10 — прогрев
+                        times[case, version].append(ms)
+    for case in cases:
+        a, b = (statistics.median(times[case, v]) for v in ("прежний", "текущий"))
+        print(f"{case}: прежний ({rev}) {a:.2f} мс, текущий {b:.2f} мс, разница {b - a:+.2f} мс, N={n}")
     return 0
 
 
