@@ -112,7 +112,7 @@ def project():
     """Проект в доверенном каталоге. В нём уже может лежать `.claude/` установки плагина
     `--scope local`; каталог после пробы остаётся — плагин снимается из него же по CLAUDE.md."""
     assert not (DIR / ".git").exists(), f"{DIR} уже репозиторий — проба берёт чистый доверенный каталог"
-    (DIR / "docs" / "roadmap").mkdir(parents=True)
+    (DIR / "docs" / "roadmap").mkdir(parents=True, exist_ok=True)
     (DIR / "ROADMAP.md").write_text(ROADMAP, encoding="utf-8")
     (DIR / "docs" / "roadmap" / "DONE.md").write_text("# Закрытые пункты\n", encoding="utf-8")
     (DIR / ".gitignore").write_text(".claude/\n")
@@ -154,8 +154,9 @@ def test_горячий_час_и_вопрос_после(project):
     assert re.search(rf"^X-1 закрыт, сессия открыта до \d\d:\d\d — `claude attach {sid}`", status, re.M), status
     assert not MISMATCH.search(status), status
 
-    # В пределах часа: вопрос через attach читается из кэша
-    word = WORD[::-1]
+    # В пределах часа: вопрос через attach читается из кэша. На экране ждём фрагмент:
+    # модель может переставить цифры, а буквы задом наперёд — только из ответа
+    word = "ЬНЕРИС"
     screen = drive(["claude", "attach", sid], "Напиши пароль пункта задом наперёд, одним словом.", word, b"\x1a")
     u = usage(agent("X-1")["sessionId"])
     context = u["input_tokens"] + u["cache_creation_input_tokens"] + u["cache_read_input_tokens"]
@@ -170,7 +171,7 @@ def test_горячий_час_и_вопрос_после(project):
     status = sh(MAST, "status")
     print(status)
     cmd = re.search(r"^X-1 закрыт, час прошёл — вопрос: `([^`]+)`", status, re.M).group(1)
-    word = WORD.lower()
+    word = "сирень"
     screen = drive(shlex.split(cmd), "Напиши пароль пункта строчными буквами, одним словом.", word, b"/exit\r")
     assert word in screen, screen[-2000:]
 

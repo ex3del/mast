@@ -42,6 +42,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - If the default branch has an upstream, it pushes and deletes the merged branch on the remote; `--no-push` skips that.
 - The branch's last commit carries a "Brief:" block for you — what was done, what changed for the user, what to check by eye, at most 800 characters; without it, or longer — a refusal. `mast merge` prints the brief, the list of files from `git diff --stat` and the command to ask the session, puts them in the closing commit, and the dispatcher forwards them to you right after the merge.
 - The merged item's session lives for another hour — the Claude Code cache's lifetime: a question through `claude attach <id>` during that hour is read from the cache. The next `mast merge` or `mast start` removes it with its worktree and branch once an hour has passed since the session's last message — previously `mast merge` removed them at once. A branch that moved ahead after the merge is not deleted.
+- Right after the merge `mast merge` sends the session a "merged" ping — through a fork, `claude -p --resume <id> --fork-session`, written nowhere on disk: the platform won't resume the background session itself this way, while the fork reads its cache (99% in the measurement) and extends the hour by the review's duration; the cache share is in the output.
 - After the hour you ask the session with the command from the closing commit or `mast status` — `claude --resume <id> --fork-session`: it brings back the item's whole history, after the cleanup too. The first such question writes the session's whole context to the cache again. The transcript is kept as long as the Claude Code setting `cleanupPeriodDays` says — 30 days by default.
 - It merges only the named item; for sessions whose branches the merge moved, it prints a ready "rebase" message, plus which items were waiting on this one and which are now ready to take.
 - Before merging it calls a reviewer without the item's history: a separate `claude -p` with no plugins, tools, `STATUS.md` log or intermediate commits sees the diff, the item's whole line — the task, the human's decisions, "Done when" — and the "ready" message. `ok` — it merges; `refused` — it changes nothing and prints the reasons for the item's session; no verdict — it doesn't merge. Edits to `.claude/`, `CLAUDE.md` and skills get a stricter review.
@@ -96,6 +97,8 @@ The hooks fire in every project where the plugin is enabled; each one starts `py
 - Edit/Write takes 19 ms longer (the dispatcher role hook and the session guards).
 
 The review in `mast merge` is one `opus` call per merge: 6–23 thousand tokens, median 13 thousand, and about 45 s when measured, 94 thousand tokens and 3 min live on a large branch (about 1000 diff lines); the token count is in the output and in the closing commit.
+
+The "merged" ping is one more call per merge: reading the item session's whole cache (170–230 thousand tokens for our sessions) and a one-word answer. Asking the session after the hour first writes its whole context to the cache, then within the hour it's read from the cache.
 
 ### Known limitations
 

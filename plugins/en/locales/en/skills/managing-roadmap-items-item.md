@@ -72,7 +72,7 @@ Closed means everything below is done, **in this order**: the measurement is tak
 - [ ] **The last commit carries everything for the archive** — messages are lost when the dispatcher restarts, commits aren't, and `mast merge` takes the thesis, the brief and the debt from here and won't merge the branch without the thesis and the brief. In its body, each at the start of a line:
   - `Done when: ` and the criterion **verbatim** from `ROADMAP.md` in `origin/main` (it may have changed while you worked), below it — `before → after` measurements and the command. With a `STATUS.md` — also into its header. Copy it, don't paraphrase it: the roadmap line will be deleted;
   - `Thesis: ` — a paragraph for `DONE.md`: what changed and the main number. The header with the date, the range and links to `STATUS.md` and an ADR is built by `mast merge`;
-  - `Brief: ` — for the human, up to 800 characters: what was done, what changed for the user, what to check by eye. `mast merge` prints it with the files and the command to ask you; for an hour after the merge you answer from the cache, follow-ups go only as a finding (section 2);
+  - `Brief: ` — for the human, up to 800 characters in one block (a blank line ends it): what was done, what changed for the user, what to check by eye. `mast merge` prints it with the files and the command to ask you; for an hour after the merge you answer from the cache, follow-ups go only as a finding (section 2);
   - `TECH_DEBT.md:` and the debt entries below it in the file's format, if any remain.
 
   Nothing left to commit — `git commit --allow-empty`.

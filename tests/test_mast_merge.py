@@ -88,6 +88,18 @@ def session(p, tmp_path, item="B-1", age=0):
     return t
 
 
+def merged_ago(p, tmp_path, age):
+    """B-1 влит age минут назад: коммит закрытия — время пинга «влит» — и последнее
+    сообщение его сессии тогда же."""
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    session(p, tmp_path)
+    env, p.env = p.env, {**p.env, "GIT_COMMITTER_DATE": f"@{int(time.time() - age * 60)} +0000"}
+    r = p.mast("merge", "B-1", "--no-push")
+    p.env = env
+    assert r.returncode == 0, r.stdout + r.stderr
+    session(p, tmp_path, age=age)
+
+
 def calls(tmp_path):
     """Вызовы заглушки `claude`, кроме `agents` и `-p`."""
     log = tmp_path / "claude.log"
@@ -314,15 +326,12 @@ def test_вливание_одной_командой(p, tmp_path):
 def test_claude_rm_удалил_ветку_сам(p, tmp_path):
     """Живой `claude rm` убирает сессию вместе с её worktree и веткой. Уборка после часа
     идёт в чужом вливании: её сбой — строка вывода, а не отказ вливания."""
-    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
-    session(p, tmp_path)
-    assert p.mast("merge", "B-1", "--no-push").returncode == 0
+    merged_ago(p, tmp_path, 61)
     (tmp_path / "fakebin" / "claude").write_text(
         '#!/bin/sh\n'
         'if [ "$1" = agents ]; then cat "$FAKE_AGENTS"; exit 0; fi\n'
         'if [ "$1" = -p ]; then cat > /dev/null; cat "$FAKE_REVIEW"; exit 0; fi\n'
         'git worktree remove --force .claude/worktrees/B-1 && git branch -D worktree-B-1\n')
-    session(p, tmp_path, age=61)
     p.branch("B-2", ({"csv/x.py": "1\n"}, ready("B-2")))
     tip = p.git("rev-parse", "worktree-B-2")
 
@@ -367,6 +376,11 @@ def test_справка_файлы_и_команда_вопроса(p, tmp_path)
     for text in (r.stdout, body):
         assert BRIEF in text and stat in text and resume in text, text
     assert "claude attach abcd1234" in r.stdout
+    # пинг «влит» — форком без записи на диск: сама `--bg` сессия `--resume` не принимает
+    assert "пинг «влит»: кэш сессии" in r.stdout
+    args = (tmp_path / "claude.log.args").read_text(encoding="utf-8")
+    assert f"--resume\n{SID}\n--fork-session\n--no-session-persistence\n" in args, args
+    assert "B-1 влит" in (tmp_path / "claude.log.input").read_text(encoding="utf-8")
     # справка — в коммите, а не в архиве: тезис в DONE.md без неё
     assert "проверить глазами" not in p.read("docs/roadmap/DONE.md")
 
@@ -384,10 +398,7 @@ def test_справка_сразу_за_тезисом_не_утекает_в_а
 def test_уборка_закрытого_следующей_командой(p, tmp_path, cmd, age, swept):
     """Сессию закрытого пункта держат час — срок кэша; убирает её следующий `mast merge`
     или `mast start`, когда с её последнего сообщения прошло больше 60 минут."""
-    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
-    session(p, tmp_path)
-    assert p.mast("merge", "B-1", "--no-push").returncode == 0
-    session(p, tmp_path, age=age)
+    merged_ago(p, tmp_path, age)
     if cmd == "merge":
         p.branch("B-2", ({"csv/x.py": "1\n"}, ready("B-2")))
         r = p.mast("merge", "B-2", "--no-push")
@@ -399,12 +410,19 @@ def test_уборка_закрытого_следующей_командой(p, 
     assert (p.git("branch", "--list", "worktree-B-1") == "") == swept
 
 
+def test_без_списка_сессий_не_убирает(p, tmp_path):
+    """`claude agents` не ответил JSON — час сессии не проверить, уборки вслепую нет."""
+    merged_ago(p, tmp_path, 61)
+    (tmp_path / "agents.json").write_text("не JSON")
+    p.branch("B-2", ({"csv/x.py": "1\n"}, ready("B-2")))
+    r = p.mast("merge", "B-2", "--no-push")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert p.worktree("B-1").exists() and p.git("branch", "--list", "worktree-B-1")
+
+
 def test_отказ_не_убирает(p, tmp_path):
     """Отказ ничего не меняет — и час чужой сессии тоже не трогает."""
-    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
-    session(p, tmp_path)
-    assert p.mast("merge", "B-1", "--no-push").returncode == 0
-    session(p, tmp_path, age=61)
+    merged_ago(p, tmp_path, 61)
     refused(p, "B-2", "worktree-B-2")
     assert "rm abcd1234" not in calls(tmp_path) and p.worktree("B-1").exists()
 
