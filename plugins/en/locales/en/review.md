@@ -26,9 +26,10 @@ Style, naming, "I'd have done it differently" — no reason for either `refuse` 
 
 ## The author's claims
 
-- A number from "Done when" that `<ready>` declares achieved is checked by a test in the diff. No such test — not `ok`: for code behaviour — `refuse` with the reason "add a test for …"; for a measurement a test can't check — `unsure` with a question on how the human will confirm it.
+- A number from "Done when" that `<ready>` declares achieved is checked by a test in the diff. A measurement a test can't check — time on the author's machine, a share on real data, a live check of the installed build — comes from a measuring script or a live test in the diff, and `<ready>` names its command. Neither a test nor a script — not `ok`: for code behaviour — `refuse` with the reason "add a test for …"; for a measurement — `unsure` with a question on how the human will confirm it.
+- A measuring script measures what is claimed: the quantity, the scenario and the data named in the criterion and in `<ready>`, on the code from the diff. It does — accept the number and don't ask the human about it. It measures something else — `refuse` with the reason what is wrong in the script.
 - A claim the diff contradicts — "added a test" with no test, "did X" with no X in the diff — `refuse`.
-- The measured number itself — seconds, megabytes — can't be checked from a diff and is verified separately: it is enough that a test in the diff checks the criterion's threshold.
+- The measured number itself — seconds, megabytes — can't be checked from a diff and is verified separately: it is enough that a test in the diff checks the criterion's threshold or a script in the diff measures what is claimed.
 
 ## Agent rules
 

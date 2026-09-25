@@ -6,6 +6,8 @@ Read it in full at the start, reread section 3 before closing: the checklist is 
 
 **Take the baseline measurement now, not at closing.** Run the scenario from "Done when" against the current code and record "before" together with the measuring command: in `Journal`, or in the body of the item's first commit if there's no `STATUS.md`. If the feature doesn't exist yet, say so: the command and "no, n/a". Without a "before", the decision stays just words.
 
+**A number no test checks — a script in the branch.** Time, a share on real data, a live check of the installed build — a number from "Done when" that no test checks, you measure with a script or a live test and put it in the branch outside `docs/roadmap/`, e.g. next to the tests. The `mast merge` reviewer sees the diff without `docs/roadmap/` and turns a number whose method it can't see into a question for the human. The "before" and "after" command is this script.
+
 **`STATUS.md` is opened by you, not the dispatcher, and only if at least one of these signs holds:**
 
 1. a plan with several tasks is needed — call `writing-plans`;
@@ -66,7 +68,7 @@ Closed means everything below is done, **in this order**: the measurement is tak
 - [ ] **The changelog and user docs are updated**, or split off into a separate item through the dispatcher. A feature the user never learned about isn't done.
 - [ ] **Archive:** `git mv docs/roadmap/B-4 docs/roadmap/done/B-4` on your branch. There was no folder — skip this.
 - [ ] **Fresh `main`:** `git fetch origin && git rebase origin/main` (here and below, `main` is your repository's default branch; yours may be named differently, e.g. `master`), the **whole project test suite** is green, not just the item's tests, `git status` is clean. After the rebase, push your branch with `git push --force-with-lease origin worktree-B-4` — this isn't a question for the human, there are no foreign commits on it.
-- [ ] **"After" measurement** — on the code after the rebase, with the same command as "before": before → after. "Before" wasn't taken — measure it on the commit right before the item's first one.
+- [ ] **"After" measurement** — on the code after the rebase, with the same command as "before": before → after; a number no test checks — a script in the branch (section 1). "Before" wasn't taken — measure it on the commit right before the item's first one.
 - [ ] **The last commit carries everything for the archive** — messages are lost when the dispatcher restarts, commits aren't, and `mast merge` takes the thesis and the debt from here and won't merge the branch without them. In its body, each at the start of a line:
   - `Done when: ` and the criterion **verbatim** from `ROADMAP.md` in `origin/main` (it may have changed while you worked), below it — `before → after` measurements and the command. With a `STATUS.md` — also into its header. Copy it, don't paraphrase it: the roadmap line will be deleted;
   - `Thesis: ` — a paragraph for `DONE.md`: what changed and the main number. The header with the date, the range and links to `STATUS.md` and an ADR is built by `mast merge`;

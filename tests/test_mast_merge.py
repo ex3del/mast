@@ -401,6 +401,19 @@ def test_скилл_учит_форме_которую_разбирает_mast_m
         assert mast.DEBT_HEAD.match(debt), f"{lang}: {debt!r}"
 
 
+def test_скилл_велит_класть_скрипт_замера_в_ветку():
+    """Число вне тестов ревьюер принимает, только видя в диффе скрипт замера (A-22), а дифф
+    он получает без исключений `REVIEWED`. Скилл сессии пункта называет их, иначе скрипт
+    ляжет рядом со `STATUS.md` — и вопрос снова уйдёт человеку."""
+    excluded = [x.split(")", 1)[1] for x in mast.REVIEWED if x.startswith(":(exclude)")]
+    for lang, rule in (("ru", "**Число, которого нет в тестах, — скриптом в ветке.**"),
+                       ("en", "**A number no test checks — a script in the branch.**")):
+        text = (ROOT / f"plugins/{lang}/locales/{lang}/skills/managing-roadmap-items-item.md").read_text(encoding="utf-8")
+        para = next((x for x in text.split("\n\n") if x.startswith(rule)), "")
+        assert para, f"{lang}: нет правила «{rule}»"
+        assert all(f"`{path}/`" in para for path in excluded), f"{lang}: {excluded}"
+
+
 def test_раздел_вливание_короткий():
     """Механику делает `mast merge`, раздел — только как его звать и что он проверяет.
     Было 3514 (ru) и 3916 (en); английский той же мысли длиннее примерно на десятую.

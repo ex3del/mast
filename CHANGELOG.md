@@ -44,6 +44,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - It merges only the named item; for sessions whose branches the merge moved, it prints a ready "rebase" message, plus which items were waiting on this one and which are now ready to take.
 - Before merging it calls a reviewer without the item's history: a separate `claude -p` with no plugins, tools, `STATUS.md` log or intermediate commits sees the diff, the item's whole line — the task, the human's decisions, "Done when" — and the "ready" message. `ok` — it merges; `refused` — it changes nothing and prints the reasons for the item's session; no verdict — it doesn't merge. Edits to `.claude/`, `CLAUDE.md` and skills get a stricter review.
 - The reviewer gets the project rules — the ones a session editing the diff's files would get: the project `CLAUDE.md`, `.claude/rules/` with no `paths:` or with matching ones, the global `~/.claude/CLAUDE.md`. A broken rule — a refusal; what you decided in the item's line the reviewer doesn't ask again; a measurement claimed in "ready" with no test in the diff checking it — not `ok`.
+- A number from "Done when" that no test can check — time, a share on real data, a live check of the installed build — the reviewer accepts without asking you if the diff holds the measuring script or live test that produced it and the script measures what is claimed. The script measures something else — a refusal; no script — a question to you, as before. The item session skill says to put such a script in the branch outside `docs/roadmap/`: the reviewer doesn't see that folder.
 - Files marked `linguist-generated` in `.gitattributes` (lock files, build output) are not sent to the reviewer: there is nothing to check in them, and they eat a lot of tokens.
 - The reviewer is unsure — the script gives the item `waiting on human: <the reviewer's question>` in a separate commit. You answered "merge" — the dispatcher replaces the slot with `human decided: <answer>`, and `mast merge` merges without a new review while the diff is the same; the question and the answer stay in the closing commit.
 
@@ -91,7 +92,7 @@ The hooks fire in every project where the plugin is enabled; each one starts `py
 - a commit from a worktree takes 8 ms more (does it carry roadmap files?);
 - Edit/Write takes 19 ms longer (the dispatcher role hook and the session guards).
 
-The review in `mast merge` is one `opus` call per merge: 5–14 thousand tokens and about 40 s when measured, 94 thousand tokens and 3 min live on a large branch (about 1000 diff lines); the token count is in the output and in the closing commit.
+The review in `mast merge` is one `opus` call per merge: 6–23 thousand tokens, median 13 thousand, and about 45 s when measured, 94 thousand tokens and 3 min live on a large branch (about 1000 diff lines); the token count is in the output and in the closing commit.
 
 ### Known limitations
 
