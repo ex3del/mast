@@ -167,6 +167,71 @@ DECIDED_ROADMAP = ROADMAP.replace(
     "  Решение человека 20.09: правило о пакетном рендере — на весь проект, `paths: \"**\"`, а не\n"
     "  `reports/**`: `render_rows` зовут и `csv/`, и будущий `xlsx/`.\n", 1)
 
+# Число, которое тестом в репозитории не проверить: архив прода лежит только у автора
+ARCHIVE = ("отчёт на 500 строк < 3 с; на архиве прода `/srv/reports/archive` (1 000 отчётов) "
+           "пакетный PDF совпадает с построчным — 0 расхождений из 1 000.")
+ARCHIVE_ROADMAP = ROADMAP.replace("Готово когда: отчёт на 500 строк < 3 с.", f"Готово когда: {ARCHIVE}", 1)
+ARCHIVE_READY = f"""[B-1] готов
+
+Готово когда: {ARCHIVE}
+Замер: 500 строк — было 8 с → стало 2 с, tests/test_pdf.py. Архив — н/д → 0 расхождений
+из 1 000, `python3 tools/measure_archive.py /srv/reports/archive`.
+
+Тезис: Отчёт рендерится 8 с → 2 с; пакетный PDF совпадает с построчным на 1 000 отчётах архива.
+"""
+MEASURE = '''"""Замер: пакетный PDF против построчного на архиве отчётов.
+
+Запуск: `python3 tools/measure_archive.py <каталог>` — отчёты `*.json` (список строк);
+печатает число расхождений из числа отчётов."""
+import json
+import sys
+from pathlib import Path
+
+from reports.pdf import export_pdf
+from reports.render import render_rows
+
+
+def main(folder):
+    reports = sorted(Path(folder).glob("*.json"))
+    bad = 0
+    for path in reports:
+        rows = json.loads(path.read_text())
+        if export_pdf(rows) != b"".join(render_rows([r]) for r in rows):
+            bad += 1
+    print(f"расхождений: {bad} из {len(reports)}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])
+'''
+# Считает упавшие экспорты, а печатает их как расхождения с построчным PDF
+WRONG_MEASURE = '''"""Замер: пакетный PDF против построчного на архиве отчётов.
+
+Запуск: `python3 tools/measure_archive.py <каталог>` — отчёты `*.json` (список строк);
+печатает число расхождений из числа отчётов."""
+import json
+import sys
+from pathlib import Path
+
+from reports.pdf import export_pdf
+
+
+def main(folder):
+    reports = sorted(Path(folder).glob("*.json"))
+    bad = 0
+    for path in reports:
+        rows = json.loads(path.read_text())
+        try:
+            export_pdf(rows)
+        except Exception:
+            bad += 1
+    print(f"расхождений: {bad} из {len(reports)}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])
+'''
+
 # фикстура → (пункт, файлы ветки, файлы main до ветки, глобальный CLAUDE.md, допустимые вердикты)
 NOT_OK = {"отказ", "не уверен"}
 CASES = {
@@ -180,7 +245,14 @@ CASES = {
     "решение человека в строке": ("B-1", {**PDF, ".claude/rules/reports.md": WIDE_RULE},
                                   {"ROADMAP.md": DECIDED_ROADMAP}, "", {"ок", "отказ"}),
     "замер без теста": ("B-1", {"reports/pdf.py": PDF["reports/pdf.py"]}, {}, "", NOT_OK),
+    "замер со скриптом": ("B-1", {**PDF, "tools/measure_archive.py": MEASURE},
+                          {"ROADMAP.md": ARCHIVE_ROADMAP}, "", {"ок"}),
+    "замер без скрипта": ("B-1", PDF, {"ROADMAP.md": ARCHIVE_ROADMAP}, "", NOT_OK),
+    "скрипт меряет не то": ("B-1", {**PDF, "tools/measure_archive.py": WRONG_MEASURE},
+                            {"ROADMAP.md": ARCHIVE_ROADMAP}, "", NOT_OK),
 }
+# Своё сообщение «готов» — у фикстур с другим критерием; остальным — `ready(пункт)`
+READY = {case: ARCHIVE_READY for case in ("замер со скриптом", "замер без скрипта", "скрипт меряет не то")}
 
 
 # Как `bin/mast` плагина, но с глобальным каталогом фикстуры в `mast.CLAUDE_HOME`
@@ -207,7 +279,7 @@ def test_ревью_на_фикстуре(tmp_path, live, case, run):
     home.mkdir()
     if global_md:
         (home / "CLAUDE.md").write_text(global_md, encoding="utf-8")
-    p.branch(item, (files, ready(item)))
+    p.branch(item, (files, READY.get(case) or ready(item)))
     r = subprocess.run([sys.executable, "-c", BOOT, str(ROOT / "plugins" / "ru" / "hooks"), str(home),
                         "merge", item, "--no-push"], cwd=p.root, env=live, capture_output=True, text=True)
     out = r.stdout + r.stderr
