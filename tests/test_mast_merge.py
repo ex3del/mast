@@ -209,11 +209,17 @@ def test_отказ_без_тезиса(p):
     refused(p, "B-1", "Тезис")
 
 
-def test_отказ_часть_работы_уже_в_main(p):
-    """Второй заход или правка в основной копии — нестандартный случай, к человеку."""
+def test_часть_работы_уже_в_main_вливается_и_названа_в_архиве(p):
+    """Второй заход или правка в основной копии: вливает сам, а ранние коммиты называет
+    в тезисе и коммите закрытия — диапазон ветки в архиве не всё."""
     p.commit({"reports/early.py": "1\n"}, "[B-1] начало в основной копии")
+    early = p.git("rev-parse", "--short=7", "HEAD")
     p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
-    refused(p, "B-1", "[B-1] начало в основной копии")
+    r = p.mast("merge", "B-1", "--no-push")
+    assert r.returncode == 0, r.stdout + r.stderr
+    tail = f"{early} [B-1] начало в основной копии"
+    assert f"Отчёт рендерится 8 с → 2 с. Часть работы раньше в main: {tail}" in p.read("docs/roadmap/DONE.md")
+    assert tail in p.git("log", "-1", "--format=%b")
 
 
 def test_отказ_нет_ветки(p):
@@ -235,6 +241,7 @@ def test_учётные_коммиты_диспетчера_не_второй_з
     p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
     r = p.mast("merge", "B-1", "--no-push")
     assert r.returncode == 0, r.stdout + r.stderr
+    assert "раньше в main" not in p.read("docs/roadmap/DONE.md") + p.git("log", "-1", "--format=%b")
 
 
 # --- вливание одной командой ---

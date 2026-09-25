@@ -38,6 +38,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - `mast merge X-N` merges an item in one command from the main copy; it's available in Claude Code's Bash tool, since the plugin puts it on `PATH`.
 - A fast-forward of the branch, then one commit: the thesis in `DONE.md`, the item's line removed from `ROADMAP.md`, debt entries from the branch's last commit added to `TECH_DEBT.md`.
 - It refuses before merging and changes nothing if the branch isn't a fast-forward, has commits without the item's prefix, edits `ROADMAP.md`, `DONE.md`, or `TECH_DEBT.md`, or its last commit lacks the verbatim criterion, "before → after" measurements, or the thesis.
+- If part of the item's work was already in main — a second attempt or an edit in the main copy — `mast merge` merges anyway and lists those commits in the `DONE.md` thesis and the closing commit.
 - If the default branch has an upstream, it pushes and deletes the merged branch on the remote; `--no-push` skips that.
 - It removes the item's session, worktree, and branch.
 - It merges only the named item; for sessions whose branches the merge moved, it prints a ready "rebase" message, plus which items were waiting on this one and which are now ready to take.
@@ -72,7 +73,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - A hook denies edits to `ROADMAP.md`, `docs/roadmap/DONE.md`, and `TECH_DEBT.md` in an item's worktree: only the main copy edits them, and an edit on the branch used to surface as a rebase conflict or a `mast merge` refusal. The reason says where to write instead: the line, debt, a finding — to the dispatcher; the thesis and debt for the archive — in the last commit.
 - A `git commit` from a worktree that carries these files is refused, with the command to restore them.
 - In a project with `ROADMAP.md` superpowers plans and specs don't go to `docs/superpowers/`: the hook denies the write and names the item's path — `docs/roadmap/<X-N>/STATUS.md`, with the spec next to it.
-- A hook denies `git merge` of an item branch (`worktree-X-N`) and points to `mast merge X-N`; the dispatcher's subagent branches (`worktree-agent-*`) still merge with `git merge --ff-only`. If `mast merge` refused with "part of the work is already in main", you merge in your own terminal.
+- A hook denies `git merge` of an item branch (`worktree-X-N`) and points to `mast merge X-N`; the dispatcher's subagent branches (`worktree-agent-*`) still merge with `git merge --ff-only`.
 - The guards apply to every session, not only the dispatcher. On the history of two projects — 28,539 edits and commands — there were 0 false denials.
 
 ### For contributors

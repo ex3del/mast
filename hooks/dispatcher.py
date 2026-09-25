@@ -99,14 +99,11 @@ PLANS = {
 MERGE = {
     "ru": "MAST: ветку пункта вливает `mast merge {i}` из основной копии — он проверяет ветку, "
           "вливает fast-forward и одним коммитом переносит тезис в `DONE.md`, убирает строку и "
-          "заносит долг, потом убирает worktree; `git merge` оставил бы роадмап наполовину. "
-          "Если `mast merge` откажет с «часть работы уже в main» — вливает человек в своём "
-          "терминале.",
+          "заносит долг, потом убирает worktree; `git merge` оставил бы роадмап наполовину.",
     "en": "MAST: an item branch is merged by `mast merge {i}` from the main copy — it checks "
           "the branch, fast-forwards, moves the thesis to `DONE.md`, drops the line and records "
           "debt in one commit, then removes the worktree; `git merge` would leave the roadmap "
-          "half-done. If `mast merge` refuses with \"part of the work is already in main\", the "
-          "human merges in their own terminal.",
+          "half-done.",
 }
 
 

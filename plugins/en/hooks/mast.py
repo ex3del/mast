@@ -120,8 +120,7 @@ T = {
                    'the last commit of {b} has no "before → after" measurements'),
     "no_thesis": ("в последнем коммите {b} нет абзаца «Тезис:» для DONE.md",
                   'the last commit of {b} has no "Thesis:" paragraph for DONE.md'),
-    "earlier": ("часть работы {i} уже в main: {c} — нестандартный случай, вливай руками с человеком",
-                "part of {i} is already in main: {c} — a non-standard case, merge by hand with the human"),
+    "earlier": ("Часть работы раньше в main: {c}", "Part of the work was in main earlier: {c}"),
     "lint": ("после вливания линт нашёл бы: {e}", "after the merge the lint would report: {e}"),
     "v_ok": ("ок", "ok"),
     "v_refuse": ("отказ", "refused"),
@@ -477,11 +476,11 @@ def close(item, tip, do_push):
     row = parse(roadmap)[0][item]
     crit = criterion(row["body"])
     thesis, debt = check(item, base, tip, crit)
+    # Второй заход или работа в основной копии: диапазон ветки — не вся работа, архив называет остальное
     earlier = earlier_work(item)
-    if earlier:
-        raise Refusal(say("earlier", i=item, c="; ".join(earlier)))
+    tail = [say("earlier", c="; ".join(earlier))] if earlier else []
     new_roadmap = drop_row(roadmap, item)
-    new_done = add_thesis(done, section(roadmap, item), thesis_entry(item, row, base, tip, thesis))
+    new_done = add_thesis(done, section(roadmap, item), thesis_entry(item, row, base, tip, " ".join([thesis] + tail)))
     old = set(lint(roadmap, done, LANG))
     errors = [e for e in lint(new_roadmap, new_done, LANG) if e not in old]
     if errors:
@@ -494,7 +493,7 @@ def close(item, tip, do_push):
     write(DONE, new_done)
     if debt:
         write(DEBT, (debt_text.rstrip("\n") + "\n\n" if debt_text else "") + debt + "\n")
-    msg = say("closed", i=item) + f"\n\n{review}"
+    msg = "\n\n".join([say("closed", i=item), review] + tail)
     r = run("git", "add", "--", *changed)
     r = r if r.returncode else run("git", "commit", "-q", "-m", msg, "--", *changed)
     if r.returncode:
