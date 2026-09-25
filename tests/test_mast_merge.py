@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,7 @@ ROADMAP = f"""# Роадмап
 
 - **B-3** Экспорт XLSX — запланирован · —
   Зависит от: B-1
+  Мои пути: xlsx/**
   Готово когда: 10 листов < 1 с.
 """
 DONE = """# Закрытые пункты
@@ -58,10 +60,38 @@ def verdict(tmp_path, v="ok", reasons=("дифф выполняет критер
         ensure_ascii=False), encoding="utf-8")
 
 
-def ready(item, thesis="Отчёт рендерится 8 с → 2 с.", debt=None):
+BRIEF = ("- сделано: экспорт отчёта в PDF.\n- для пользователя: отчёт на 500 строк за 2 с вместо 8.\n"
+         "- проверить глазами: открыть отчёт на 500 строк.")
+
+
+def ready(item, thesis="Отчёт рендерится 8 с → 2 с.", debt=None, brief=BRIEF):
     """Последний коммит готовой ветки — в той форме, что велит скилл сессии пункта."""
     msg = f"[{item}] готов\n\nГотово когда: {CRIT[item]}\nЗамер: было 8 с → стало 2 с.\n\nТезис: {thesis}\n"
+    msg += f"\nСправка:\n{brief}\n" if brief is not None else ""
     return msg + (f"\nTECH_DEBT.md:\n{debt}\n" if debt else "")
+
+
+SID = "abcd1234-0000-4000-8000-000000000001"
+
+
+def session(p, tmp_path, item="B-1", age=0):
+    """Живая сессия пункта в его worktree, как её отдаёт `claude agents --json --all`,
+    и её транскрипт: последнее сообщение — age минут назад. Возвращает путь транскрипта."""
+    (tmp_path / "agents.json").write_text(json.dumps([
+        {"pid": 1, "id": "abcd1234", "cwd": str(p.worktree(item)), "kind": "background",
+         "sessionId": SID, "name": item, "status": "idle", "state": "done"}]))
+    t = tmp_path / "claude-home" / "projects" / "-p-wt" / f"{SID}.jsonl"
+    t.parent.mkdir(parents=True, exist_ok=True)
+    t.write_text("{}\n")
+    when = time.time() - age * 60
+    os.utime(t, (when, when))
+    return t
+
+
+def calls(tmp_path):
+    """Вызовы заглушки `claude`, кроме `agents` и `-p`."""
+    log = tmp_path / "claude.log"
+    return log.read_text(encoding="utf-8").splitlines() if log.exists() else []
 
 
 @pytest.fixture
@@ -276,29 +306,107 @@ def test_вливание_одной_командой(p, tmp_path):
     assert sorted(p.git("show", "--name-only", "--format=", "HEAD").split()) == [
         "ROADMAP.md", "TECH_DEBT.md", "docs/roadmap/DONE.md"]
     assert p.git("status", "--porcelain") == ""
-    # уборка: сессия пункта по своему worktree, сам worktree и ветка
-    assert (tmp_path / "claude.log").read_text().split("\n")[0] == "rm abcd1234"
-    assert not p.worktree("B-1").exists()
-    assert p.git("branch", "--list", "worktree-B-1") == ""
+    # горячий час: сессия пункта, его worktree и ветка остаются
+    assert not [c for c in calls(tmp_path) if c.startswith("rm ")]
+    assert p.worktree("B-1").exists() and p.git("branch", "--list", "worktree-B-1")
 
 
 def test_claude_rm_удалил_ветку_сам(p, tmp_path):
-    """Живой `claude rm` убирает сессию вместе с её worktree и веткой. После коммита
-    закрытия «Отказ, ничего не изменено» — ложь: диспетчер начнёт вливать заново."""
+    """Живой `claude rm` убирает сессию вместе с её worktree и веткой. Уборка после часа
+    идёт в чужом вливании: её сбой — строка вывода, а не отказ вливания."""
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    session(p, tmp_path)
+    assert p.mast("merge", "B-1", "--no-push").returncode == 0
     (tmp_path / "fakebin" / "claude").write_text(
         '#!/bin/sh\n'
         'if [ "$1" = agents ]; then cat "$FAKE_AGENTS"; exit 0; fi\n'
         'if [ "$1" = -p ]; then cat > /dev/null; cat "$FAKE_REVIEW"; exit 0; fi\n'
         'git worktree remove --force .claude/worktrees/B-1 && git branch -D worktree-B-1\n')
-    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
-    (tmp_path / "agents.json").write_text(json.dumps([{"id": "abcd1234", "cwd": str(p.worktree("B-1"))}]))
-    tip = p.git("rev-parse", "worktree-B-1")
+    session(p, tmp_path, age=61)
+    p.branch("B-2", ({"csv/x.py": "1\n"}, ready("B-2")))
+    tip = p.git("rev-parse", "worktree-B-2")
+
+    r = p.mast("merge", "B-2", "--no-push")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "ничего не изменено" not in r.stdout + r.stderr
+    assert p.git("log", "-1", "--format=%s") == "[B-2] закрыт" and p.git("rev-parse", "HEAD~1") == tip
+    assert not p.worktree("B-1").exists() and p.git("branch", "--list", "worktree-B-1") == ""
+
+
+# --- справка сессии и горячий час ---
+
+def test_отказ_без_справки(p):
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1", brief=None)))
+    refused(p, "B-1", "Справка")
+
+
+@pytest.mark.parametrize("size, merged", [(800, True), (801, False)])
+def test_справка_не_длиннее_800(p, size, merged):
+    """Считается текст блока без заголовка `Справка:`."""
+    brief = ("- " + "а" * size)[:size]
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1", brief=brief)))
+    if merged:
+        r = p.mast("merge", "B-1", "--no-push")
+        assert r.returncode == 0, r.stdout + r.stderr
+    else:
+        refused(p, "B-1", "800")
+
+
+def test_справка_файлы_и_команда_вопроса(p, tmp_path):
+    """Справку человек получает от диспетчера из вывода, а позже находит в коммите закрытия:
+    там же список файлов от git, а не от модели, и команда, которой спросить сессию."""
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, "[B-1] рендер"), ({"reports/fonts.py": "2\n"}, ready("B-1")))
+    session(p, tmp_path)
+    base, tip = p.head(), p.git("rev-parse", "worktree-B-1")
+    stat = p.git("diff", "--stat", base, tip)
 
     r = p.mast("merge", "B-1", "--no-push")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "ничего не изменено" not in r.stdout + r.stderr
-    assert p.git("log", "-1", "--format=%s") == "[B-1] закрыт" and p.git("rev-parse", "HEAD~1") == tip
-    assert not p.worktree("B-1").exists() and p.git("branch", "--list", "worktree-B-1") == ""
+    body = p.git("log", "-1", "--format=%b")
+    resume = f"claude --resume {SID} --fork-session"
+    for text in (r.stdout, body):
+        assert BRIEF in text and stat in text and resume in text, text
+    assert "claude attach abcd1234" in r.stdout
+    # справка — в коммите, а не в архиве: тезис в DONE.md без неё
+    assert "проверить глазами" not in p.read("docs/roadmap/DONE.md")
+
+
+def test_справка_сразу_за_тезисом_не_утекает_в_архив(p):
+    p.branch("B-1", ({"reports/pdf.py": "1\n"},
+                     ready("B-1").replace("\n\nСправка:", "\nСправка:")))
+    r = p.mast("merge", "B-1", "--no-push")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "проверить глазами" not in p.read("docs/roadmap/DONE.md")
+
+
+@pytest.mark.parametrize("cmd", ["merge", "start"])
+@pytest.mark.parametrize("age, swept", [(59, False), (61, True)])
+def test_уборка_закрытого_следующей_командой(p, tmp_path, cmd, age, swept):
+    """Сессию закрытого пункта держат час — срок кэша; убирает её следующий `mast merge`
+    или `mast start`, когда с её последнего сообщения прошло больше 60 минут."""
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    session(p, tmp_path)
+    assert p.mast("merge", "B-1", "--no-push").returncode == 0
+    session(p, tmp_path, age=age)
+    if cmd == "merge":
+        p.branch("B-2", ({"csv/x.py": "1\n"}, ready("B-2")))
+        r = p.mast("merge", "B-2", "--no-push")
+    else:
+        r = p.mast("start", "B-3", "--no-push")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert ("rm abcd1234" in calls(tmp_path)) == swept, calls(tmp_path)
+    assert p.worktree("B-1").exists() != swept
+    assert (p.git("branch", "--list", "worktree-B-1") == "") == swept
+
+
+def test_отказ_не_убирает(p, tmp_path):
+    """Отказ ничего не меняет — и час чужой сессии тоже не трогает."""
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    session(p, tmp_path)
+    assert p.mast("merge", "B-1", "--no-push").returncode == 0
+    session(p, tmp_path, age=61)
+    refused(p, "B-2", "worktree-B-2")
+    assert "rm abcd1234" not in calls(tmp_path) and p.worktree("B-1").exists()
 
 
 def test_коммит_закрытия_не_прошёл_не_отказ(p):
@@ -394,11 +502,23 @@ def test_скилл_учит_форме_которую_разбирает_mast_m
     for lang in ("ru", "en"):
         text = (ROOT / f"plugins/{lang}/locales/{lang}/skills/managing-roadmap-items-item.md").read_text(encoding="utf-8")
         heads = re.findall(r"^  - `([^`]+)`", text, re.M)
-        assert len(heads) == 3, f"{lang}: блоки последнего коммита не найдены: {heads}"
-        crit, thesis, debt = heads
+        assert len(heads) == 4, f"{lang}: блоки последнего коммита не найдены: {heads}"
+        crit, thesis, brief, debt = heads
         assert mast.CRIT_LINE.match(crit + "x"), f"{lang}: {crit!r}"
         assert mast.THESIS.match(thesis + "x"), f"{lang}: {thesis!r}"
+        assert mast.BRIEF.match(brief + "x"), f"{lang}: {brief!r}"
         assert mast.DEBT_HEAD.match(debt), f"{lang}: {debt!r}"
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_скилл_сессии_требует_справку(lang):
+    """Без блока справки в последнем коммите `mast merge` откажет: скилл сессии пункта
+    называет его, его предел и что в нём писать."""
+    text = (ROOT / f"plugins/{lang}/locales/{lang}/skills/managing-roadmap-items-item.md").read_text(encoding="utf-8")
+    line = next((l for l in text.splitlines() if (m := re.match(r"^  - `([^`]+)`", l))
+                 and mast.BRIEF.match(m.group(1) + "x")), "")
+    assert line, f"{lang}: нет блока справки среди блоков последнего коммита"
+    assert str(mast.BRIEF_LIMIT) in line, line
 
 
 @pytest.mark.parametrize("lang, rule", [("ru", "**Число, которого нет в тестах, — скриптом в ветке.**"),

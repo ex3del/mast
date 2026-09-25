@@ -219,3 +219,72 @@ def test_шаблон_правила_диспетчера_несёт_порог_
         text = (ROOT / f"plugins/{lang}/locales/{lang}/templates/dispatch.rule.template.md").read_text(encoding="utf-8")
         m = mast.SILENCE.search(text)
         assert m and int(m.group(1)) == 30, lang
+
+
+# --- закрытый пункт: горячий час ---
+
+def closed(p, age, sid="0000b0b0"):
+    """Закрытый B-0 (есть в DONE.md, нет в ROADMAP.md) с worktree и сессией в нём;
+    последнее сообщение сессии — age минут назад. Возвращает (сессия, время сообщения)."""
+    p.git("worktree", "add", "-q", str(p.worktree("B-0")), "-b", "worktree-B-0")
+    t = Path(p.env["CLAUDE_CONFIG_DIR"]) / "projects" / "-p-wt" / "B-0-uuid.jsonl"
+    t.parent.mkdir(parents=True, exist_ok=True)
+    t.write_text("{}\n")
+    when = NOW - age * 60
+    os.utime(t, (when, when))
+    return agent("B-0", p.worktree("B-0"), sid, state="done"), when
+
+
+def in_work(p):
+    p.item("B-1")
+    p.item("B-2")
+    return agent("B-1", p.worktree("B-1"), "aaaa1111"), agent("B-2", p.worktree("B-2"), "bbbb2222")
+
+
+def test_закрыт_горячий_час(p):
+    """Сессия влитого пункта живёт час — срок кэша: её worktree не сирота, она не лишняя,
+    а сессия с именем закрытого пункта вне worktree — вопрос после часа — тоже не лишняя."""
+    b0, when = closed(p, age=10)
+    p.agents(*in_work(p), b0, agent("B-0", p.root))
+    out = p.status()
+    until = time.strftime("%H:%M", time.localtime(when + 3600))
+    assert re.search(rf"^B-0 закрыт, сессия открыта до {until} — `claude attach 0000b0b0`", out, re.M), out
+    assert mismatches(out) == [], out
+
+
+def test_закрыт_час_прошёл(p):
+    b0, _ = closed(p, age=61)
+    p.agents(*in_work(p), b0)
+    out = p.status()
+    line = next((l for l in out.splitlines() if l.startswith("B-0 закрыт, час прошёл")), "")
+    assert "`claude --resume B-0-uuid --fork-session`" in line and "`claude rm 0000b0b0`" in line, out
+    assert mismatches(out) == [], out
+
+
+def test_status_не_убирает(p, tmp_path):
+    """Сторож: сверка ничего не меняет — ни `claude rm`, ни `git worktree remove`,
+    даже когда час сессии закрытого пункта прошёл."""
+    b0, _ = closed(p, age=120)
+    p.agents(*in_work(p), b0)
+    p.status()
+    log = tmp_path / "claude.log"
+    assert not [l for l in (log.read_text().splitlines() if log.exists() else []) if l.startswith("rm")]
+    assert p.worktree("B-0").exists() and p.git("branch", "--list", "worktree-B-0")
+
+
+def test_снятый_с_worktree_сирота(p):
+    p.write(p.root, {"docs/roadmap/DONE.md": p.read("docs/roadmap/DONE.md")
+                     + "\n## Снято\n\n- **B-9** Экспорт ODS — снят 20.09: не нужен.\n"})
+    p.git("worktree", "add", "-q", str(p.worktree("B-9")), "-b", "worktree-B-9")
+    p.agents(*in_work(p))
+    found = mismatches(p.status())
+    assert len(found) == 1 and found[0].startswith("сирота") and "B-9" in found[0], found
+
+
+def test_брошен_после_обрыва(p):
+    """После обрыва API `state` остаётся `blocked`, а процесса нет — ни `pid`, ни `status`:
+    пункт брошен, а не «в работе»."""
+    b1, _ = in_work(p)
+    p.agents(b1, agent("B-2", p.worktree("B-2"), "bbbb2222", state="blocked", live=False))
+    found = mismatches(p.status())
+    assert len(found) == 1 and found[0].startswith("B-2 брошен"), found
