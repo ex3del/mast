@@ -13,8 +13,10 @@
 `не уверен` — слот «ждёт человека» коммитом, без вердикта — отказ. Ответ человека
 `решил человек` вливает без ревьюера, только пока дифф тот же, о котором спрашивали:
 отпечаток диффа — в теле коммита слота. Потом ff-мердж, тезис в
-DONE.md, удаление строки из ROADMAP.md и записи долга — одним коммитом, push,
-уборка сессии, worktree и ветки. Вливается ровно названная ветка: для веток
+DONE.md, удаление строки из ROADMAP.md и записи долга — одним коммитом; в его теле и
+в выводе — справка сессии, `git diff --stat` и команда вопроса к сессии. Потом push.
+Сессия влитого пункта живёт час — срок кэша: её, worktree и ветку убирают следующие
+`mast merge` и `mast start` после успеха, когда час прошёл. Вливается ровно названная ветка: для веток
 других пунктов «в работе», которые сдвинул мердж, в выводе — текст для их сессий.
 Сбой после мерджа — не отказ: вывод говорит, что сделано и что доделать.
 
@@ -26,7 +28,8 @@ push и `claude --bg` с промптом из шаблона; последня�
 даже если push не было.
 
 `mast status` сверяет пункты «в работе» основной копии, её worktree и сессии из
-`claude agents --json --all`: брошен, сирота, лишняя. Сессия пункта без коммита
+`claude agents --json --all`: брошен, сирота, лишняя; закрытый пункт с worktree —
+до какого часа его сессия отвечает из кэша и чем её спросить потом. Сессия пункта без коммита
 дольше порога — пометка, а не отказ: ложная тревога дороже медленного обнаружения.
 """
 import datetime
@@ -44,7 +47,7 @@ from pathlib import Path
 
 from plugin_names import PLUGIN
 from review import NoVerdict, ask
-from roadmap_lint import ITEM, STATUS, WAITING, criterion, detect_lang, lint, parse, ready, waiting
+from roadmap_lint import ITEM, STATUS, WAITING, criterion, detect_lang, lint, parse, ready, split_ledger, waiting
 
 ROADMAP, DONE, DEBT = "ROADMAP.md", "docs/roadmap/DONE.md", "TECH_DEBT.md"
 ID = re.compile(r"^[A-Z]-\d+$")
@@ -53,6 +56,11 @@ ID = re.compile(r"^[A-Z]-\d+$")
 CRIT_LINE = re.compile(r"^\s*(?:готово когда|done when)[^:\n]*:", re.I | re.M)
 THESIS = re.compile(r"^\s*(?:черновик\s+)?(?:тезис|(?:draft\s+)?thesis)[^:\n]*:(.*)$", re.I)
 DEBT_HEAD = re.compile(r"^\s*[^:\n]*TECH_DEBT\.md`?\s*:\s*$")
+BRIEF = re.compile(r"^\s*(?:справка|brief)[^:\n]*:(.*)$", re.I)
+# Справка человеку — беглый взгляд, а не отчёт: предел — текст блока без заголовка
+BRIEF_LIMIT = 800
+# Срок кэша Claude Code от последнего сообщения: столько живёт сессия закрытого пункта
+HOUR = 3600
 PREFIX = re.compile(r"(?:\[[A-Z]-\d+\]\s*)+")
 # Коммиты пункта в main, которые делает диспетчер по скиллу (завёл, взял, поменял
 # критерий, перенёс находку с её тестом) или сессия находкой, — не часть работы пункта
@@ -120,6 +128,18 @@ T = {
                    'the last commit of {b} has no "before → after" measurements'),
     "no_thesis": ("в последнем коммите {b} нет абзаца «Тезис:» для DONE.md",
                   'the last commit of {b} has no "Thesis:" paragraph for DONE.md'),
+    "no_brief": ("в последнем коммите {b} нет блока «Справка:» для человека",
+                 'the last commit of {b} has no "Brief:" block for the human'),
+    "long_brief": ("справка в последнем коммите {b} — {n} символов при пределе {t}",
+                   "the brief in the last commit of {b} is {n} characters, the limit is {t}"),
+    "brief": ("Справка:\n{b}", "Brief:\n{b}"),
+    "files": ("Файлы:\n{s}", "Files:\n{s}"),
+    "resume": ("Вопрос сессии: `{c}`", "Ask the session: `{c}`"),
+    "ask_hot": ("Вопрос сессии: `claude attach {id}` — из кэша до {t}, позже — `{c}`",
+                "Ask the session: `claude attach {id}` — from the cache until {t}, later — `{c}`"),
+    "no_session": ("Сессии пункта нет — спросить некого", "No item session — nobody to ask"),
+    "swept": ("{i}: час после вливания прошёл — сессия, worktree и ветка убраны",
+              "{i}: the hour after the merge is over — session, worktree and branch removed"),
     "earlier": ("Часть работы раньше в main: {c}", "Part of the work was in main earlier: {c}"),
     "lint": ("после вливания линт нашёл бы: {e}", "after the merge the lint would report: {e}"),
     "v_ok": ("ок", "ok"),
@@ -181,6 +201,12 @@ T = {
               "{i} quiet: no commit for {m} min, threshold {t} — a flag, not a verdict: ask the session"),
     "no_agents": ("сессии не сверены: нет `claude` или его вывод не JSON — брошенные и лишние не проверены",
                   "sessions not checked: no `claude` or its output isn't JSON — abandoned and stray not checked"),
+    "hot": ("{i} закрыт, сессия открыта до {t} — `claude attach {id}`",
+            "{i} closed, the session is open until {t} — `claude attach {id}`"),
+    "cold": ("{i} закрыт, час прошёл", "{i} closed, the hour is over"),
+    "gone": ("{i} закрыт, сессия остановлена", "{i} closed, the session is stopped"),
+    "cold_ask": (" — вопрос: `{c}`", " — ask: `{c}`"),
+    "cold_rm": (" · убрать: `claude rm {id}`", " · remove: `claude rm {id}`"),
     "waiting": ("ждёт человека — {w}", "waiting on human — {w}"),
     "clean": ("Брошенных, сирот и лишних нет", "No abandoned items, orphans or strays"),
     "not_ready": ("{i}: не готов к взятию — статус «{s}», зависимости: {d}; очередь — roadmap_lint.py --ready",
@@ -262,30 +288,39 @@ def norm(text):
     return " ".join(text.split())
 
 
+def paragraph(lines, first):
+    """Строки блока до пустой строки или заголовка другого блока."""
+    para = [first]
+    for nxt in lines:
+        if not nxt.strip() or any(h.match(nxt) for h in (THESIS, BRIEF, DEBT_HEAD, CRIT_LINE)):
+            break
+        para.append(nxt)
+    return para
+
+
 def blocks(body):
-    """Тезис одной строкой и записи долга из тела коммита; тезиса нет — None."""
-    lines, thesis, debt = body.splitlines(), None, []
+    """Тезис одной строкой, записи долга и справка из тела коммита; нет тезиса или справки — None."""
+    lines, thesis, debt, brief = body.splitlines(), None, [], None
     for i, line in enumerate(lines):
-        m = THESIS.match(line)
+        m, b = THESIS.match(line), BRIEF.match(line)
         if m and thesis is None:
-            para = [m.group(1)]
-            for nxt in lines[i + 1:]:
-                if not nxt.strip() or DEBT_HEAD.match(nxt) or CRIT_LINE.match(nxt):
-                    break
-                para.append(nxt)
             # Шапку строки DONE.md строит скрипт — из черновика берём только текст
-            thesis = " ".join(p.strip() for p in para if p.strip() and not ITEM.match(p.strip()))
+            thesis = " ".join(p.strip() for p in paragraph(lines[i + 1:], m.group(1))
+                              if p.strip() and not ITEM.match(p.strip()))
+        elif b and brief is None:
+            brief = textwrap.dedent("\n".join(paragraph(lines[i + 1:], b.group(1)))).strip()
         elif DEBT_HEAD.match(line):
             for nxt in lines[i + 1:]:
                 if nxt.strip() and not nxt.startswith((" ", "\t", "- ")):
                     break
                 debt.append(nxt)
     # Записи в TECH_DEBT.md разделены пустой строкой, а сессия пишет их в коммит подряд
-    return thesis or None, re.sub(r"\s*\n(?=- )", "\n\n", textwrap.dedent("\n".join(debt)).strip())
+    debt = re.sub(r"\s*\n(?=- )", "\n\n", textwrap.dedent("\n".join(debt)).strip())
+    return thesis or None, debt, brief or None
 
 
 def check(item, base, tip, crit):
-    """Отказы по ветке: диапазон, файлы роадмапа, последний коммит. Возвращает (тезис, долг)."""
+    """Отказы по ветке: диапазон, файлы роадмапа, последний коммит. Возвращает (тезис, долг, справка)."""
     b = f"worktree-{item}"
     subjects = git("log", "--format=%h %s", f"{base}..{tip}").splitlines()
     if not subjects:
@@ -304,10 +339,14 @@ def check(item, base, tip, crit):
     # Форма замера, не его правдивость: цифры смотрит диспетчер
     if "→" not in body and "->" not in body:
         raise Refusal(say("no_measure", b=b))
-    thesis, debt = blocks(body)
+    thesis, debt, brief = blocks(body)
     if not thesis:
         raise Refusal(say("no_thesis", b=b))
-    return thesis, debt
+    if not brief:
+        raise Refusal(say("no_brief", b=b))
+    if len(brief) > BRIEF_LIMIT:
+        raise Refusal(say("long_brief", b=b, n=len(brief), t=BRIEF_LIMIT))
+    return thesis, debt, brief
 
 
 def earlier_work(item):
@@ -468,14 +507,17 @@ def verdict(item, base, tip, body, head, do_push, roadmap, done):
                             q=question)] + notes))
 
 
-def close(item, tip, do_push):
-    """Отказы и ревью, затем ff-мердж и одна правка трёх файлов одним коммитом.
-    Возвращает диапазон и строку вердикта ревью."""
+def close(item, tip, do_push, a):
+    """Отказы и ревью, затем ff-мердж и одна правка трёх файлов одним коммитом. В его теле —
+    справка, файлы и команда вопроса к сессии `a`. Возвращает диапазон, вердикт ревью и
+    справку с файлами."""
     base = git("rev-parse", "HEAD")
     roadmap, done, debt_text = read(ROADMAP), read(DONE), read(DEBT)
     row = parse(roadmap)[0][item]
     crit = criterion(row["body"])
-    thesis, debt = check(item, base, tip, crit)
+    thesis, debt, brief = check(item, base, tip, crit)
+    # Список файлов — от git, а не пересказ модели
+    told = [say("brief", b=brief), say("files", s=run("git", "diff", "--stat", base, tip).stdout.rstrip())]
     # Второй заход или работа в основной копии: диапазон ветки — не вся работа, архив называет остальное
     earlier = earlier_work(item)
     tail = [say("earlier", c="; ".join(earlier))] if earlier else []
@@ -493,13 +535,15 @@ def close(item, tip, do_push):
     write(DONE, new_done)
     if debt:
         write(DEBT, (debt_text.rstrip("\n") + "\n\n" if debt_text else "") + debt + "\n")
-    msg = "\n\n".join([say("closed", i=item), review] + tail)
+    # В коммит — команда, которая переживёт уборку сессии: полный sessionId
+    ask = [say("resume", c=resume(a))] if a and a.get("sessionId") else []
+    msg = "\n\n".join([say("closed", i=item), review] + tail + told + ask)
     r = run("git", "add", "--", *changed)
     r = r if r.returncode else run("git", "commit", "-q", "-m", msg, "--", *changed)
     if r.returncode:
         # Мердж уже сделан: не «отказ, ничего не изменено», а выход с тем, что доделать
         sys.exit(say("commit_failed", e=(r.stderr or r.stdout).strip(), m=msg, f=" ".join(changed)))
-    return f"{base[:7]}..{tip[:7]}", review
+    return f"{base[:7]}..{tip[:7]}", review, told
 
 
 def worktree_path(item):
@@ -516,33 +560,85 @@ def agents():
         return None
 
 
-def session(path):
-    """id фоновой сессии, чей cwd — worktree пункта; нет `claude` — None."""
+def session(path, listed):
+    """Сессия из `listed`, чей cwd — worktree пункта: живая раньше, свежая раньше; нет — None."""
     real = os.path.realpath(path)
-    return next((a["id"] for a in agents() or []
-                 if a.get("id") and os.path.realpath(a.get("cwd") or "/") == real), None)
+    own = sorted((a for a in listed or [] if os.path.realpath(a.get("cwd") or "/") == real),
+                 key=lambda a: (not alive(a), -a.get("startedAt", 0)))
+    return own[0] if own else None
 
 
-def cleanup(item, tip):
-    """Сессия, worktree и ветка пункта. Сбой уборки не отменяет вливание — он в вывод."""
+def resume(a):
+    """Вопрос сессии после часа: работает и после `claude rm`, и при живой `--bg` сессии —
+    её саму `--resume` не поднимает, форк получает всю историю."""
+    return f"claude --resume {a['sessionId']} --fork-session"
+
+
+def last_message(sid):
+    """Время последней записи транскрипта сессии — от него живёт кэш; транскрипта нет — 0."""
+    found = (CLAUDE_HOME / "projects").glob(f"*/{sid}.jsonl") if sid else []
+    return max((f.stat().st_mtime for f in found), default=0)
+
+
+def clock(ts):
+    return time.strftime("%H:%M", time.localtime(ts))
+
+
+def ask_line(a):
+    """Чем спросить сессию влитого пункта: в горячий час — `claude attach`, потом — форк."""
+    if not a or not a.get("sessionId"):
+        return say("no_session")
+    until = last_message(a["sessionId"]) + HOUR
+    if alive(a) and a.get("id") and until > time.time():
+        return say("ask_hot", id=a["id"], t=clock(until), c=resume(a))
+    return say("resume", c=resume(a))
+
+
+def item_trees():
+    """Пункты с worktree в `.claude/worktrees/`; worktree субагентов (`agent-…`) — не пункты."""
+    trees = os.path.realpath(os.path.join(os.getcwd(), ".claude", "worktrees"))
+    paths = (os.path.realpath(line[9:]) for line in git("worktree", "list", "--porcelain").splitlines()
+             if line.startswith("worktree "))
+    return {Path(p).name for p in paths if os.path.dirname(p) == trees and ID.match(Path(p).name)}
+
+
+def closed_items():
+    """Закрытые пункты: в DONE.md вне «Снято» и не в ROADMAP.md."""
+    archived, dropped = split_ledger(read(DONE))
+    return set(archived) - set(dropped) - set(parse(read(ROADMAP))[0])
+
+
+def closed_trees(listed):
+    """[(пункт, его сессия или None)] — закрытые пункты, чей worktree ещё на месте."""
+    return [(i, session(worktree_path(i), listed)) for i in sorted(item_trees() & closed_items())]
+
+
+def sweep(merged=None):
+    """Уборка закрытых пунктов, чей час прошёл, кроме только что влитого. Зовут `mast merge`
+    и `mast start` после успеха: отказ ничего не меняет, а `mast status` только сверяет."""
+    notes = []
+    for item, a in closed_trees(agents()):
+        if item != merged and (last_message(a.get("sessionId")) if a else 0) + HOUR < time.time():
+            notes += [say("swept", i=item)] + [say("cleanup", i=item, w=n) for n in cleanup(item, a)]
+    return notes
+
+
+def cleanup(item, a):
+    """Сессия `a`, worktree и ветка пункта. Сбой уборки не отменяет вливание — он в вывод."""
     path, branch, notes = worktree_path(item), f"worktree-{item}", []
-    sid = session(path)
-    if sid:
-        r = run("claude", "rm", sid)
+    if a and a.get("id"):
+        r = run("claude", "rm", a["id"])
         if r.returncode:
-            notes.append(f"claude rm {sid}: {(r.stderr or r.stdout).strip()}")
+            notes.append(f"claude rm {a['id']}: {(r.stderr or r.stdout).strip()}")
     listed = [os.path.realpath(line[9:]) for line in git("worktree", "list", "--porcelain").splitlines()
               if line.startswith("worktree ")]
     if os.path.realpath(path) in listed:
         r = run("git", "worktree", "remove", str(path))
         if r.returncode:
             notes.append(r.stderr.strip())
-    # `claude rm` удаляет сессию вместе с её worktree и веткой — ветки может уже не быть
-    now = run("git", "rev-parse", "-q", "--verify", branch).stdout.strip()
-    if now and now != tip:
-        notes.append(f"{branch} сдвинулась после проверки — не удаляю" if LANG == "ru"
-                     else f"{branch} moved after the check — not deleting")
-    elif now:
+    # `claude rm` удаляет сессию вместе с её worktree и веткой — ветки может уже не быть.
+    # `-d`, а не `-D`: ветка, ушедшая вперёд после вливания, остаётся с причиной в выводе
+    if ok("rev-parse", "-q", "--verify", branch):
         r = run("git", "branch", "-d", branch)
         if r.returncode:
             notes.append(r.stderr.strip())
@@ -596,12 +692,13 @@ def merge(item, do_push):
         raise Refusal(say("not_ff", b=branch))
 
     old_head = git("rev-parse", "HEAD")
-    span, review = close(item, tip, do_push)
-    out = [say("merged", i=item, r=span), review]
+    a = session(worktree_path(item), agents())
+    span, review, told = close(item, tip, do_push, a)
+    out = [say("merged", i=item, r=span), review] + told + [ask_line(a)]
     # Коммит закрытия сделан: «отказ, ничего не изменено» отсюда — ложь, сбой идёт строкой вывода
     try:
         out += push([branch]) if do_push else [say("no_push", w="--no-push")]
-        out += [say("cleanup", i=item, w=n) for n in cleanup(item, tip)]
+        out += sweep(item)
         out += moved(old_head, item)
     except Refusal as e:
         out.append(str(e))
@@ -738,6 +835,7 @@ def start(item, model, advisor, force, tail, do_push):
            "--settings", BASE_HEAD, " ".join(prompt)]
     r = run(*cmd) if shutil.which("claude") else None
     sid = r and ATTACH.search(ANSI.sub("", r.stdout))
+    out += sweep() if sid else []
     print("\n".join(out))
     if not sid:
         # Коммит уже сделан: не «отказ, ничего не изменено», а что сделано и как запустить
@@ -748,9 +846,10 @@ def start(item, model, advisor, force, tail, do_push):
 
 
 def alive(a):
-    """Процесс сессии жив. `claude stop` оставляет `state: done`, но убирает `pid` и
-    `status`; `done` с живым процессом — ход кончен, сессия ждёт промпта."""
-    return a.get("state") in ("working", "blocked") or a.get("status") is not None
+    """Процесс сессии жив — у него есть `pid` или `status`. `state` не в счёт: `claude stop`
+    оставляет `done`, обрыв API — `blocked`, а процесса нет; `done` с живым процессом — ход
+    кончен, сессия ждёт промпта."""
+    return a.get("pid") is not None or a.get("status") is not None
 
 
 def silence_threshold():
@@ -776,9 +875,6 @@ def status():
         raise Refusal(say("no_roadmap"))
     in_work = {i: r for i, r in parse(read(ROADMAP))[0].items() if r["status"] == "в работе"}
     trees = os.path.join(root, ".claude", "worktrees")
-    # Worktree субагентов (`agent-…`) лежат там же, но пунктами не являются
-    item_trees = {Path(p).name for p in (os.path.realpath(l[9:]) for l in tree if l.startswith("worktree "))
-                  if os.path.dirname(p) == trees and ID.match(Path(p).name)}
     listed = agents()
     # Сессии других проектов на машине сверку не касаются
     mine = [a for a in listed or [] if (os.path.realpath(a.get("cwd") or "/") + os.sep).startswith(root + os.sep)]
@@ -802,9 +898,16 @@ def status():
         quiet = quiet_minutes(item, a.get("startedAt", 0))
         if quiet > threshold:
             out.append(say("quiet", i=item, m=quiet, t=threshold))
-    bad += [say("orphan", i=i) for i in sorted(item_trees - set(in_work))]
+    closed = closed_trees(mine)
+    for item, a in closed if listed is not None else []:
+        taken |= {a.get("sessionId")} if a else set()
+        out.append(closed_line(item, a))
+    bad += [say("orphan", i=i) for i in sorted(item_trees() - set(in_work) - {i for i, _ in closed})]
+    # Имя закрытого пункта держать незачем: его не возьмут снова — сессия вопроса к нему не лишняя
+    done = closed_items()
     bad += [say("stray", n=a["name"], id=a.get("id") or f"pid {a.get('pid')}") for a in mine
-            if alive(a) and ITEM_NAME.match(a.get("name") or "") and a.get("sessionId") not in taken]
+            if alive(a) and (m := ITEM_NAME.match(a.get("name") or "")) and m.group(1) not in done
+            and a.get("sessionId") not in taken]
     out += bad
     if listed is None:
         out.append(say("no_agents"))
@@ -815,6 +918,16 @@ def status():
     if inbox:
         out.append(say("inbox", n=len(inbox)))
     return "\n".join(out)
+
+
+def closed_line(item, a):
+    """Строка сверки закрытого пункта: до какого часа сессия отвечает из кэша, потом — чем спросить."""
+    until = (last_message(a.get("sessionId")) if a else 0) + HOUR
+    if a and alive(a) and a.get("id") and until > time.time():
+        return say("hot", i=item, t=clock(until), id=a["id"])
+    line = say("cold" if a and alive(a) else "gone", i=item)
+    line += say("cold_ask", c=resume(a)) if a and a.get("sessionId") else ""
+    return line + (say("cold_rm", id=a["id"]) if a and a.get("id") else "")
 
 
 def start_args(args):

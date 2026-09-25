@@ -18,7 +18,7 @@ import sys
 
 import pytest
 
-from test_mast_merge import ROADMAP, ROOT, Project, ready
+from test_mast_merge import BRIEF, ROADMAP, ROOT, Project, ready
 
 pytestmark = pytest.mark.skipif(not os.environ.get("MAST_LIVE"), reason="живой замер: MAST_LIVE=1")
 
@@ -178,6 +178,9 @@ ARCHIVE_READY = f"""[B-1] готов
 из 1 000, `python3 tools/measure_archive.py /srv/reports/archive`.
 
 Тезис: Отчёт рендерится 8 с → 2 с; пакетный PDF совпадает с построчным на 1 000 отчётах архива.
+
+Справка:
+{BRIEF}
 """
 MEASURE = '''"""Замер: пакетный PDF против построчного на архиве отчётов.
 
