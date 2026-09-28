@@ -4,6 +4,96 @@
 **Не трогаю:** всё остальное; исключение — `docs/research/2026-09-25-prod-ops/fixture.py` рядом с `measure.py` (выгрузка фикстуры) и этот файл
 **Готово когда:** по фикстуре команд `83cd81f4` — отказ на 324 из 324 прод-вызовов, ложных отказов на 674 непрод-вызовах ≤ 1%; живьём на установленном плагине: у сессии `<проект>-dispatch` `ssh` на хост — отказ 1 из 1, та же команда её субагентом — выполнена 1 из 1, у сессии пункта — выполнена 1 из 1; `mast merge` в проекте со строкой `Прод:` — текст выкладки для сессии пункта 1 из 1, без строки — 0; накладные хуков на Bash вне роли диспетчера — парным замером, в среднем не выше 20 мс.
 
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** основной поток сессии `*-dispatch` не выполняет прод-команды: хук отказывает с причиной, субагенту и сессиям пунктов — пропуск; `mast merge` поручает выкладку сессии пункта.
+
+**Architecture:** разбор команды — новый модуль `hooks/prod.py` (перенос из `measure.py`: сегменты с маской кавычек, heredoc, `bash <файл>`, `bash -c`), ленивый импорт из PreToolUse-пути `roadmap_watch.py`. Роль и `agent_id` проверяются по байтам входа до импорта. В `hooks.json` — обработчики с `if` на слова внешних инструментов (`prod.FILTER`) для Bash и PowerShell, командой тот же `roadmap_watch.py`. `mast merge` при строке `Прод:` печатает текст выкладки.
+
+**Tech Stack:** Python 3 stdlib, pytest.
+
+**Spec:** строка A-26 в `ROADMAP.md`; ресёрч `docs/research/2026-09-25-prod-ops.md` (разделы 1.3, 4, 5); формат `.claude/mast.md` — тело коммита 49ae4f7.
+
+## Global Constraints
+
+- Имя плагина в коде — только из `hooks/plugin_names.py`; тексты — на обоих языках.
+- Код хуков правится в корневых `hooks/`, копии — `python3 tools/sync_plugins.py`.
+- Версия обоих плагинов растёт вместе: 3.3.26 → 3.3.27.
+- Код на медленном пути Bash — модулем с ленивым импортом (`.claude/rules/hooks.md`).
+- Парсер настроек якорится на `^(Прод|Prod)\s*:`, строк может быть несколько, запятая — разделитель.
+- Шаблон сверяется по словам: первое — слово команды (или `ИМЯ=значение` окружения), остальные — вхождения в аргументы без порядка (`clearml-task --project mnist` ловит `clearml-task --name x --project mnist`).
+
+## Review Focus
+
+- Сообщение коммита или `echo` со словами `ssh reinhold-vps` — не прод (маска кавычек, тела heredoc не для оболочки).
+- `cat > d.sh <<EOF … ssh … EOF && bash d.sh` — файл ещё не записан на диске, тело берётся из той же команды.
+- `ssh -G host`, `rsync ./a ./b`, `docker ps`, `docker --context default ps` — не прод.
+- PowerShell: `$env:DOCKER_CONTEXT = "prod"; docker ps` — прод.
+- `.claude/mast.md` с прозой, где `Прод` посреди строки, — шаблонов 0.
+
+---
+
+### Task 1: модуль `hooks/prod.py` — разбор команды и шаблоны `Прод:`
+
+**Files:** Create `hooks/prod.py`; Test `tests/test_prod_guard.py`
+
+**Interfaces — Produces:**
+- `FILTER: tuple[str, ...]` — слова фильтра `if`, `clearml*` со звёздочкой;
+- `patterns(project: Path) -> list[list[str]]` — шаблоны из `.claude/mast.md`, пусто — файла или строки нет;
+- `hit(command: str, pats: list[list[str]], cwd: Path) -> str | None` — текст первого прод-сегмента;
+- `refusal(payload: dict, lang: str) -> str | None` — причина отказа (роль проверяет вызывающий).
+
+- [ ] Красные тесты: базовый список (ssh на хост, scp/rsync `host:`, `aws s3`, `mc cp`, `rclone`, `lakectl`, `clearml-task`, `kubectl`, `dvc push`, `docker --context x`, `DOCKER_CONTEXT=x python3 r.py`) — прод; `ssh -G`, `rsync ./a ./b`, `docker ps`, `docker --context default ps`, `git commit -m "ssh h"`, `echo ssh h` — нет; heredoc `bash <<EOF`, `bash -c "ssh h"`, `bash файл` с диска и из `cat > f <<EOF` той же команды; шаблоны `curl api.telegram.org`, `clearml-task --project mnist`, `DOCKER_CONTEXT=prod-vps`; две строки `Прод:`/`Prod:`, проза с `Прод` посреди строки; PowerShell `$env:`.
+- [ ] `python3 -m pytest tests/test_prod_guard.py` — падает на импорте `prod`.
+- [ ] `hooks/prod.py` по интерфейсу выше.
+- [ ] Зелёный; коммит `[A-26] prod.py: разбор команды и шаблоны Прод:`.
+
+### Task 2: хук у диспетчера — `roadmap_watch.py` и разводка `hooks.json`
+
+**Files:** Modify `hooks/roadmap_watch.py`, `plugins/{ru,en}/hooks/hooks.json`; Test `tests/test_prod_guard.py`, `tests/test_hooks_wiring.py`
+
+**Interfaces — Consumes:** `prod.refusal`, `prod.FILTER`.
+
+- [ ] Красные тесты (подпроцесс `roadmap_watch.py`, как зовёт площадка): `MAST_ROLE=dispatcher` + `ssh h` → код 2, причина в stderr; тот же вход с `agent_id` → 0; роль по файлу `<CLAUDE_PLUGIN_DATA>/<session_id>.role`; без роли → 0; `git status` у диспетчера → 0. Разводка: для каждого слова `FILTER` в обоих плагинах — `Bash(<слово> *)` и `PowerShell(<слово> *)` (`clearml*` — без ` *`) на `roadmap_watch.py <язык>`.
+- [ ] `roadmap_watch.dispatcher_thread(raw: bytes) -> bool` — без `json`; PreToolUse: быстрый выход, если не поток диспетчера и нет `commit`/`merge `; иначе после `shell_refusal` — `prod.refusal`.
+- [ ] `hooks.json` обоих плагинов; `python3 tools/sync_plugins.py`; бамп 3.3.27.
+- [ ] Зелёный весь набор; коммит `[A-26] хук: прод-команды основному потоку диспетчера — отказ`.
+
+### Task 3: `mast merge` — текст выкладки для сессии пункта
+
+**Files:** Modify `hooks/mast.py` (`merge`), `hooks/mast_texts.py` (ключ `deploy`); Test `tests/test_mast_merge.py`
+
+- [ ] Красный тест: `.claude/mast.md` со строкой `Прод: ssh train-box` — в выводе `mast merge B-1` текст «выложи по процедуре проекта и пришли проверку» 1 раз; без строки — 0.
+- [ ] `merge()`: `if prod.patterns(Path.cwd()): out.append(say("deploy", i=item))`.
+- [ ] Зелёный; коммит `[A-26] mast merge: поручение выкладки сессии пункта при строке Прод:`.
+
+### Task 4: тексты — шаблон, скилл диспетчера, CHANGELOG
+
+**Files:** `plugins/*/locales/*/templates/mast.template.md`, `plugins/*/locales/*/skills/managing-roadmap-items-dispatcher.md`, `CHANGELOG.md`, `CHANGELOG.ru.md`
+
+- [ ] Шаблон: базовый список без строки; шаблон с аргументами сверяется по словам без порядка; хук зовётся только на команды внешних инструментов — `python scripts/…` виден, лишь если запущен через них.
+- [ ] Скилл диспетчера: хук отклоняет прод-команды, состояние — субагентом, текст выкладки из `mast merge` пересылается сессии пункта.
+- [ ] CHANGELOG обоих языков, раздел 4.0.0; `pytest` (сторож локалей); коммит.
+
+### Task 5: фикстура `83cd81f4` и накладные
+
+**Files:** `tests/fixtures/dispatch-83cd81f4.jsonl` (выгружает человек), `tests/test_prod_guard.py`, `tools/hook_overhead.py`
+
+- [ ] Тест по фикстуре: отказ на прод-вызовах N из N, ложных на непрод ≤ 1%; печать доли вызовов под фильтром (эмуляция по живому замеру 28.09) и полноты через фильтр.
+- [ ] `hook_overhead.py`: случай PreToolUse `ssh …` у сессии без роли; среднее = PostToolUse + доли git/прод-фильтра по фикстуре.
+- [ ] Коммит с числами.
+
+### Task 6: живьём на установленном плагине и закрытие
+
+- [ ] `tools/serve_marketplace.py` по CLAUDE.md; `claude -p --name <x>-dispatch`: `ssh -o ConnectTimeout=1 train-box true` — отказ; то же субагентом — выполнена; сессия в `.claude/worktrees/X-1` — выполнена; `compare` — 0 отличий своего.
+- [ ] Закрытие по разделу 3 скилла: rebase на локальный `main`, весь набор, замеры «после», последний коммит.
+
+## Нерешённые вопросы
+
+- фикстура: запуск `fixture.py` человеком, взгляд на персональные данные
+- `DOCKER_CONTEXT=x python3 …` фильтр не видит — долг или слово `python3` в фильтр (цена всем)
+- `timeout ssh`, `env X=y docker` — мимо фильтра; долг
+
 ## Журнал
 
 - 28.09 — базовый замер на `bdcdbd6` (3.3.26):
