@@ -790,3 +790,22 @@ def test_строгая_планка_для_правил_агента(p, tmp_pat
     task = (tmp_path / "claude.log.input").read_text(encoding="utf-8")
     strict = re.search(r"<strict_files>\n(.*?)</strict_files>", task, re.S).group(1).split()
     assert sorted(strict) == [".claude/rules/reports.md", "plugins/ru/skills/y/SKILL.md", "sub/CLAUDE.md"]
+
+
+@pytest.mark.parametrize("lang,settings,told", [
+    ("ru", "Порог тишины: 30 мин\nПрод: ssh train-box, aws s3 cp s3://ml-datasets\n", 1),
+    ("en", "Prod: ssh train-box\n", 1),
+    ("ru", "Порог тишины: 30 мин\n\nКлюч `Прод` и шаблоны через запятую.\n", 0),
+    ("ru", None, 0),
+])
+def test_поручение_выкладки_при_строке_прод(p, lang, settings, told):
+    """Диспетчеру прод закрыт хуком (A-26): выкладку после вливания делает сессия пункта,
+    `mast merge` печатает текст для неё, если проект объявил прод в `.claude/mast.md`."""
+    if settings is not None:
+        p.commit({".claude/mast.md": settings}, "настройки")
+    p.branch("B-1", ({"reports/pdf.py": "1\n"}, ready("B-1")))
+    r = p.mast("merge", "B-1", "--no-push", lang=lang)
+    assert r.returncode == 0, r.stdout + r.stderr
+    needle = {"ru": "выложи по процедуре проекта и пришли проверку",
+              "en": "deploy it per the project's procedure and send back the check"}[lang]
+    assert r.stdout.count(needle) == told, r.stdout

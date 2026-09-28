@@ -74,6 +74,10 @@ T = {
                "Сделай git rebase на свежий main и прогони весь набор тестов, прежде чем писать, что готов.»",
                "{i}: the merge of {m} moved its branch — send the {i} session via SendMessage: \"{m} is in main. "
                "Rebase onto a fresh main and run the whole test suite before reporting ready.\""),
+    "deploy": ("{i}: в `.claude/mast.md` объявлен прод — отправь сессии {i} через SendMessage: «{i} влит. "
+               "Если пункт требует выкладки — выложи по процедуре проекта и пришли проверку.»",
+               "{i}: `.claude/mast.md` declares prod — send the {i} session via SendMessage: \"{i} is merged. "
+               "If the item needs a deploy, deploy it per the project's procedure and send back the check.\""),
     "pushed": ("push: {r}", "push: {r}"),
     "no_push": ("push пропущен: {w}", "push skipped: {w}"),
     "no_upstream": ("у ветки нет upstream", "the branch has no upstream"),

@@ -47,6 +47,7 @@ from pathlib import Path
 
 from mast_texts import T
 from plugin_names import PLUGIN
+from prod import patterns
 from review import NoVerdict, ask
 from roadmap_lint import ITEM, STATUS, WAITING, criterion, detect_lang, lint, parse, ready, split_ledger, waiting
 
@@ -562,6 +563,9 @@ def merge(item, do_push):
     a = session(worktree_path(item), agents())
     span, review, told = close(item, tip, do_push, a)
     out = [say("merged", i=item, r=span), review] + told + [ask_line(a)]
+    # Прод диспетчеру закрыт хуком (`prod.py`): выкладку поручают сессии пункта
+    if patterns(Path.cwd()):
+        out.append(say("deploy", i=item))
     # Коммит закрытия сделан: «отказ, ничего не изменено» отсюда — ложь, сбой идёт строкой вывода
     try:
         out += push([branch]) if do_push else [say("no_push", w="--no-push")]
