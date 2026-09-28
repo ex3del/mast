@@ -127,6 +127,13 @@
   Стена параллельных запусков `roadmap_watch.py` (18 ядер): 1 — 13,6 мс, 2 — 15,7, 16 — 38,6,
   32 — 79,3; `python3 -S` экономит 0,6 мс. `wget` из фильтра убран: его не было в решении человека.
 
+- 28.09 — живьём на установленном плагине: `mast-ru` 3.3.31 из git-маркетплейса
+  `tools/serve_marketplace.py --name mast-a26`, `--scope local` в `/private/tmp/mast-check-a26`,
+  Claude Code 2.1.283; `MAST_LIVE=1 python3 -m pytest tests/test_prod_live.py -v -s` — 3 passed:
+  `mastcheck-dispatch` `ssh … train-box true` — отказ 1 из 1 (сессия 0ff08d4b); её субагент — выполнена
+  1 из 1, `ssh: Could not resolve hostname` (eb62e426); сессия `X-1` в `.claude/worktrees/X-1` —
+  выполнена 1 из 1 (8cb9866a).
+
 ## Проблемы
 
 - Потолок 20 мс в среднем под угрозой: «неразбираемая» команда зовёт 15 обработчиков прод-фильтра
