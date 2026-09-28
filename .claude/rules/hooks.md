@@ -4,6 +4,7 @@ paths:
   - "hooks/roadmap_watch.py"
   - "hooks/restart.py"
   - "hooks/mast.py"
+  - "hooks/prod.py"
   - "plugins/*/hooks/hooks.json"
   - "plugins/*/locales/*/templates/*.template.md"
 ---
@@ -23,3 +24,7 @@ python3 из PATH. Абсолютное время зависит от маши�
 Настройка проекта для скриптов плагина — строка `Ключ: значение` в `.claude/mast.md` (шаблон
 `mast.template.md`, ключ на обоих языках), не в `.claude/rules/`: файл в `rules/` агент получает
 в контекст, а `dispatch.md` своим наличием разрешает `sonnet` (A-25).
+
+Новое слово в фильтре `if` на Bash (`prod.FILTER`, `hooks.json`) — ещё один процесс python3 на каждую
+команду, которую площадка не может разобрать (7,7% команд): их она отдаёт всем обработчикам разом.
+Мерить `python3 tools/hook_overhead.py <база> 60 --mix ~/.claude/projects` до и после (A-26).
