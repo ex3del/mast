@@ -225,10 +225,15 @@ claude --name <проект>-dispatch --model opus --advisor fable \
 - **Что он делает:** заводит пункты в `ROADMAP.md`, запускает на каждый сессию в своём
   worktree, разбирает находки, вливает готовые ветки по одной, переносит закрытое в
   `DONE.md`. `ROADMAP.md`, `DONE.md` и `TECH_DEBT.md` правит только он.
+- **Чего он не делает.** Код не правит: Edit/Write вне `ROADMAP.md`, `docs/roadmap/` и
+  `TECH_DEBT.md` хук у него отклоняет — мелочь он отдаёт субагенту в worktree. На прод сам не
+  ходит: команды на сервер, в хранилище данных, в трекер экспериментов хук тоже отклоняет —
+  выкладку делает сессия пункта, состояние смотрит субагент. Фоновой сессией (`claude --bg`)
+  диспетчер не бывает: такой площадка не даёт править основную копию.
 - **Сессии пунктов руками не запускаются** — диспетчер стартует их сам фоном одной
   командой `mast start A-1`, по умолчанию на `opus` с советником `fable`. Она откажет,
-  если пункт не готов, пути пересекаются с пунктом в работе или `sonnet` достался
-  opus-зоне. Список — `claude agents`, зайти в
+  если пункт не готов, пути пересекаются с пунктом в работе или `sonnet` запрошен без
+  `.claude/rules/dispatch.md` или на opus-зоне. Список — `claude agents`, зайти в
   сессию — `claude attach <id>`: эту строку `mast start` печатает последней.
 - **Вопросы о состоянии** («что от меня надо», «что A-4 сделал по итогу») — через `/btw`:
   ответ из контекста диспетчера, в его историю не попадает. Сам диспетчер спрашивает вас
@@ -273,7 +278,7 @@ claude --name <проект>-dispatch --model opus --advisor fable \
 [`/mast-ru:init-project`](plugins/ru/commands/init-project.md) — опись проекта → предложения
 с вопросом по каждому файлу → применение и линт. Пять ограждений: критерий не выдумывается,
 существующий файл правится только на чистом дереве git, молчаливой перезаписи нет, версия
-Claude Code проверяется, в `CLAUDE.md` пишется только найденное. `--check` — то же без записи.
+Claude Code проверяется, в `CLAUDE.md` и `.claude/mast.md` пишется только найденное. `--check` — то же без записи.
 
 ### Шаблоны каркаса — [`plugins/ru/locales/ru/templates/`](plugins/ru/locales/ru/templates/)
 
@@ -290,7 +295,7 @@ Claude Code проверяется, в `CLAUDE.md` пишется только �
 
 | Файл | Что делает |
 |---|---|
-| [`hooks.json`](plugins/ru/hooks/hooks.json) | разводка: `SessionStart` → `core.py` с языком плагина и `dispatcher.py` (роль по имени сессии и справка сессии); `AskUserQuestion`, Edit или Write → `dispatcher.py`; правка `ROADMAP.md` или `DONE.md` → `roadmap_lint.py` |
+| [`hooks.json`](plugins/ru/hooks/hooks.json) | разводка: `SessionStart` → `core.py` с языком плагина и `dispatcher.py` (роль по имени сессии и справка сессии); `AskUserQuestion`, Edit или Write → `dispatcher.py`; Bash перед git-командой или командой внешнего инструмента (`ssh`, `aws`, `docker`, `curl`, `bash`…) и после любой команды → `roadmap_watch.py`; правка `ROADMAP.md` или `DONE.md` → `roadmap_lint.py` |
 | [`hooks/core.py`](hooks/core.py) | вкладывает ядро или строку-подсказку |
 | [`hooks/dispatcher.py`](hooks/dispatcher.py) | в любой сессии отклоняет правку `ROADMAP.md`, `docs/roadmap/DONE.md` и `TECH_DEBT.md` в worktree, Write в `docs/superpowers/` в проекте с `ROADMAP.md`, а перед git-командой (через `roadmap_watch.py`) — `git merge` ветки пункта и коммит файлов роадмапа из worktree; в сессии `<проект>-dispatch` (или с `MAST_ROLE=dispatcher`) отклоняет `AskUserQuestion` и Edit/Write в основной копии вне `ROADMAP.md`, `docs/roadmap/**` и `TECH_DEBT.md`; на старте сессии печатает справку: сессии в `.claude/worktrees/X-N` — строку её пункта из основной копии и путь к `STATUS.md`, диспетчеру — вывод `mast status` |
 | [`hooks/mast.py`](hooks/mast.py) | `mast start X-N` — запуск пункта одной командой: отказы на неготовый пункт, пересечение путей, `sonnet` на opus-зоне, `fable` у `sonnet`; строка «в работе» коммитом, фоновая сессия, `claude attach <id>`. `mast merge X-N` — вливание ветки пункта одной командой: проверки, ревью с чистым контекстом, тезис в `DONE.md`, строка из `ROADMAP.md`, справка сессии с файлами и командой вопроса к ней, уборка закрытых пунктов через час, текст «сделай rebase» для веток, которые сдвинул мердж. `mast status` — сверка сессий, пунктов «в работе» и worktree: брошенные, сироты, лишние, тихие сессии, закрытые с живой сессией, `ждёт человека`, `inbox/`; ничего не меняет. Тексты вывода — в [`hooks/mast_texts.py`](hooks/mast_texts.py) |
@@ -298,7 +303,8 @@ Claude Code проверяется, в `CLAUDE.md` пишется только �
 | [`hooks/restart.py`](hooks/restart.py) | после `mast merge` (через `roadmap_watch.py`) подсказывает диспетчеру с контекстом больше порога перезапуск — `/clear`; порог — `Порог перезапуска` в `.claude/mast.md`, без него 500 тыс. токенов |
 | [`hooks/prod.py`](hooks/prod.py) | перед командой внешнего инструмента (`ssh`, `aws`, `docker`, `curl`, `bash`…; через `roadmap_watch.py`) отклоняет у основного потока `<проект>-dispatch` прод-команду — базовый список и шаблоны `Прод:` из `.claude/mast.md`; субагенты диспетчера и сессии пунктов проходят |
 | [`hooks/review.py`](hooks/review.py) | ревьюер для `mast merge`: `claude -p` в безопасном режиме без инструментов, на входе дифф, строка пункта, сообщение «готов» и правила проекта — `CLAUDE.md`, `.claude/rules/` по путям диффа, глобальный `CLAUDE.md`; промпт — [`review.md`](plugins/ru/locales/ru/review.md), ответ — JSON `ok` / `refuse` / `unsure` |
-| [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | ловит нарушения формата роадмапа и архива сразу после правки; с `--ready` — список пунктов, готовых к взятию |
+| [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | ловит нарушения формата роадмапа и архива сразу после правки; с `--ready` — список пунктов, готовых к взятию; с `--waiting` — пункты, ждущие вашего ответа |
+| [`hooks/roadmap_watch.py`](hooks/roadmap_watch.py) | быстрый вход Bash-хуков: после команды — линт, если `ROADMAP.md` или `DONE.md` изменились; перед git-командой — защиты коммита и `git merge` ветки пункта; после `mast merge` — подсказка перезапуска (`restart.py`); у основного потока диспетчера — отказ на прод-команду (`prod.py`) |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | имя плагина по языку — для ссылок, которые печатают хуки |
 | [`.mcp.json`](plugins/ru/.mcp.json) | MCP-сервер Context7 |
 | [`plugin.json`](plugins/ru/.claude-plugin/plugin.json) | манифест: версия, зависимость от `superpowers`, настройки `always_core` и `context7_key` |
@@ -325,6 +331,13 @@ Claude Code проверяется, в `CLAUDE.md` пишется только �
 - В некоторых ограниченных настройках сессии `/mast-ru:init-project` может не суметь прочитать
   собственные файлы шаблонов из каталога плагина; если команда сообщает, что шаблоны
   недоступны, перезапустите сессию с `--add-dir <путь к плагину mast>`.
+- Хук прод-команд диспетчера зовётся только на команды, которые начинаются с `ssh`, `scp`,
+  `rsync`, `aws`, `mc`, `rclone`, `lakectl`, `clearml*`, `kubectl`, `dvc`, `docker`, `curl`,
+  `bash` или `sh`: свой скрипт проекта (`python scripts/…`, `DOCKER_CONTEXT=… python3 …`) и
+  обёртки `timeout ssh`, `env … docker` он не видит.
+- На Windows без Git Bash (команды через PowerShell) хуки живьём не проверены — только тестом.
+- Через настройки организации в claude.ai плагин не раздать: площадка отклоняет плагин с
+  каталогом `bin/` в корне. Ставьте через маркетплейс GitHub.
 
 ## Участие
 

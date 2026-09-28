@@ -24,7 +24,7 @@ body:
     attributes:
       label: Plugin and version
       description: "`claude plugin list | grep -A1 mast`"
-      placeholder: "mast-ru@ex3del 3.2.1"
+      placeholder: "mast-ru@ex3del 4.0.0"
     validations:
       required: true
   - type: input

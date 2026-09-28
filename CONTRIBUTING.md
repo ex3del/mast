@@ -13,6 +13,9 @@ git config core.hooksPath .githooks     # the pre-commit that guards the version
 pytest                                  # the whole suite must be green
 ```
 
+The live tests `tests/test_*_live.py` are skipped without `MAST_LIVE=1`: they call the real
+`claude` and cost tokens.
+
 To try your changes in Claude Code without publishing: `claude --plugin-dir plugins/en`
 (or `plugins/ru`).
 

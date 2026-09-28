@@ -240,10 +240,16 @@ claude --name <project>-dispatch --model opus --advisor fable \
 - **What it does:** opens items in `ROADMAP.md`, starts a session per item in its own
   worktree, triages findings, merges ready branches one at a time, moves closed items to
   `DONE.md`. Only the dispatcher edits `ROADMAP.md`, `DONE.md`, and `TECH_DEBT.md`.
+- **What it doesn't do.** It doesn't edit code: a hook denies it Edit/Write outside
+  `ROADMAP.md`, `docs/roadmap/`, and `TECH_DEBT.md` — a small fix goes to a subagent in a
+  worktree. It doesn't touch prod: the hook also denies it commands to a server, a data store,
+  or an experiment tracker — the item's session deploys, a subagent checks the state. The
+  dispatcher is never a background session (`claude --bg`): the platform won't let one edit
+  the main copy.
 - **You don't start item sessions by hand** — the dispatcher launches them in the
   background with one command, `mast start A-1`, by default on `opus` with advisor `fable`.
   It refuses if the item isn't ready, its paths overlap an item in progress, or `sonnet`
-  got an opus zone. List them with
+  was asked for without `.claude/rules/dispatch.md` or on an opus zone. List them with
   `claude agents`, step into one with `claude attach <id>` — `mast start` prints that line last.
 - **Questions about state** ("what do you need from me", "what did A-4 end up doing") — ask
   with `/btw`: the answer comes from the dispatcher's context and stays out of its history.
@@ -292,7 +298,7 @@ aren't duplicated per language.
 [`/mast:init-project`](plugins/en/commands/init-project.md) — survey the project →
 proposals with a question per file → apply and lint. Five guardrails: no invented
 criterion, an existing file is changed only on a clean git tree, no silent overwrite, the
-Claude Code version is checked, only what was found goes into `CLAUDE.md`. `--check` — the
+Claude Code version is checked, only what was found goes into `CLAUDE.md` and `.claude/mast.md`. `--check` — the
 same without writing anything.
 
 ### Scaffold templates — [`plugins/en/locales/en/templates/`](plugins/en/locales/en/templates/)
@@ -310,7 +316,7 @@ same without writing anything.
 
 | File | What it does |
 |---|---|
-| [`hooks.json`](plugins/en/hooks/hooks.json) | the wiring: `SessionStart` → `core.py` with the plugin's language and `dispatcher.py` (the role by the session's name and the session brief); `AskUserQuestion`, Edit or Write → `dispatcher.py`; an edit to `ROADMAP.md` or `DONE.md` → `roadmap_lint.py` |
+| [`hooks.json`](plugins/en/hooks/hooks.json) | the wiring: `SessionStart` → `core.py` with the plugin's language and `dispatcher.py` (the role by the session's name and the session brief); `AskUserQuestion`, Edit or Write → `dispatcher.py`; Bash before a git command or an external tool's command (`ssh`, `aws`, `docker`, `curl`, `bash`…) and after any command → `roadmap_watch.py`; an edit to `ROADMAP.md` or `DONE.md` → `roadmap_lint.py` |
 | [`hooks/core.py`](hooks/core.py) | injects the core or the one-line hint |
 | [`hooks/dispatcher.py`](hooks/dispatcher.py) | in any session denies edits to `ROADMAP.md`, `docs/roadmap/DONE.md` and `TECH_DEBT.md` in a worktree, Write to `docs/superpowers/` in a project with `ROADMAP.md`, and before a git command (via `roadmap_watch.py`) — `git merge` of an item branch and a commit of roadmap files from a worktree; in a `<project>-dispatch` session (or with `MAST_ROLE=dispatcher`) denies `AskUserQuestion` and Edit/Write in the main copy outside `ROADMAP.md`, `docs/roadmap/**` and `TECH_DEBT.md`; at session start prints a brief: to a session in `.claude/worktrees/X-N` — its item's line from the main copy and the path to `STATUS.md`, to the dispatcher — the output of `mast status` |
 | [`hooks/mast.py`](hooks/mast.py) | `mast start X-N` — starts an item in one command: refuses an unready item, overlapping paths, `sonnet` on an opus zone, `fable` for `sonnet`; the "in progress" line as a commit, a background session, `claude attach <id>`. `mast merge X-N` — merges an item's branch in one command: the checks, a clean-context review, the thesis in `DONE.md`, the line out of `ROADMAP.md`, the session's brief with the files and the command to ask it, cleanup of closed items after an hour, a "rebase" text for the branches the merge moved. `mast status` — cross-checks sessions, in-progress items and worktrees: abandoned, orphans, strays, quiet sessions, closed items with a live session, `waiting on human`, `inbox/`; changes nothing. The output texts live in [`hooks/mast_texts.py`](hooks/mast_texts.py) |
@@ -318,7 +324,8 @@ same without writing anything.
 | [`hooks/restart.py`](hooks/restart.py) | after `mast merge` (via `roadmap_watch.py`) hints a dispatcher whose context exceeds the threshold to restart with `/clear`; the threshold is `Restart threshold` in `.claude/mast.md`, 500k tokens without it |
 | [`hooks/prod.py`](hooks/prod.py) | before an external tool's command (`ssh`, `aws`, `docker`, `curl`, `bash`…; via `roadmap_watch.py`) denies the `<project>-dispatch` main thread a prod command — the base list and the `Prod:` patterns of `.claude/mast.md`; the dispatcher's subagents and item sessions pass |
 | [`hooks/review.py`](hooks/review.py) | the reviewer for `mast merge`: `claude -p` in safe mode with no tools; the input is the diff, the item's line, the "ready" message and the project rules — `CLAUDE.md`, `.claude/rules/` by the diff's paths, the global `CLAUDE.md`; the prompt in [`review.md`](plugins/en/locales/en/review.md), a JSON answer `ok` / `refuse` / `unsure` |
-| [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | catches format violations in the roadmap and the archive right after an edit; with `--ready` — the items ready to take |
+| [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | catches format violations in the roadmap and the archive right after an edit; with `--ready` — the items ready to take; with `--waiting` — the items waiting on you |
+| [`hooks/roadmap_watch.py`](hooks/roadmap_watch.py) | the fast entry for Bash hooks: after a command — the lint, if `ROADMAP.md` or `DONE.md` changed; before a git command — the commit and item-branch `git merge` guards; after `mast merge` — the restart hint (`restart.py`); for the dispatcher's main thread — the prod-command denial (`prod.py`) |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | the plugin's name per language — for the links the hooks print |
 | [`.mcp.json`](plugins/en/.mcp.json) | the Context7 MCP server |
 | [`plugin.json`](plugins/en/.claude-plugin/plugin.json) | the manifest: version, the `superpowers` dependency, the `always_core` and `context7_key` options |
@@ -349,6 +356,14 @@ docs server configured, the command says so and offers to skip.
   read its own template files under the plugin's install directory; if it
   reports templates as unavailable, relaunch the session with
   `--add-dir <path to the mast plugin>`.
+- The dispatcher's prod-command hook runs only on commands starting with `ssh`, `scp`,
+  `rsync`, `aws`, `mc`, `rclone`, `lakectl`, `clearml*`, `kubectl`, `dvc`, `docker`, `curl`,
+  `bash` or `sh`: the project's own script (`python scripts/…`, `DOCKER_CONTEXT=… python3 …`)
+  and wrappers like `timeout ssh`, `env … docker` get past it.
+- On Windows without Git Bash (commands through PowerShell) the hooks aren't verified live —
+  only by tests.
+- The plugin can't be distributed through organization settings on claude.ai: the platform
+  rejects a plugin with a top-level `bin/` directory. Install it from the GitHub marketplace.
 
 ## Contributing
 

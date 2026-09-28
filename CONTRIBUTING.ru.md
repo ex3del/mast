@@ -13,6 +13,9 @@ git config core.hooksPath .githooks     # pre-commit, который сторо�
 pytest                                  # весь набор должен быть зелёным
 ```
 
+Живые тесты `tests/test_*_live.py` без `MAST_LIVE=1` пропускаются: они зовут настоящий `claude`
+и стоят токенов.
+
 Попробовать свои правки в Claude Code без публикации: `claude --plugin-dir plugins/ru`
 (или `plugins/en`).
 
