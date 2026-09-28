@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Быстрый вход Bash-хуков линта роадмапа: PostToolUse на каждый вызов Bash и
 PreToolUse перед git-командами — там же защиты сессий на коммит и `git merge`, а после
-`mast merge` — подсказка перезапуска диспетчеру.
+`mast merge` — подсказка перезапуска диспетчеру. PreToolUse перед командами внешних
+инструментов (`prod.FILTER`) у основного потока диспетчера — отказ на прод (`prod.py`).
 
 Хук стреляет на каждый Bash в любом проекте, поэтому здесь только то, что укладывается
 в старт интерпретатора: ни git, ни `json`, `re`, `subprocess`. `import subprocess` и один
@@ -49,14 +50,31 @@ def changed(project):
     return True
 
 
+def dispatcher_thread(raw):
+    """Основной поток диспетчера — по байтам входа, без `json`: хук на прод-команду стреляет
+    и у сессий пунктов. У субагента во входе `agent_id`; роль — `MAST_ROLE` или файл роли
+    по `session_id`, как в `dispatcher.is_dispatcher`."""
+    if b'"agent_id"' in raw:
+        return False
+    if os.environ.get("MAST_ROLE") == "dispatcher":
+        return True
+    data, i = os.environ.get("CLAUDE_PLUGIN_DATA"), raw.find(b'"session_id"')
+    if not data or i < 0:
+        return False
+    session_id = raw[i + len(b'"session_id"'):].split(b'"')[1].decode()
+    return os.path.exists(os.path.join(data, f"{session_id}.role"))
+
+
 def main():
     raw = sys.stdin.buffer.read()
+    prod_check = False
     # Кавычка внутри строкового значения JSON экранирована, поэтому `"PreToolUse"`
     # целиком встречается только как значение `hook_event_name`
     if b'"PreToolUse"' in raw:
+        prod_check = dispatcher_thread(raw)
         # `if: Bash(git *)` пропускает сюда любую git-команду, а проверять надо коммит и вливание.
         # `merge ` с пробелом: `merge-base` и `--merges` медленный путь удорожил бы на 8 мс
-        if b"commit" not in raw and b"merge " not in raw:
+        if not prod_check and b"commit" not in raw and b"merge " not in raw:
             return 0
     else:
         project = os.environ.get("CLAUDE_PROJECT_DIR", ".")
@@ -71,6 +89,9 @@ def main():
         # Защиты сессий — в dispatcher.py рядом с защитами Edit/Write
         from dispatcher import shell_refusal
         reason = shell_refusal(payload, lang or "en")
+        if not reason and prod_check:
+            import prod
+            reason = prod.refusal(payload, lang or "en")
         if reason:
             print(reason, file=sys.stderr)
             return 2

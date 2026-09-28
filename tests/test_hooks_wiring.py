@@ -1,6 +1,7 @@
 """Сторож разводки хуков в обоих плагинах: без него опечатка в матчере или в
 путях не уронит ни один тест, а ядро молча перестанет вкладываться в сессии."""
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -118,7 +119,7 @@ def test_pre_tool_use_проверяет_коммит(lang):
     """`git *`, а не `git commit *`: шаблон длиннее имени команды площадка
     зовёт на любой команде с `$()` или `$VAR` — это 30% вызовов Bash против 21%
     у всех git-команд (замер A-12), и `git -C <путь> commit` он не ловит."""
-    assert [h.get("if") for h in shell_hooks(lang, "PreToolUse")] == ["Bash(git *)", "PowerShell(git *)"]
+    assert [h.get("if") for h in shell_hooks(lang, "PreToolUse")][:2] == ["Bash(git *)", "PowerShell(git *)"]
 
 
 @pytest.mark.parametrize("lang", LANGS)
@@ -140,3 +141,18 @@ def test_нет_home_и_claude_в_аргументах(lang):
     raw = (PLUGINS[lang] / "hooks" / "hooks.json").read_text(encoding="utf-8")
     assert "$HOME" not in raw
     assert "~/.claude" not in raw
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_прод_фильтр_на_каждое_слово(lang):
+    """Хук прод-команд зовётся только фильтром `if` на слова `prod.FILTER`: без `if` он
+    стрелял бы на каждый Bash у всех пользователей, а пропущенное слово — дыра в отказе."""
+    sys.path.insert(0, str(ROOT / "hooks"))
+    import prod
+    pre = [h for entry in load(lang)["hooks"]["PreToolUse"] if "Bash" in entry["matcher"] for h in entry["hooks"]]
+    assert all(h.get("if") for h in pre), f"{lang}: обработчик Bash без if стреляет на каждую команду"
+    watch = {h["if"] for h in pre if h["args"][0].endswith("/hooks/roadmap_watch.py")}
+    for tool in ("Bash", "PowerShell"):
+        for word in prod.FILTER:
+            rule = f"{tool}({word})" if word.endswith("*") else f"{tool}({word} *)"
+            assert rule in watch, f"{lang}: нет обработчика {rule}"

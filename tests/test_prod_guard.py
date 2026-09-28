@@ -114,3 +114,48 @@ def test_powershell_env():
     assert prod.hit('$env:DOCKER_CONTEXT = "prod-vps"; docker ps', [], Path.cwd())
     assert prod.hit("$env:DOCKER_HOST='ssh://train-box'\ndocker ps", [], Path.cwd())
     assert prod.hit('$env:PATH = "C:\\bin"; docker ps', [], Path.cwd()) is None
+
+
+def watch(tmp_path, command, lang="ru", role=None, tool="Bash", **extra):
+    """PreToolUse через `roadmap_watch.py` — так, как его зовёт площадка по фильтру `if`."""
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(tmp_path), "CLAUDE_PLUGIN_DATA": str(tmp_path / "data")}
+    env.pop("MAST_ROLE", None)
+    if role == "env":
+        env["MAST_ROLE"] = "dispatcher"
+    elif role == "file":
+        (tmp_path / "data").mkdir(exist_ok=True)
+        (tmp_path / "data" / "s1.role").touch()
+    payload = {"session_id": "s1", "transcript_path": str(tmp_path / "s1.jsonl"), "cwd": str(tmp_path),
+               "hook_event_name": "PreToolUse", "tool_name": tool, "tool_input": {"command": command}, **extra}
+    return subprocess.run([sys.executable, str(ROOT / "hooks" / "roadmap_watch.py"), lang],
+                          input=json.dumps(payload).encode(), capture_output=True, env=env)
+
+
+@pytest.mark.parametrize("role", ["env", "file"])
+@pytest.mark.parametrize("tool", ["Bash", "PowerShell"])
+def test_диспетчеру_отказ(tmp_path, role, tool):
+    r = watch(tmp_path, "cd /opt && ssh train-box uptime", role=role, tool=tool)
+    assert r.returncode == 2
+    assert "диспетчер не ходит на прод — `ssh train-box uptime`" in r.stderr.decode()
+
+
+def test_отказ_на_языке_плагина(tmp_path):
+    r = watch(tmp_path, "ssh train-box uptime", lang="en", role="env")
+    assert r.returncode == 2 and "the dispatcher doesn't go to prod" in r.stderr.decode()
+
+
+@pytest.mark.parametrize("role,command,extra", [
+    ("env", "ssh train-box uptime", {"agent_id": "a1", "agent_type": "general-purpose"}),  # субагент
+    (None, "ssh train-box uptime", {}),  # сессия пункта или без роли
+    ("env", "git status && docker ps", {}),
+])
+def test_пропуск(tmp_path, role, command, extra):
+    r = watch(tmp_path, command, role=role, **extra)
+    assert (r.returncode, r.stdout, r.stderr) == (0, b"", b"")
+
+
+def test_шаблон_из_настроек_проекта(tmp_path):
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "mast.md").write_text("Прод: curl api.telegram.org\n", encoding="utf-8")
+    assert watch(tmp_path, 'curl -s "https://api.telegram.org/x"', role="env").returncode == 2
+    assert watch(tmp_path, "curl -s https://example.com", role="env").returncode == 0

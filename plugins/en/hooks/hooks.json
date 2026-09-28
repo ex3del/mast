@@ -60,6 +60,276 @@
               "en"
             ],
             "if": "PowerShell(git *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(ssh *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(ssh *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(scp *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(scp *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(rsync *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(rsync *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(aws *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(aws *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(mc *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(mc *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(rclone *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(rclone *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(lakectl *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(lakectl *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(clearml*)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(clearml*)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(kubectl *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(kubectl *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(dvc *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(dvc *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(docker *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(docker *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(curl *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(curl *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(wget *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(wget *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(bash *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(bash *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "Bash(sh *)"
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
+              "en"
+            ],
+            "if": "PowerShell(sh *)"
           }
         ]
       }
