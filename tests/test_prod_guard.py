@@ -139,9 +139,10 @@ REINHOLD = ("Прод: ssh reinhold-vps, docker --context reinhold-vps, DOCKER_C
 def test_фикстура_диспетчера_83cd81f4(tmp_path, monkeypatch, capsys):
     """Команды `reinhold-dispatch` с меткой `measure.py` (ресёрч 2026-09-25-prod-ops):
     отказ на каждом прод-вызове, ложных отказов — не больше 1% непрод-вызовов. Скрипты,
-    записанные раньше в сессии, лежат в фикстуре — хук читает их как с диска."""
+    записанные раньше в сессии, лежат в фикстуре — хук читает их как с диска. Файл в git не
+    кладётся — команды чужого проекта (`tests/fixtures/.gitignore`), — выгружается у себя."""
     if not FIXTURE.exists():
-        pytest.skip("фикстуры нет: python3 docs/research/2026-09-25-prod-ops/fixture.py")
+        pytest.skip("фикстуры нет — выгрузить у себя: python3 docs/research/2026-09-25-prod-ops/fixture.py")
     rows = [json.loads(line) for line in FIXTURE.read_text(encoding="utf-8").splitlines()]
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "mast.md").write_text(REINHOLD, encoding="utf-8")
