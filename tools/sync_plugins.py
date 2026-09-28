@@ -58,7 +58,8 @@ def stale(src, dst):
     diff = [str(rel) for rel, path in wanted.items()
             if not (dst / rel).is_file() or (dst / rel).read_bytes() != generated(path)]
     diff += [f"лишний: {p.relative_to(dst)}" for p in sorted(dst.rglob("*"))
-             if p.is_file() and p.relative_to(dst) not in wanted and p.name not in KEEP]
+             if p.is_file() and p.relative_to(dst) not in wanted and p.name not in KEEP
+             and not (SKIP & set(p.relative_to(dst).parts))]
     return diff
 
 

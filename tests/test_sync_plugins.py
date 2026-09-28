@@ -23,6 +23,21 @@ def test_копия_без_пометки_не_проходит_check(tmp_path, 
     assert sync_plugins.stale(src, dst) == []
 
 
+def test_кэш_python_в_копии_не_лишний_а_чужой_файл_лишний(tmp_path, monkeypatch):
+    """Тесты в CI запускают копии хуков, и Python кладёт рядом `__pycache__/*.pyc` — это не
+    отставшая копия. Настоящий лишний файл --check по-прежнему ловит."""
+    monkeypatch.setattr(sync_plugins, "ROOT", tmp_path)
+    src, dst = tmp_path / "hooks", tmp_path / "plugins/ru/hooks"
+    src.mkdir()
+    (dst / "__pycache__").mkdir(parents=True)
+    (src / "core.py").write_text("print()\n", encoding="utf-8")
+    (dst / "core.py").write_bytes(sync_plugins.generated(src / "core.py"))
+    (dst / "__pycache__" / "core.cpython-312.pyc").write_bytes(b"\0")
+    assert sync_plugins.stale(src, dst) == []
+    (dst / "extra.py").write_text("", encoding="utf-8")
+    assert sync_plugins.stale(src, dst) == ["лишний: extra.py"]
+
+
 def test_пометка_первой_строкой_а_при_shebang_сразу_после_него():
     for lang in ("ru", "en"):
         for path in sorted((ROOT / "plugins" / lang / "hooks").glob("*.py")):
