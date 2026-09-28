@@ -66,13 +66,15 @@ PREFIX = re.compile(r"(?:\[[A-Z]-\d+\]\s*)+")
 # Коммиты пункта в main, которые делает диспетчер по скиллу (завёл, взял, поменял
 # критерий, перенёс находку с её тестом) или сессия находкой, — не часть работы пункта
 BOOKKEEPING = re.compile(r"завед|взят|критерий изменён|находк|opened|taken into work|criterion changed|finding", re.I)
-# Слот сессии в строке пункта и порог тишины в `.claude/rules/dispatch.md` — на обоих языках
+# Слот сессии в строке пункта и порог тишины в настройках проекта — на обоих языках
 SESSION = re.compile(r"(?:сессия|session)\s+`([^`]+)`")
 SILENCE = re.compile(r"(?:порог тишины|silence threshold)\s*:\s*(\d+)", re.I)
 SILENCE_DEFAULT = 30
 # Имя сессии пункта; `B-2-<слово>` движок выдаёт, когда имя `B-2` занято
 ITEM_NAME = re.compile(r"^([A-Z]-\d+)(?:-|$)")
 DISPATCH = ".claude/rules/dispatch.md"
+# Настройки проекта: пороги диспетчера, прод-команды. Читают только скрипты, в контекст не грузится
+SETTINGS = ".claude/mast.md"
 PATHS = re.compile(r"^[ \t]*(?:мои пути|my paths)\s*:(.*)$", re.I | re.M)
 # Строка зоны в dispatch.md: пути перед «— только opus»
 ZONE = re.compile(r"^[-*\t ]*(.+?)\s+[—–-]\s+(?:только opus|opus only)", re.I | re.M)
@@ -718,7 +720,7 @@ def alive(a):
 
 
 def silence_threshold():
-    m = SILENCE.search(read(".claude/rules/dispatch.md"))
+    m = SILENCE.search(read(SETTINGS))
     return int(m.group(1)) if m else SILENCE_DEFAULT
 
 

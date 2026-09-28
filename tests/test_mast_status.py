@@ -162,13 +162,23 @@ def test_свежий_старт_со_старым_коммитом_не_пом�
     assert "без коммита" not in p.status()
 
 
-def test_порог_из_правила_диспетчера(p):
-    p.write(p.root, {".claude/rules/dispatch.md": "# Модели\n\nПорог тишины: 60 мин\n"})
+def quiet_b1(p, files):
+    """Вывод `mast status`, где B-1 молчит 45 мин, а в основной копии лежат `files`."""
+    p.write(p.root, files)
     p.item("B-1", commit_age=45 * 60)
     p.item("B-2")
     p.agents(agent("B-1", p.worktree("B-1"), "aaaa1111", started=NOW - 3600),
              agent("B-2", p.worktree("B-2"), "bbbb2222"))
-    assert "без коммита" not in p.status()
+    return p.status()
+
+
+def test_порог_из_настроек_проекта(p):
+    assert "без коммита" not in quiet_b1(p, {".claude/mast.md": "# Настройки MAST\n\nПорог тишины: 60 мин\n"})
+
+
+def test_порог_в_правиле_моделей_не_действует(p):
+    """Файл `dispatch.md` разрешает `sonnet`: заведённый ради порога, он молча открыл бы понижение."""
+    assert "без коммита" in quiet_b1(p, {".claude/rules/dispatch.md": "# Модели\n\nПорог тишины: 60 мин\n"})
 
 
 def test_ждёт_человека_и_inbox(p):
@@ -215,12 +225,17 @@ def test_раздел_брошенные_пункты_короткий():
         assert "mast status" in found.group(0)
 
 
-def test_шаблон_правила_диспетчера_несёт_порог_в_разбираемой_форме():
+def test_пороги_в_шаблоне_настроек_а_не_в_правиле_моделей():
     import mast
+    import restart
     for lang in ("ru", "en"):
-        text = (ROOT / f"plugins/{lang}/locales/{lang}/templates/dispatch.rule.template.md").read_text(encoding="utf-8")
-        m = mast.SILENCE.search(text)
-        assert m and int(m.group(1)) == 30, lang
+        templates = ROOT / f"plugins/{lang}/locales/{lang}/templates"
+        text = (templates / "mast.template.md").read_text(encoding="utf-8")
+        for rx, default in ((mast.SILENCE, mast.SILENCE_DEFAULT), (restart.RESTART, restart.RESTART_DEFAULT)):
+            m = rx.search(text)
+            assert m and int(m.group(1)) == default, (lang, rx.pattern)
+        rule = (templates / "dispatch.rule.template.md").read_text(encoding="utf-8")
+        assert not mast.SILENCE.search(rule) and not restart.RESTART.search(rule), lang
 
 
 # --- закрытый пункт: горячий час ---

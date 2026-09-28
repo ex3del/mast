@@ -27,12 +27,12 @@ HINT = {
           "Каждый ход перечитывает его целиком, а автосжатие перескажет разговор посреди работы. "
           "Передай человеку: перезапусти: `/clear` — справка на старте вернёт роль и `mast status`, "
           "пункты и вопросы лежат в `ROADMAP.md`. Порог — строка `Порог перезапуска: <тыс. токенов>` "
-          "в `.claude/rules/dispatch.md`.",
+          "в `.claude/mast.md`.",
     "en": "MAST: the merge is done, and this session's context is {n}k tokens against a {t}k "
           "threshold. Every turn rereads it whole, and auto-compaction will retell the conversation "
           "mid-work. Tell the human: restart with `/clear` — the start-up brief brings back the role "
           "and `mast status`, items and questions live in `ROADMAP.md`. The threshold is the line "
-          "`Restart threshold: <k tokens>` in `.claude/rules/dispatch.md`.",
+          "`Restart threshold: <k tokens>` in `.claude/mast.md`.",
 }
 
 
@@ -71,8 +71,8 @@ def hint(payload, lang):
     if not MAST_MERGE.search(payload["tool_input"].get("command", "")) or not is_dispatcher(payload):
         return None
     n = last_context(payload["transcript_path"])
-    rule = Path(os.environ.get("CLAUDE_PROJECT_DIR") or payload["cwd"]) / ".claude" / "rules" / "dispatch.md"
-    m = rule.is_file() and RESTART.search(rule.read_text(encoding="utf-8"))
+    settings = Path(os.environ.get("CLAUDE_PROJECT_DIR") or payload["cwd"]) / ".claude" / "mast.md"
+    m = settings.is_file() and RESTART.search(settings.read_text(encoding="utf-8"))
     limit = int(m.group(1)) if m else RESTART_DEFAULT
     if n is None or n <= limit * 1000:
         return None

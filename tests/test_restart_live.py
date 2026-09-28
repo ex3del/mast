@@ -8,7 +8,7 @@
 Каталог проекта — `MAST_LIVE_DIR` (по умолчанию `/private/tmp/mast-check-a24`): в нём уже
 поставлен `mast-ru` через `tools/serve_marketplace.py` (`--scope local`, CLAUDE.md), репозитория
 ещё нет. Контекст пробной сессии — десятки тысяч токенов, поэтому порог задаёт строка
-`Порог перезапуска` в `.claude/rules/dispatch.md`: 10 тыс. — контекст выше порога, 900 тыс. — ниже.
+`Порог перезапуска` в `.claude/mast.md`: 10 тыс. — контекст выше порога, 900 тыс. — ниже.
 """
 import json
 import os
@@ -83,9 +83,8 @@ def ready(i):
 
 
 def threshold(k):
-    rules = DIR / ".claude" / "rules"
-    rules.mkdir(parents=True, exist_ok=True)
-    (rules / "dispatch.md").write_text(f"# Модели\n\nПорог перезапуска: {k} тыс. токенов\n", encoding="utf-8")
+    (DIR / ".claude").mkdir(exist_ok=True)
+    (DIR / ".claude" / "mast.md").write_text(f"# Настройки MAST\n\nПорог перезапуска: {k} тыс. токенов\n", encoding="utf-8")
 
 
 @pytest.fixture

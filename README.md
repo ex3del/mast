@@ -205,6 +205,13 @@ silently, and a "no" is a legitimate answer, not an error. Run
 without touching anything — a forced dry run, useful to see what the command
 would propose to a project you're not ready to hand it yet.
 
+The plugin's settings for the project live in a separate file, `.claude/mast.md`: the
+dispatcher's thresholds and a `Prod:` line with the commands the project considers prod —
+they go to a server, a data store, an experiment tracker. The command finds such commands in
+scripts, the `Makefile` and CI and proposes the line from what it found; whatever it missed,
+you add yourself. The file isn't loaded into sessions' context; only the plugin's scripts
+read it.
+
 Guardrails baked into this scenario: a "Done when" criterion is never
 invented — a vague acceptance line is carried over as-is and flagged as
 "unmeasured, needs your number"; a file already on disk is only rewritten
@@ -294,7 +301,8 @@ same without writing anything.
 | [`ROADMAP.template.md`](plugins/en/locales/en/templates/ROADMAP.template.md) | an empty `ROADMAP.md` that passes the lint |
 | [`rule.template.md`](plugins/en/locales/en/templates/rule.template.md) | `.claude/rules/example.md` — an example rule with `paths:` |
 | [`context7.rule.template.md`](plugins/en/locales/en/templates/context7.rule.template.md) | `.claude/rules/context7.md` — library docs through the tool, not from memory |
-| [`dispatch.rule.template.md`](plugins/en/locales/en/templates/dispatch.rule.template.md) | `.claude/rules/dispatch.md` — the zones that always run on `opus`, the silence and restart thresholds |
+| [`dispatch.rule.template.md`](plugins/en/locales/en/templates/dispatch.rule.template.md) | `.claude/rules/dispatch.md` — the zones that always run on `opus` |
+| [`mast.template.md`](plugins/en/locales/en/templates/mast.template.md) | `.claude/mast.md` — the project's settings for the plugin's scripts: the silence and restart thresholds, prod commands |
 
 ### Hooks and plumbing
 
@@ -305,7 +313,7 @@ same without writing anything.
 | [`hooks/dispatcher.py`](hooks/dispatcher.py) | in any session denies edits to `ROADMAP.md`, `docs/roadmap/DONE.md` and `TECH_DEBT.md` in a worktree, Write to `docs/superpowers/` in a project with `ROADMAP.md`, and before a git command (via `roadmap_watch.py`) — `git merge` of an item branch and a commit of roadmap files from a worktree; in a `<project>-dispatch` session (or with `MAST_ROLE=dispatcher`) denies `AskUserQuestion` and Edit/Write in the main copy outside `ROADMAP.md`, `docs/roadmap/**` and `TECH_DEBT.md`; at session start prints a brief: to a session in `.claude/worktrees/X-N` — its item's line from the main copy and the path to `STATUS.md`, to the dispatcher — the output of `mast status` |
 | [`hooks/mast.py`](hooks/mast.py) | `mast start X-N` — starts an item in one command: refuses an unready item, overlapping paths, `sonnet` on an opus zone, `fable` for `sonnet`; the "in progress" line as a commit, a background session, `claude attach <id>`. `mast merge X-N` — merges an item's branch in one command: the checks, a clean-context review, the thesis in `DONE.md`, the line out of `ROADMAP.md`, the session's brief with the files and the command to ask it, cleanup of closed items after an hour, a "rebase" text for the branches the merge moved. `mast status` — cross-checks sessions, in-progress items and worktrees: abandoned, orphans, strays, quiet sessions, closed items with a live session, `waiting on human`, `inbox/`; changes nothing. The output texts live in [`hooks/mast_texts.py`](hooks/mast_texts.py) |
 | [`bin/mast`](plugins/en/bin/mast) | the wrapper: the platform puts the plugin's `bin/` on the Bash tool's `PATH`, so `mast` is a bare command |
-| [`hooks/restart.py`](hooks/restart.py) | after `mast merge` (via `roadmap_watch.py`) hints a dispatcher whose context exceeds the threshold to restart with `/clear`; the threshold is `Restart threshold` in `.claude/rules/dispatch.md`, 500k tokens without it |
+| [`hooks/restart.py`](hooks/restart.py) | after `mast merge` (via `roadmap_watch.py`) hints a dispatcher whose context exceeds the threshold to restart with `/clear`; the threshold is `Restart threshold` in `.claude/mast.md`, 500k tokens without it |
 | [`hooks/review.py`](hooks/review.py) | the reviewer for `mast merge`: `claude -p` in safe mode with no tools; the input is the diff, the item's line, the "ready" message and the project rules — `CLAUDE.md`, `.claude/rules/` by the diff's paths, the global `CLAUDE.md`; the prompt in [`review.md`](plugins/en/locales/en/review.md), a JSON answer `ok` / `refuse` / `unsure` |
 | [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | catches format violations in the roadmap and the archive right after an edit; with `--ready` — the items ready to take |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | the plugin's name per language — for the links the hooks print |

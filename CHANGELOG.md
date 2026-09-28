@@ -55,7 +55,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - For every live item session — a ready `claude attach <id>` command.
 - A session that finished its turn and waits for a prompt no longer counts as abandoned: an abandoned one is a session whose process has ended. One that died on an API disconnect, whose state Claude Code still shows as `blocked`, is abandoned too, not "in progress".
 - A closed item whose session isn't removed yet — a line "X-N closed, the session is open until HH:MM" with `claude attach <id>`, after the hour — the command to ask it and `claude rm <id>`. Its worktree isn't an orphan, a session named after a closed item isn't a stray; `mast status` still removes nothing.
-- An item session with no commit for longer than a threshold gets flagged, but nothing is blocked. The threshold is the line `Silence threshold: 30 min` in `.claude/rules/dispatch.md`, 30 minutes without it; it counts from the item's last commit or the session's restart, whichever is later.
+- An item session with no commit for longer than a threshold gets flagged, but nothing is blocked. The threshold is the line `Silence threshold: 30 min` in `.claude/mast.md`, 30 minutes without it; it counts from the item's last commit or the session's restart, whichever is later.
 - The same output lists the items waiting on your answer and the number of files in `docs/roadmap/inbox/`.
 
 ### Brief after `/compact`
@@ -63,7 +63,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - After `/compact` an item session in `.claude/worktrees/X-N` gets its item's line from the main copy's `ROADMAP.md` in context — the header, "My paths" and "Done when" verbatim — and the path to `STATUS.md`. Before, after the context was compacted, the model recalled the item and its criterion on its own.
 - The `<project>-dispatch` dispatcher gets its role with pointers to the skills and the output of `mast status` after `/compact`.
 - The brief comes on any session start and is at most 1500 characters; a session with no role and outside an item's worktree doesn't get it.
-- After `mast merge` a dispatcher whose context exceeds 500k tokens gets a hint: restart with `/clear`. A restart loses nothing — the brief brings back the role and `mast status` — while a long context is reread on every turn, and auto-compaction retells the conversation mid-work. The hint blocks nothing. The threshold is the line `Restart threshold: <k tokens>` in `.claude/rules/dispatch.md`: 500k is measured on a 1M-token window; for a model with a smaller window, set it below that model's auto-compaction.
+- After `mast merge` a dispatcher whose context exceeds 500k tokens gets a hint: restart with `/clear`. A restart loses nothing — the brief brings back the role and `mast status` — while a long context is reread on every turn, and auto-compaction retells the conversation mid-work. The hint blocks nothing. The threshold is the line `Restart threshold: <k tokens>` in `.claude/mast.md`: 500k is measured on a 1M-token window; for a model with a smaller window, set it below that model's auto-compaction.
 
 ### Roadmap lint
 
@@ -71,6 +71,11 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - It refuses `git commit` when the commit introduces a new format violation into the roadmap.
 - New slot at the end of an item's line — `· waiting on human: <question>`: a slot without a question is an error, and `roadmap_lint.py --waiting ROADMAP.md` lists such items.
 - No more false "item number taken, already in DONE.md" complaint when closing an item: `mast merge` writes the archive and the roadmap in one commit.
+
+### Project settings
+
+- The plugin's settings for a project live in their own file, `.claude/mast.md`: the silence and restart thresholds, the commands the project considers prod. It isn't loaded into sessions' context; only the plugin's scripts read it. `.claude/rules/dispatch.md` now declares only the `opus` zones: before, a file created for the sake of a threshold silently allowed `sonnet` for items as well.
+- `/mast:init-project` offers `.claude/mast.md` with its own question and a `Prod:` line built from what it found in the project's files: ssh hosts in scripts, `s3://` and `aws s3` in the `Makefile`, `clearml`, `lakectl`, `kubectl`, `docker --context` in CI. Nothing beyond what was found — you add whatever it missed. In a project that already has the scaffold, the command offers only this file.
 
 ### Session guards
 

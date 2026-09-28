@@ -1,0 +1,10 @@
+name: train
+on: workflow_dispatch
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r requirements.txt
+      - run: clearml-task --project mnist --name baseline --script train.py --queue gpu

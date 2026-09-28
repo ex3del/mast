@@ -193,6 +193,12 @@ claude plugin install mast-ru@ex3del --scope user --config always_core=true
 опись и те же диффы, ничего не создавая и не меняя, — принудительный предпросмотр для
 проекта, который вы ещё не готовы отдать команде целиком.
 
+Настройки плагина для проекта — отдельный файл `.claude/mast.md`: пороги диспетчера и строка
+`Прод:` с командами, которые проект считает продом, — они уходят на сервер, в хранилище данных,
+в трекер экспериментов. Команда находит такие команды в скриптах, `Makefile` и CI и предлагает
+строку из найденного; чего не нашла — допишете сами. В контекст сессий файл не грузится, его
+читают только скрипты плагина.
+
 Ограждения сценария: критерий «Готово когда» никогда не придумывается — расплывчатая
 формулировка переносится как есть с пометкой «незамеренный критерий, нужно ваше число»;
 существующий файл переписывается только на чистом дереве git, тогда дифф и откат —
@@ -275,7 +281,8 @@ Claude Code проверяется, в `CLAUDE.md` пишется только �
 | [`ROADMAP.template.md`](plugins/ru/locales/ru/templates/ROADMAP.template.md) | пустой `ROADMAP.md`, который проходит линт |
 | [`rule.template.md`](plugins/ru/locales/ru/templates/rule.template.md) | `.claude/rules/example.md` — пример правила с `paths:` |
 | [`context7.rule.template.md`](plugins/ru/locales/ru/templates/context7.rule.template.md) | `.claude/rules/context7.md` — документация библиотек через инструмент, а не по памяти |
-| [`dispatch.rule.template.md`](plugins/ru/locales/ru/templates/dispatch.rule.template.md) | `.claude/rules/dispatch.md` — зоны, которые всегда ведёт `opus`, пороги тишины и перезапуска |
+| [`dispatch.rule.template.md`](plugins/ru/locales/ru/templates/dispatch.rule.template.md) | `.claude/rules/dispatch.md` — зоны, которые всегда ведёт `opus` |
+| [`mast.template.md`](plugins/ru/locales/ru/templates/mast.template.md) | `.claude/mast.md` — настройки проекта для скриптов плагина: пороги тишины и перезапуска, прод-команды |
 
 ### Хуки и служебное
 
@@ -286,7 +293,7 @@ Claude Code проверяется, в `CLAUDE.md` пишется только �
 | [`hooks/dispatcher.py`](hooks/dispatcher.py) | в любой сессии отклоняет правку `ROADMAP.md`, `docs/roadmap/DONE.md` и `TECH_DEBT.md` в worktree, Write в `docs/superpowers/` в проекте с `ROADMAP.md`, а перед git-командой (через `roadmap_watch.py`) — `git merge` ветки пункта и коммит файлов роадмапа из worktree; в сессии `<проект>-dispatch` (или с `MAST_ROLE=dispatcher`) отклоняет `AskUserQuestion` и Edit/Write в основной копии вне `ROADMAP.md`, `docs/roadmap/**` и `TECH_DEBT.md`; на старте сессии печатает справку: сессии в `.claude/worktrees/X-N` — строку её пункта из основной копии и путь к `STATUS.md`, диспетчеру — вывод `mast status` |
 | [`hooks/mast.py`](hooks/mast.py) | `mast start X-N` — запуск пункта одной командой: отказы на неготовый пункт, пересечение путей, `sonnet` на opus-зоне, `fable` у `sonnet`; строка «в работе» коммитом, фоновая сессия, `claude attach <id>`. `mast merge X-N` — вливание ветки пункта одной командой: проверки, ревью с чистым контекстом, тезис в `DONE.md`, строка из `ROADMAP.md`, справка сессии с файлами и командой вопроса к ней, уборка закрытых пунктов через час, текст «сделай rebase» для веток, которые сдвинул мердж. `mast status` — сверка сессий, пунктов «в работе» и worktree: брошенные, сироты, лишние, тихие сессии, закрытые с живой сессией, `ждёт человека`, `inbox/`; ничего не меняет. Тексты вывода — в [`hooks/mast_texts.py`](hooks/mast_texts.py) |
 | [`bin/mast`](plugins/ru/bin/mast) | обёртка: площадка кладёт `bin/` плагина в `PATH` Bash-инструмента, и `mast` — голая команда |
-| [`hooks/restart.py`](hooks/restart.py) | после `mast merge` (через `roadmap_watch.py`) подсказывает диспетчеру с контекстом больше порога перезапуск — `/clear`; порог — `Порог перезапуска` в `.claude/rules/dispatch.md`, без него 500 тыс. токенов |
+| [`hooks/restart.py`](hooks/restart.py) | после `mast merge` (через `roadmap_watch.py`) подсказывает диспетчеру с контекстом больше порога перезапуск — `/clear`; порог — `Порог перезапуска` в `.claude/mast.md`, без него 500 тыс. токенов |
 | [`hooks/review.py`](hooks/review.py) | ревьюер для `mast merge`: `claude -p` в безопасном режиме без инструментов, на входе дифф, строка пункта, сообщение «готов» и правила проекта — `CLAUDE.md`, `.claude/rules/` по путям диффа, глобальный `CLAUDE.md`; промпт — [`review.md`](plugins/ru/locales/ru/review.md), ответ — JSON `ok` / `refuse` / `unsure` |
 | [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | ловит нарушения формата роадмапа и архива сразу после правки; с `--ready` — список пунктов, готовых к взятию |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | имя плагина по языку — для ссылок, которые печатают хуки |

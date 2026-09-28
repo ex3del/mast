@@ -27,14 +27,16 @@ def answer(context, advisor=False):
             "message": {"id": "m", "content": [{"type": "tool_use", "name": "Bash"}], "usage": usage}}
 
 
-def hint(tmp_path, context, command="mast merge A-1", role=True, rule=None, lang="ru", records=None, tail=""):
-    """Текст подсказки или None. `tail` — сырой хвост транскрипта после записей."""
+def hint(tmp_path, context, command="mast merge A-1", role=True, rule=None, lang="ru", records=None, tail="",
+         where=".claude/mast.md"):
+    """Текст подсказки или None. `rule` — текст файла `where`; `tail` — сырой хвост транскрипта
+    после записей."""
     project = tmp_path / "proj"
     project.mkdir(exist_ok=True)
     (project / "ROADMAP.md").write_text(ROADMAP, encoding="utf-8")
     if rule:
-        (project / ".claude/rules").mkdir(parents=True, exist_ok=True)
-        (project / ".claude/rules/dispatch.md").write_text(rule, encoding="utf-8")
+        (project / where).parent.mkdir(parents=True, exist_ok=True)
+        (project / where).write_text(rule, encoding="utf-8")
     transcript = tmp_path / "s.jsonl"
     transcript.write_text("".join(json.dumps(r) + "\n" for r in records or [answer(context)]) + tail,
                           encoding="utf-8")
@@ -79,10 +81,15 @@ def test_с_советником_контекст_последней_итера�
     assert "`/clear`" in hint(tmp_path, 600_000, records=[answer(600_000, advisor=True)])
 
 
-def test_порог_из_dispatch_md(tmp_path):
-    rule = "# Модели\n\nПорог перезапуска: 50 тыс. токенов\n"
+def test_порог_из_настроек_проекта(tmp_path):
+    rule = "# Настройки MAST\n\nПорог перезапуска: 50 тыс. токенов\n"
     assert "50 тыс." in hint(tmp_path, 60_000, rule=rule)
     assert hint(tmp_path, 40_000, rule=rule) is None
+
+
+def test_порог_в_правиле_моделей_не_действует(tmp_path):
+    rule = "# Модели\n\nПорог перезапуска: 50 тыс. токенов\n"
+    assert hint(tmp_path, 60_000, rule=rule, where=".claude/rules/dispatch.md") is None
 
 
 def test_последний_ответ_в_хвосте_большого_транскрипта(tmp_path):

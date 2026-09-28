@@ -58,10 +58,12 @@ There are five, and they hold for the whole scenario below, not only for finding
    won't work. The version couldn't be checked (for example, permission to run
    `claude --version` was declined) — write "version not checked" into the survey plainly,
    don't treat it as "below the minimum" and don't keep quiet about it — the scenario continues as usual.
-5. **Only what was found goes into `CLAUDE.md`.** The stack, the commands, the test framework,
-   the conventions and the root folders are taken from the project's files; whatever isn't in
-   the files stays a `<...>` placeholder for the human. A guess about the test command costs
-   more than an empty slot: acceptance is run against it later.
+5. **Only what was found goes into `CLAUDE.md` and `.claude/mast.md`.** The stack, the
+   commands, the test framework, the conventions and the root folders are taken from the
+   project's files; whatever isn't in the files stays a `<...>` placeholder for the human. A
+   guess about the test command costs more than an empty slot: acceptance is run against it
+   later. The `Prod:` line names only the external systems found in the project's files; the
+   human adds the missing ones.
 
 ## Step 1. Survey
 
@@ -107,6 +109,14 @@ Collect and briefly show the human:
   separate from the five above, see step 2).
 - **The model rule** — whether `.claude/rules/dispatch.md` already exists (the seventh artifact,
   also separate, see step 2). No file — the project runs entirely on the stronger model for now.
+- **The MAST settings** — whether `.claude/mast.md` already exists (the eighth artifact, see
+  step 2) and has a `Prod:` line.
+- **External systems** — commands that leave the developer's machine: for a server, a data
+  store, an experiment tracker. Search the project's files — scripts (`*.sh`, `*.ps1`, `*.bat`,
+  `*.py`, `*.ipynb`), `Makefile`, CI configs, `docker-compose*.yml`, `.dvc/config` — for
+  `ssh `, `scp `, `rsync `, `s3://`, `aws s3`, `lakefs://`, `lakectl`, `clearml`,
+  `docker --context`, `DOCKER_CONTEXT=`, `DOCKER_HOST=`, `kubectl`, `dvc remote`. One line per
+  finding: the file, the command, the resource — host, bucket, context. Nothing found — say so.
 - **What else the project has besides the scaffold** — what the method can migrate:
   - `TODO.md` or a homemade roadmap (any file with a task list outside our format) — whether
     there is one, how many items, in what shape.
@@ -194,6 +204,18 @@ template ships with placeholders, and the human fills in the paths and the cost 
 only they know where the project hurts. The file already exists — it counts as in place and
 isn't compared against the template.
 
+**The MAST settings — the eighth artifact, with its own question too.** `.claude/mast.md` holds
+the dispatcher's thresholds and the project's prod commands; it isn't loaded into sessions'
+context, only the plugin's scripts read it. No file yet — offer a copy of `mast.template.md`
+with a `Prod:` line at its end: the patterns from the survey separated by commas, one pattern
+per command found. A pattern is the start of the command as written in the file, up to and
+including the resource name: `ssh gpu01`, `aws s3 cp s3://data-bucket`. The diff is the whole
+text. The survey found no external systems — the file is offered without a `Prod:` line: the
+thresholds in it are needed anyway. The file exists, has no `Prod:` line, and external systems
+were found — a diff adding one line: the file already exists (guardrails 2 and 3). The `Prod:`
+line is already there — the file is in place and isn't compared against the survey. In the
+question, say that the human adds any missed systems themselves.
+
 **Findings that conflict or are due to be carried over** — each gets its own "was → would become"
 diff and its own separate question; the answers to them are independent:
 
@@ -216,7 +238,8 @@ guardrail 1 stops being visible to the lint at step 3.
 If there is one finding but several decisions inside it (three pieces to move out of a long
 `CLAUDE.md`, for example) — then there are several questions too, and the human may accept some
 and reject others. No candidate file for any row of the table, all five artifacts already in
-place and `.claude/rules/context7.md` already there as well — report that the scaffold already
+place, `.claude/rules/context7.md` already there as well, and `.claude/mast.md` exists with no
+`Prod:` line to add — report that the scaffold already
 matches the reference, and stop the scenario without questions.
 
 Nothing is written to any file that already exists without a question about that very file
@@ -238,13 +261,14 @@ a finding) but at the file itself (guardrail 2):
 
 - **the file didn't exist and you create it from scratch** — the five base artifacts,
   `.claude/rules/context7.md` (if it was accepted and no docs server of the project's own was
-  found, or the human agreed anyway), `ROADMAP.md` assembled from `TODO.md` if `ROADMAP.md`
-  didn't exist yet, `docs/roadmap/DONE.md` from `CHANGELOG.md`. You don't check the tree from
+  found, or the human agreed anyway), `.claude/mast.md`, `ROADMAP.md` assembled from `TODO.md`
+  if `ROADMAP.md` didn't exist yet, `docs/roadmap/DONE.md` from `CHANGELOG.md`. You don't check the tree from
   step 1 — there is nothing to overwrite, the rollback for such a file is `rm`. It was dirty —
   create them anyway, but warn the human in one line: these files will land on top of
   uncommitted changes;
 - **the file already existed and you change it in place** — a long `CLAUDE.md`, a rule without
-  `paths:`, appending a line to an existing `.gitignore`, an already existing `ROADMAP.md`,
+  `paths:`, appending a line to an existing `.gitignore` or a `Prod:` line to an existing
+  `.claude/mast.md`, an already existing `ROADMAP.md`,
   deleting a transferred original (`git rm`, and only after its copy has been written).
   Apply only if the tree at step 1 was clean. It was dirty — don't apply this edit at all, tell
   the human to commit first and come back to this step; that doesn't roll back or touch the
