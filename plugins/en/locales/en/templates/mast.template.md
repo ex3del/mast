@@ -38,7 +38,7 @@ command, the rest are looked up among its arguments in any order, so
 `clearml-task --project mnist` also catches `clearml-task --name exp1 --project mnist`.
 
 The hook runs only on commands that start with `ssh`, `scp`, `rsync`, `aws`, `mc`, `rclone`,
-`lakectl`, `clearml*`, `kubectl`, `dvc`, `docker`, `curl`, `wget`, `bash` or `sh`, otherwise it
+`lakectl`, `clearml*`, `kubectl`, `dvc`, `docker`, `curl`, `bash` or `sh`, otherwise it
 would slow down every command. A pattern starting with another word, like
 `python scripts/launch_train.py`, is seen only when the script runs through them —
 `bash deploy.sh` or `bash -c "…"`; on its own such a call isn't denied to the dispatcher.

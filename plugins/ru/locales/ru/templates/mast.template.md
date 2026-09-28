@@ -37,7 +37,7 @@
 `clearml-task --name exp1 --project mnist`.
 
 Хук зовётся только на команды, которые начинаются с `ssh`, `scp`, `rsync`, `aws`, `mc`,
-`rclone`, `lakectl`, `clearml*`, `kubectl`, `dvc`, `docker`, `curl`, `wget`, `bash` или `sh`,
+`rclone`, `lakectl`, `clearml*`, `kubectl`, `dvc`, `docker`, `curl`, `bash` или `sh`,
 иначе он замедлил бы каждую команду. Шаблон с другого слова, как
 `python scripts/launch_train.py`, хук увидит, только если скрипт запущен через них —
 `bash deploy.sh` или `bash -c "…"`; сам по себе такой вызов диспетчеру не запрещён.

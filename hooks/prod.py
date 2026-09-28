@@ -19,7 +19,7 @@ from pathlib import Path
 # Слова фильтра `if` в `hooks.json`: `Bash(<слово> *)`, у `clearml*` — без пробела
 # (сторож в tests/test_hooks_wiring.py)
 FILTER = ("ssh", "scp", "rsync", "aws", "mc", "rclone", "lakectl", "clearml*", "kubectl", "dvc",
-          "docker", "curl", "wget", "bash", "sh")
+          "docker", "curl", "bash", "sh")
 SETTING = re.compile(r"^(?:Прод|Prod)\s*:(.*)$", re.M)
 QUOTE = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"")
 # `&` — фон и оператор вызова PowerShell, но не `2>&1` и `&>`

@@ -125,6 +125,56 @@ def test_powershell_env():
     assert prod.hit('$env:PATH = "C:\\bin"; docker ps', [], Path.cwd()) is None
 
 
+sys.path.insert(0, str(ROOT / "tools"))
+from hook_overhead import fired  # noqa: E402
+
+WORDS = ("git", "ssh", "docker", "clearml*", "bash")
+
+
+@pytest.mark.parametrize("command,expected", [
+    # живой замер 28.09, Claude Code 2.1.283: хук-логгер на `Bash(<слово> *)`
+    ("DOCKER_CONTEXT=x docker ps", {"docker"}),
+    ("DOCKER_CONTEXT=x python3 -c 1", set()),
+    ("clearml-task --version", {"clearml*"}),
+    ("git status && ssh -G h", {"git", "ssh"}),
+    ("timeout 1 ssh -G h", set()),
+    ("echo $(ssh -G h)", {"ssh"}),
+    ("cd /tmp && ssh -G h", {"ssh"}),
+    ("/usr/bin/ssh -G h", set()),
+    ("bash <<'EOF'\necho hi\nEOF", {"bash"}),
+    ("env DOCKER_CONTEXT=x docker ps", set()),
+    ("docker --context x ps", {"docker"}),
+    ("ls", set()),
+    ("export DOCKER_CONTEXT=x && docker ps", {"docker"}),
+    ("(ssh -G h)", {"ssh"}),
+    ("for h in a b; do ssh -G $h; done", set(WORDS)),
+    ("if ssh -G h >/dev/null; then echo y; fi", {"ssh"}),
+    ("while false; do ssh -G h; done", {"ssh"}),
+    ("$SHELL -c 'echo x'", set(WORDS)),
+    ('x=$(ssh -G h) && echo "$x"', set(WORDS)),
+    ("cat > /tmp/a26-x.sh <<'EOF'\nssh -G h\nEOF", set()),
+    ("ls | xargs echo", set()),
+    ("echo hi > /dev/null && ls", set()),
+    ("case x in x) ssh -G h;; esac", set(WORDS)),
+    ("f() { ssh -G h; }; f", set(WORDS)),
+    ('ls && echo "$(date)"', set(WORDS)),
+    ('echo "$(date)"', set()),
+    ('echo "$HOME"', set()),
+    ("echo $HOME", set()),
+    ("ssh -G $HOME", {"ssh"}),
+    ("x=$(date)", set()),
+    ('git log --format="%h"', {"git"}),
+    ("for h in a b; do echo $h; done", set(WORDS)),
+    ("echo `date`", set()),
+    ('echo "`date`"', set()),
+    ('python3 -c "print(1)"', set()),
+    ('grep -n "foo" bar.txt | head -5', set()),
+    ("echo '$(date)'", set()),
+])
+def test_эмуляция_фильтра_по_живому_замеру(command, expected):
+    assert fired(command, WORDS) == expected
+
+
 def watch(tmp_path, command, lang="ru", role=None, tool="Bash", **extra):
     """PreToolUse через `roadmap_watch.py` — так, как его зовёт площадка по фильтру `if`."""
     env = {**os.environ, "CLAUDE_PROJECT_DIR": str(tmp_path), "CLAUDE_PLUGIN_DATA": str(tmp_path / "data")}

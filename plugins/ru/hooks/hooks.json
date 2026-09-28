@@ -284,24 +284,6 @@
               "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
               "ru"
             ],
-            "if": "Bash(wget *)"
-          },
-          {
-            "type": "command",
-            "command": "python3",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
-              "ru"
-            ],
-            "if": "PowerShell(wget *)"
-          },
-          {
-            "type": "command",
-            "command": "python3",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/roadmap_watch.py",
-              "ru"
-            ],
             "if": "Bash(bash *)"
           },
           {
