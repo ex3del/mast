@@ -24,6 +24,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - A message to you stands on its own: it makes sense without knowing the item, with an example, options, and a recommendation; an item number only comes with a note on what the item is.
 - The dispatcher doesn't forward a session's question or finding as is — it rewrites it by that rule.
 - Ask about the current state ("what do you need from me") with `/btw`: the answer comes from the dispatcher's context and stays out of its history.
+- The dispatcher doesn't go to prod: a hook denies the `<project>-dispatch` session commands to a server, a data store or an experiment tracker — `ssh`, `scp`/`rsync` to a host, `aws s3`, `mc`, `rclone`, `lakectl`, `clearml-*`, `kubectl`, `dvc push`/`pull`, `docker --context`/`-H` — and the patterns of the `Prod:` line in `.claude/mast.md`. The dispatcher checks prod state through a subagent — the hook lets its commands through, as it does for item sessions — and the dispatcher's context gets a summary instead of the whole output.
 
 ### Starting an item
 
@@ -48,6 +49,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 - A number from "Done when" that no test can check — time, a share on real data, a live check of the installed build — the reviewer accepts without asking you if the diff holds the measuring script or live test that produced it and the script measures what is claimed. The script measures something else — a refusal; no script — a question to you, as before. The item session skill says to put such a script in the branch outside `docs/roadmap/`: the reviewer doesn't see that folder.
 - Files marked `linguist-generated` in `.gitattributes` (lock files, build output) are not sent to the reviewer: there is nothing to check in them, and they eat a lot of tokens.
 - The reviewer is unsure — the script gives the item `waiting on human: <the reviewer's question>` in a separate commit. You answered "merge" — the dispatcher replaces the slot with `human decided: <answer>`, and `mast merge` merges without a new review while the diff is the same; the question and the answer stay in the closing commit.
+- With a `Prod:` line in `.claude/mast.md`, `mast merge` prints an assignment for the merged item's session: "if the item needs a deploy, deploy it per the project's procedure and send back the check"; the dispatcher forwards it like "rebase".
 
 ### Session check
 
@@ -110,6 +112,7 @@ Asking the session after the hour first writes its whole context to the cache, t
 - The dispatcher role after `/rename` hasn't been tried live (it survives `/clear` and `/compact`); if the hook loses it, use `MAST_ROLE=dispatcher`.
 - `git commit` is refused over a new violation in the working-copy roadmap, even if the roadmap isn't being committed.
 - The guard against `git merge` of an item branch reads the command text: a merge done another way (`git pull`, a script) gets past it.
+- The dispatcher's prod-command hook runs only on commands that start with an external tool (`ssh`, `aws`, `docker`, `curl`, `bash`…): the project's own script that goes to prod by itself (`python scripts/…`, `DOCKER_CONTEXT=… python3 …`) and wrappers such as `timeout ssh`, `env … docker` get past it.
 - Dropping an item is still manual, and the lint complains about the in-between state between the `ROADMAP.md` and `DONE.md` edits.
 - `mast start` compares paths by pattern, not by file: two different masks in the same path segment (`*.py` and `test_*`) don't count as an overlap.
 - The plugin can't be distributed through organization settings on claude.ai: the platform rejects a plugin with a top-level `bin/` directory. Install it from the GitHub marketplace.

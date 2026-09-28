@@ -28,3 +28,17 @@ and including the resource name: the host, the bucket, the context. Or the proje
 script that goes to prod by itself. For example: `ssh train-box`, `aws s3 cp s3://ml-datasets`,
 `DOCKER_CONTEXT=prod-vps`, `python scripts/launch_train.py`. There is no comma inside a
 pattern. No such line — the project has declared no prod.
+
+A hook won't let the dispatcher — the `<project>-dispatch` session — run prod commands; its
+subagents and item sessions may run them, and after a merge `mast merge` assigns the deploy to
+the item session. Without this line, prod means `ssh` and `scp`/`rsync` to a host, `aws s3`,
+`mc`, `rclone`, `lakectl`, `clearml-*`, `kubectl`, `dvc push`/`pull`, `docker --context`/`-H`
+and `DOCKER_CONTEXT=`/`DOCKER_HOST=`. A pattern is matched word by word: the first is the
+command, the rest are looked up among its arguments in any order, so
+`clearml-task --project mnist` also catches `clearml-task --name exp1 --project mnist`.
+
+The hook runs only on commands that start with `ssh`, `scp`, `rsync`, `aws`, `mc`, `rclone`,
+`lakectl`, `clearml*`, `kubectl`, `dvc`, `docker`, `curl`, `wget`, `bash` or `sh`, otherwise it
+would slow down every command. A pattern starting with another word, like
+`python scripts/launch_train.py`, is seen only when the script runs through them —
+`bash deploy.sh` or `bash -c "…"`; on its own such a call isn't denied to the dispatcher.

@@ -27,3 +27,17 @@
 Например: `ssh train-box`, `aws s3 cp s3://ml-datasets`, `DOCKER_CONTEXT=prod-vps`,
 `python scripts/launch_train.py`. Запятой внутри шаблона нет. Строки нет — проект прода не
 объявил.
+
+Прод-команды хук не даёт выполнить диспетчеру — сессии `<проект>-dispatch`; её субагентам и
+сессиям пунктов они открыты, а выкладку после вливания `mast merge` поручает сессии пункта.
+Без этой строки продом считаются `ssh` и `scp`/`rsync` на хост, `aws s3`, `mc`, `rclone`,
+`lakectl`, `clearml-*`, `kubectl`, `dvc push`/`pull`, `docker --context`/`-H` и
+`DOCKER_CONTEXT=`/`DOCKER_HOST=`. Шаблон сверяется по словам: первое — команда, остальные
+ищутся среди её аргументов в любом порядке, поэтому `clearml-task --project mnist` ловит и
+`clearml-task --name exp1 --project mnist`.
+
+Хук зовётся только на команды, которые начинаются с `ssh`, `scp`, `rsync`, `aws`, `mc`,
+`rclone`, `lakectl`, `clearml*`, `kubectl`, `dvc`, `docker`, `curl`, `wget`, `bash` или `sh`,
+иначе он замедлил бы каждую команду. Шаблон с другого слова, как
+`python scripts/launch_train.py`, хук увидит, только если скрипт запущен через них —
+`bash deploy.sh` или `bash -c "…"`; сам по себе такой вызов диспетчеру не запрещён.

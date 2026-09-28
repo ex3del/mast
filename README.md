@@ -210,7 +210,9 @@ dispatcher's thresholds and a `Prod:` line with the commands the project conside
 they go to a server, a data store, an experiment tracker. The command finds such commands in
 scripts, the `Makefile` and CI and proposes the line from what it found; whatever it missed,
 you add yourself. The file isn't loaded into sessions' context; only the plugin's scripts
-read it.
+read it. A hook won't let the dispatcher run the commands of the `Prod:` line and of the base
+list (`ssh`, `aws s3`, `docker --context`…): it checks prod state through a subagent, and the
+item session deploys after the merge.
 
 Guardrails baked into this scenario: a "Done when" criterion is never
 invented — a vague acceptance line is carried over as-is and flagged as
@@ -314,6 +316,7 @@ same without writing anything.
 | [`hooks/mast.py`](hooks/mast.py) | `mast start X-N` — starts an item in one command: refuses an unready item, overlapping paths, `sonnet` on an opus zone, `fable` for `sonnet`; the "in progress" line as a commit, a background session, `claude attach <id>`. `mast merge X-N` — merges an item's branch in one command: the checks, a clean-context review, the thesis in `DONE.md`, the line out of `ROADMAP.md`, the session's brief with the files and the command to ask it, cleanup of closed items after an hour, a "rebase" text for the branches the merge moved. `mast status` — cross-checks sessions, in-progress items and worktrees: abandoned, orphans, strays, quiet sessions, closed items with a live session, `waiting on human`, `inbox/`; changes nothing. The output texts live in [`hooks/mast_texts.py`](hooks/mast_texts.py) |
 | [`bin/mast`](plugins/en/bin/mast) | the wrapper: the platform puts the plugin's `bin/` on the Bash tool's `PATH`, so `mast` is a bare command |
 | [`hooks/restart.py`](hooks/restart.py) | after `mast merge` (via `roadmap_watch.py`) hints a dispatcher whose context exceeds the threshold to restart with `/clear`; the threshold is `Restart threshold` in `.claude/mast.md`, 500k tokens without it |
+| [`hooks/prod.py`](hooks/prod.py) | before an external tool's command (`ssh`, `aws`, `docker`, `curl`, `bash`…; via `roadmap_watch.py`) denies the `<project>-dispatch` main thread a prod command — the base list and the `Prod:` patterns of `.claude/mast.md`; the dispatcher's subagents and item sessions pass |
 | [`hooks/review.py`](hooks/review.py) | the reviewer for `mast merge`: `claude -p` in safe mode with no tools; the input is the diff, the item's line, the "ready" message and the project rules — `CLAUDE.md`, `.claude/rules/` by the diff's paths, the global `CLAUDE.md`; the prompt in [`review.md`](plugins/en/locales/en/review.md), a JSON answer `ok` / `refuse` / `unsure` |
 | [`hooks/roadmap_lint.py`](hooks/roadmap_lint.py) | catches format violations in the roadmap and the archive right after an edit; with `--ready` — the items ready to take |
 | [`hooks/plugin_names.py`](hooks/plugin_names.py) | the plugin's name per language — for the links the hooks print |

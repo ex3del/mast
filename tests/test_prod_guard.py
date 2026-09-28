@@ -110,6 +110,15 @@ def test_шаблоны_из_настроек(tmp_path):
                                        ["clearml-task", "--project", "mnist"]]
 
 
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_шаблон_настроек_прода_не_объявляет(tmp_path, lang):
+    """`/init-project` кладёт шаблон как есть: его проза не должна стать строкой `Прод:`."""
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "mast.md").write_bytes(
+        (ROOT / "plugins" / lang / "locales" / lang / "templates" / "mast.template.md").read_bytes())
+    assert prod.patterns(tmp_path) == []
+
+
 def test_powershell_env():
     assert prod.hit('$env:DOCKER_CONTEXT = "prod-vps"; docker ps', [], Path.cwd())
     assert prod.hit("$env:DOCKER_HOST='ssh://train-box'\ndocker ps", [], Path.cwd())
