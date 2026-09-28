@@ -98,7 +98,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 
 The hooks fire in every project where the plugin is enabled; each one starts `python3`. Medians on the developer's machine:
 
-- an agent's shell command takes 14 ms longer (has the roadmap changed?), a git command 28 ms (plus the pre-commit check); 17 ms on average across all commands;
+- an agent's shell command takes 15 ms longer (has the roadmap changed?); a git command or an external tool's command (`ssh`, `docker`, `curl`, `bash`…) 30 ms (plus the check before it runs: a commit, prod for the dispatcher); a command the platform can't parse (a `for` loop, `case`, `"$(…)"` in a compound command) up to 60 ms, since the platform calls all 15 handlers at once for it; 25 ms on average over 27k commands;
 - a commit from a worktree takes 8 ms more (does it carry roadmap files?);
 - Edit/Write takes 19 ms longer (the dispatcher role hook and the session guards).
 
