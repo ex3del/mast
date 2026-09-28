@@ -75,7 +75,7 @@ and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.m
 ### Project settings
 
 - The plugin's settings for a project live in their own file, `.claude/mast.md`: the silence and restart thresholds, the commands the project considers prod. It isn't loaded into sessions' context; only the plugin's scripts read it. `.claude/rules/dispatch.md` now declares only the `opus` zones: before, a file created for the sake of a threshold silently allowed `sonnet` for items as well.
-- `/mast:init-project` offers `.claude/mast.md` with its own question and a `Prod:` line built from what it found in the project's files: ssh hosts in scripts, `s3://` and `aws s3` in the `Makefile`, `clearml`, `lakectl`, `kubectl`, `docker --context` in CI. Nothing beyond what was found — you add whatever it missed. In a project that already has the scaffold, the command offers only this file.
+- `/mast:init-project` offers `.claude/mast.md` with its own question and a `Prod:` line built from what it found in the project's files: ssh hosts in scripts, `s3://` and `aws s3` in the `Makefile`, `clearml`, `lakectl`, `kubectl`, `docker --context` in CI. Nothing beyond what was found — you add whatever it missed. In a project where the whole scaffold is already in place, the command offers only this file.
 
 ### Session guards
 
