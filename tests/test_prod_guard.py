@@ -128,6 +128,45 @@ def test_powershell_env():
 sys.path.insert(0, str(ROOT / "tools"))
 from hook_overhead import fired  # noqa: E402
 
+FIXTURE = ROOT / "tests" / "fixtures" / "dispatch-83cd81f4.jsonl"
+# Строка `Прод:` reinhold — то, что человек объявил бы по профилю `measure.py`: хост и
+# контекст docker, адреса прода для `curl`/`wget` (туннели на 13000/15678 — тоже прод)
+REINHOLD = ("Прод: ssh reinhold-vps, docker --context reinhold-vps, DOCKER_CONTEXT=reinhold-vps, "
+            "curl api.telegram.org, curl GRAFANA_DOMAIN, curl vps-provider-host, curl 203.0.113.10, "
+            "curl domain.txt, curl localhost:13000, curl localhost:15678\n")
+
+
+def test_фикстура_диспетчера_83cd81f4(tmp_path, monkeypatch, capsys):
+    """Команды `reinhold-dispatch` с меткой `measure.py` (ресёрч 2026-09-25-prod-ops):
+    отказ на каждом прод-вызове, ложных отказов — не больше 1% непрод-вызовов. Скрипты,
+    записанные раньше в сессии, лежат в фикстуре — хук читает их как с диска."""
+    if not FIXTURE.exists():
+        pytest.skip("фикстуры нет: python3 docs/research/2026-09-25-prod-ops/fixture.py")
+    rows = [json.loads(line) for line in FIXTURE.read_text(encoding="utf-8").splitlines()]
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "mast.md").write_text(REINHOLD, encoding="utf-8")
+    pats = prod.patterns(tmp_path)
+    missed, false, through, real = [], [], 0, prod.script
+    for i, row in enumerate(rows):
+        # Файлы, записанные раньше в сессии, — как записанные этой же командой
+        monkeypatch.setattr(prod, "script", lambda args, scripts, cwd, files=row["files"]:
+                            real(args, {**files, **scripts}, cwd))
+        found = prod.hit(row["command"], pats, tmp_path)
+        if row["prod"] and not found:
+            missed.append(i)
+        if not row["prod"] and found:
+            false.append((i, found))
+        # Все обработчики ведут в `roadmap_watch.py`: хук позовёт любое сработавшее слово, и `git` тоже
+        through += bool(row["prod"] and found and fired(row["command"], ("git", *prod.FILTER)))
+    prod_n = sum(r["prod"] for r in rows)
+    with capsys.disabled():
+        print(f"\nфикстура: прод {prod_n}, отказ {prod_n - len(missed)}; непрод {len(rows) - prod_n}, "
+              f"ложных {len(false)}; прод-вызовов, на которые фильтр if позовёт хук, — {through}")
+        for i, found in false:
+            print(f"  ложный {i}: {found[:100]!r}")
+    assert not missed, missed
+    assert len(false) <= 0.01 * (len(rows) - prod_n)
+
 WORDS = ("git", "ssh", "docker", "clearml*", "bash")
 
 
