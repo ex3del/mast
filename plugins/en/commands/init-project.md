@@ -209,7 +209,7 @@ the dispatcher's thresholds and the project's prod commands; it isn't loaded int
 context, only the plugin's scripts read it. No file yet — offer a copy of `mast.template.md`
 with a `Prod:` line at its end: the patterns from the survey separated by commas, one pattern
 per command found. A pattern is the start of the command as written in the file, up to and
-including the resource name: `ssh gpu01`, `aws s3 cp s3://data-bucket`. The diff is the whole
+including the resource name: `ssh train-box`, `aws s3 cp s3://ml-datasets`. The diff is the whole
 text. The survey found no external systems — the file is offered without a `Prod:` line: the
 thresholds in it are needed anyway. The file exists, has no `Prod:` line, and external systems
 were found — a diff adding one line: the file already exists (guardrails 2 and 3). The `Prod:`

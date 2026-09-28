@@ -25,6 +25,6 @@ Shell commands the project considers prod: they go to a server, a data store, an
 tracker. The setting is the key `Prod` and patterns separated by commas; there may be several
 such lines. A pattern is the start of the command as written in the project's files, up to
 and including the resource name: the host, the bucket, the context. Or the project's own
-script that goes to prod by itself. For example: `ssh gpu01`, `aws s3 cp s3://data-bucket`,
+script that goes to prod by itself. For example: `ssh train-box`, `aws s3 cp s3://ml-datasets`,
 `DOCKER_CONTEXT=prod-vps`, `python scripts/launch_train.py`. There is no comma inside a
 pattern. No such line — the project has declared no prod.
