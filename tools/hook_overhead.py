@@ -71,11 +71,13 @@ def commands(path):
             if '"Bash"' not in line:
                 continue
             try:
-                content = json.loads(line).get("message", {}).get("content")
-            except ValueError:
+                message = json.loads(line).get("message")
+            except (ValueError, AttributeError):
                 continue
-            out += [c["input"].get("command", "") for c in content if isinstance(content, list) and isinstance(c, dict)
-                    and c.get("type") == "tool_use" and c.get("name") == "Bash"]
+            content = message.get("content") if isinstance(message, dict) else None
+            if isinstance(content, list):
+                out += [(c.get("input") or {}).get("command", "") for c in content if isinstance(c, dict)
+                        and c.get("type") == "tool_use" and c.get("name") == "Bash"]
     return out
 
 
