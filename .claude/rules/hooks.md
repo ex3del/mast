@@ -3,7 +3,9 @@ paths:
   - "hooks/dispatcher.py"
   - "hooks/roadmap_watch.py"
   - "hooks/restart.py"
+  - "hooks/mast.py"
   - "plugins/*/hooks/hooks.json"
+  - "plugins/*/locales/*/templates/*.template.md"
 ---
 
 # Хуки на Edit/Write и git-команды
@@ -17,3 +19,7 @@ python3 из PATH. Абсолютное время зависит от маши�
 Код, нужный только на медленном пути Bash, — отдельным модулем с ленивым импортом из `roadmap_watch.py`
 (как `hooks/restart.py`), а не в `dispatcher.py`: тот запускается на каждый Edit/Write и компилируется
 целиком, 3,8 КБ лишнего кода в нём стоили Edit/Write +0,3–0,6 мс (A-24).
+
+Настройка проекта для скриптов плагина — строка `Ключ: значение` в `.claude/mast.md` (шаблон
+`mast.template.md`, ключ на обоих языках), не в `.claude/rules/`: файл в `rules/` агент получает
+в контекст, а `dispatch.md` своим наличием разрешает `sonnet` (A-25).
