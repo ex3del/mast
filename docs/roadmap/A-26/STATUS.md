@@ -132,7 +132,9 @@
   Claude Code 2.1.283; `MAST_LIVE=1 python3 -m pytest tests/test_prod_live.py -v -s` — 3 passed:
   `mastcheck-dispatch` `ssh … train-box true` — отказ 1 из 1 (сессия 0ff08d4b); её субагент — выполнена
   1 из 1, `ssh: Could not resolve hostname` (eb62e426); сессия `X-1` в `.claude/worktrees/X-1` —
-  выполнена 1 из 1 (8cb9866a).
+  выполнена 1 из 1 (8cb9866a). Уборка по CLAUDE.md (плюс `superpowers --scope local`, который сессия
+  `X-1` поставила для своего пути); `serve_marketplace.py compare` — отличается только `lastUpdated`
+  автообновления `claude-plugins-official`, не своё.
 
 ## Проблемы
 
