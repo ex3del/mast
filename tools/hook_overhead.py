@@ -100,8 +100,12 @@ def main():
     shares = {}
     if mix:
         cmds = commands(mix)
-        for version, words in (("прежний", ("git",)), ("текущий", ("git", *prod.FILTER))):
-            k = Counter(len(fired(c, words)) for c in cmds)
+        # Прежняя и текущая разводка и два варианта на выбор человеку: фильтр на минимум слов и
+        # один обработчик без `if` — хук на каждую команду
+        for version, words in (("прежний", ("git",)), ("текущий", ("git", *prod.FILTER)),
+                               ("минимум слов", ("git", "ssh", "docker", "aws", "bash", "curl")),
+                               ("без фильтра", None)):
+            k = Counter(len(fired(c, words)) if words else 1 for c in cmds)
             shares[version] = {x: v / len(cmds) for x, v in k.items()}
             print(f"смесь {len(cmds)} команд Bash, {version}: доля команд по числу обработчиков PreToolUse — "
                   + ", ".join(f"{x}: {100 * v:.1f}%" for x, v in sorted(shares[version].items())))
@@ -149,8 +153,9 @@ def main():
         print(f"PreToolUse Bash, {k} обработчиков разом: прежний {med[k, 'прежний']:.2f} мс, "
               f"текущий {med[k, 'текущий']:.2f} мс")
     for version, share in shares.items():
-        avg = med["roadmap_watch.py, Bash", version] + sum(p * med[k, version] for k, p in share.items() if k)
-        print(f"в среднем на вызов Bash, {version} разводка и хуки: {avg:.2f} мс")
+        hooks = "прежний" if version == "прежний" else "текущий"  # варианты — на текущих хуках
+        avg = med["roadmap_watch.py, Bash", hooks] + sum(p * med[k, hooks] for k, p in share.items() if k)
+        print(f"в среднем на вызов Bash, разводка «{version}»: {avg:.2f} мс")
     return 0
 
 
