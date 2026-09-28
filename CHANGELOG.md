@@ -113,6 +113,7 @@ Asking the session after the hour first writes its whole context to the cache, t
 - `git commit` is refused over a new violation in the working-copy roadmap, even if the roadmap isn't being committed.
 - The guard against `git merge` of an item branch reads the command text: a merge done another way (`git pull`, a script) gets past it.
 - The dispatcher's prod-command hook runs only on commands that start with an external tool (`ssh`, `aws`, `docker`, `curl`, `bash`…): the project's own script that goes to prod by itself (`python scripts/…`, `DOCKER_CONTEXT=… python3 …`) and wrappers such as `timeout ssh`, `env … docker` get past it.
+- A command the platform can't parse (a `for` loop, `case`, a function, `"$(…)"` in a compound command — 7.7% of commands) goes to all 15 Bash handlers at once, and identical handlers aren't merged: such a command is delayed by up to 60 ms, and the dispatcher gets 15 identical refusals in a row for such a prod command.
 - Dropping an item is still manual, and the lint complains about the in-between state between the `ROADMAP.md` and `DONE.md` edits.
 - `mast start` compares paths by pattern, not by file: two different masks in the same path segment (`*.py` and `test_*`) don't count as an overlap.
 - The plugin can't be distributed through organization settings on claude.ai: the platform rejects a plugin with a top-level `bin/` directory. Install it from the GitHub marketplace.
