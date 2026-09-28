@@ -2,13 +2,15 @@
 
 *Read this in Russian: [CHANGELOG.ru.md](CHANGELOG.ru.md)*
 
-## 4.0.0 — upcoming
+## 4.0.0 — 2026-09-28
 
-Everything below ships as 4.0.0. Build 3.3.2 already reached you as a marketplace auto-update,
-without a changelog: it brought the "waiting on human" slot, a task instead of a plan, and the
-rule on self-contained messages. Builds 3.3.3–3.3.7 were never published. The reasoning is in
-two research notes (in Russian): [dispatcher load](docs/research/2026-09-23-dispatcher-load.md)
-and [deterministic contracts](docs/research/2026-09-23-deterministic-contracts.md).
+Build 3.3.2 already reached you as a marketplace auto-update, without a changelog: it brought the
+"waiting on human" slot, a task instead of a plan, and the rule on self-contained messages.
+Builds 3.3.3–3.3.31 were never published — everything from them is in 4.0.0 and described below.
+The reasoning is in three research notes (in Russian):
+[dispatcher load](docs/research/2026-09-23-dispatcher-load.md),
+[deterministic contracts](docs/research/2026-09-23-deterministic-contracts.md) and
+[production operations](docs/research/2026-09-25-prod-ops.md).
 
 ### Dispatcher
 
